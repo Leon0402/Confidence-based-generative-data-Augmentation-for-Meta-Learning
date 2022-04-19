@@ -1,1 +1,2 @@
+/starting_kit/train_settings.png filter=lfs diff=lfs merge=lfs -text
 * !text !filter !merge !diff
