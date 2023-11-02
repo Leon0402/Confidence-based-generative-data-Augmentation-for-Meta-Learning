@@ -9,7 +9,7 @@ Usage:
     
 AS A PARTICIPANT, DO NOT MODIFY THIS CODE. 
 """
-
+import sys
 from shlex import split
 from subprocess import call
 
@@ -67,8 +67,8 @@ def main(argv) -> None:
     output_dir_ingestion = FLAGS.output_dir_ingestion
     submission_dir = FLAGS.submission_dir
     output_dir_scoring = FLAGS.output_dir_scoring
-    
-    command_ingestion = "python -m cdmetadl.ingestion.ingestion " \
+
+    command_ingestion = f"-m cdmetadl.ingestion.ingestion " \
         + f"--seed={seed} " \
         + f"--verbose={verbose} " \
         + f"--debug_mode={debug_mode} " \
@@ -80,7 +80,7 @@ def main(argv) -> None:
         + f"--output_dir_ingestion={output_dir_ingestion} " \
         + f"--submission_dir={submission_dir}"
 
-    command_scoring = "python -m cdmetadl.scoring.scoring " \
+    command_scoring = f"-m cdmetadl.scoring.scoring " \
         + f"--seed={seed} " \
         + f"--verbose={verbose} " \
         + f"--debug_mode={debug_mode} " \
@@ -91,10 +91,10 @@ def main(argv) -> None:
         + f"--results_dir={output_dir_ingestion} " \
         + f"--output_dir_scoring={output_dir_scoring}"
         
-    cmd_ing = split(command_ingestion)
-    cmd_sco = split(command_scoring)
+    cmd_ing = [sys.executable] + split(command_ingestion)
+    cmd_sco = [sys.executable] + split(command_scoring)
     
-    call(cmd_ing)
+    call(cmd_ing, shell=True)
     call(cmd_sco)
 
 

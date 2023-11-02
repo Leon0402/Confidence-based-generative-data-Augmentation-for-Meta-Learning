@@ -19,3 +19,5 @@ scoring_output*
 
 # Notebook cache
 *.ipynb_checkpoints*
+
+.venv
