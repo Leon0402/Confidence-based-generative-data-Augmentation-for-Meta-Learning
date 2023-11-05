@@ -94,9 +94,10 @@ def main(argv) -> None:
     cmd_ing = [sys.executable] + split(command_ingestion)
     cmd_sco = [sys.executable] + split(command_scoring)
     
-    call(cmd_ing, shell=True)
+    call(cmd_ing)
     call(cmd_sco)
 
 
 if __name__ == "__main__":
     app.run(main)
+Rukang Xu
