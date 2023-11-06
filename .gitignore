@@ -21,3 +21,4 @@ scoring_output*
 *.ipynb_checkpoints*
 
 .venv
+.keys
