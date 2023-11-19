@@ -27,81 +27,32 @@ AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 import os
 import datetime
 import jinja2
+import argparse
 from sys import exit, version
-from absl import app, flags
 
 from cdmetadl.helpers.scoring_helpers import *
 from cdmetadl.helpers.general_helpers import *
 from cdmetadl.ingestion.image_dataset import create_datasets
 from cdmetadl.ingestion.data_generator import CompetitionDataLoader
 
-# =============================== BEGIN OPTIONS ===============================
-FLAGS = flags.FLAGS
-
-# Random seed
-# Any int to be used as random seed for reproducibility
-flags.DEFINE_integer("seed", 93, "Random seed.")
-
-# Verbose mode 
-# True: show various progression messages (recommended value)
-# False: no progression messages are shown
-flags.DEFINE_boolean("verbose", True, "Verbose mode.")
-
-# Debug mode
-# 0: no debug 
-# 1: compute additional scores (recommended value)
-# 2: same as 1 + show the Python version and list the directories 
-flags.DEFINE_integer("debug_mode", 1, "Debug mode.")
-
-# Private information
-# True: the name of the datasets is kept private
-# False: all the information is shown (recommended value)
-flags.DEFINE_boolean("private_information", False, "Private information flag.")
-
-# Overwrite results flag
-# True: the previous output directory is overwritten
-# False: the previous output directory is renamed (recommended value)
-flags.DEFINE_boolean("overwrite_previous_results", False, 
-    "Overwrite results flag.")
-
-# Tesk tasks per dataset
-# The total number of test tasks will be num_datasets x test_tasks_per_dataset
-flags.DEFINE_integer("test_tasks_per_dataset", 100, 
-    "Number of test tasks per dataset.")
-
-# Default location of directories
-# If no arguments to scoring.py are provided, these are the directories used. 
-flags.DEFINE_string("input_data_dir", "../../public_data", "Path to the " 
-    + "directory containing the meta_train and meta_test data.")
-flags.DEFINE_string("results_dir","../../ingestion_output", 
-    "Path to the output directory for the ingestion program.")
-flags.DEFINE_string("output_dir_scoring", "../../scoring_output", 
-    "Path to the ourput directory for the scoring program.")
-
-# =============================================================================
-# =========================== END USER OPTIONS ================================
-# =============================================================================
-
 # Program version
 VERSION = 1.1
 
-def scoring(argv) -> None:
-    del argv
-    
-    SEED = FLAGS.seed
-    VERBOSE = FLAGS.verbose
-    DEBUG_MODE = FLAGS.debug_mode
-    PRIVATE_INFORMATION = FLAGS.private_information
-    OVERWRITE_PREVIOUS_RESULTS = FLAGS.overwrite_previous_results
-    TEST_TASKS_PER_DATASET = FLAGS.test_tasks_per_dataset
+def scoring(args) -> None:
+    SEED = args.seed
+    VERBOSE = args.verbose
+    DEBUG_MODE = args.debug_mode
+    PRIVATE_INFORMATION = args.private_information
+    OVERWRITE_PREVIOUS_RESULTS = args.overwrite_previous_results
+    TEST_TASKS_PER_DATASET = args.test_tasks_per_dataset
     
     vprint(f"Scoring program version: {VERSION}", VERBOSE)
     vprint(f"Using random seed: {SEED}", VERBOSE)
     
     # Define the path to the directory
-    results_dir = os.path.abspath(FLAGS.results_dir)
-    ref_dir = os.path.abspath(FLAGS.input_data_dir) 
-    output_dir = os.path.abspath(FLAGS.output_dir_scoring)
+    results_dir = os.path.abspath(args.results_dir)
+    ref_dir = os.path.abspath(args.input_data_dir) 
+    output_dir = os.path.abspath(args.output_dir_scoring)
     
     # Show python version and directory structure
     if DEBUG_MODE > 1: 
@@ -398,9 +349,24 @@ def scoring(argv) -> None:
         + f"{'#'*11}\n{'#'*60}\n", VERBOSE)
     
     print("Your detailed results are available in this file: "
-          + f"{FLAGS.output_dir_scoring}/detailed_results.html")
+          + f"{args.output_dir_scoring}/detailed_results.html")
+
+def main(): 
+    parser = argparse.ArgumentParser(description='Scoring')
+    parser.add_argument('--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.')
+    parser.add_argument('--verbose', type=lambda x: (str(x).lower() == 'true'), default=True,  help='True: show various progression messages (recommended); False: no progression messages are shown. Default: True.')
+    parser.add_argument('--debug_mode', type=int, default=1, choices=[0, 1, 2], help='0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.')
+    parser.add_argument('--private_information', type=lambda x: (str(x).lower() == 'true'), default=False, help='True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.')
+    parser.add_argument('--overwrite_previous_results', type=lambda x: (str(x).lower() == 'true'), default=False, help='True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.')
+    parser.add_argument('--test_tasks_per_dataset', type=int, default=100, help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
+    parser.add_argument('--input_data_dir', type=str, default='../../public_data', help='Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
+    parser.add_argument('--results_dir', type=str, default='../../ingestion_output', help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".')
+    parser.add_argument('--output_dir_scoring', type=str, default='../../scoring_output', help='Default location of the output directory for the scoring program. Default: "../../scoring_output".')
+
+    args = parser.parse_args()
+    scoring(args)
 
 
 if __name__ == "__main__":
-    app.run(scoring)
+    main()
     

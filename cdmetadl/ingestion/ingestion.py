@@ -29,9 +29,10 @@ AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 import os
 import time 
 import datetime
-import numpy as np
+import argparse
 from sys import path, exit, version
-from absl import app, flags
+
+import numpy as np
 from torch.utils.data import DataLoader
 
 from cdmetadl.helpers.ingestion_helpers import *
@@ -40,81 +41,27 @@ from cdmetadl.ingestion.image_dataset import ImageDataset, create_datasets
 from cdmetadl.ingestion.data_generator import CompetitionDataLoader
 from cdmetadl.ingestion.competition_logger import Logger
 
-
-# =============================== BEGIN OPTIONS =============================== 
-FLAGS = flags.FLAGS
-
-# Random seed
-# Any int to be used as random seed for reproducibility
-flags.DEFINE_integer("seed", 93, "Random seed.")
-
-# Verbose mode 
-# True: show various progression messages (recommended value)
-# False: no progression messages are shown
-flags.DEFINE_boolean("verbose", True, "Verbose mode.")
-
-# Debug mode
-# 0: no debug
-# 1: run the code normally, but limits the time to MAX_TIME (recommended value)
-# 2: same as 1 + list the directories 
-# 3: same as 2, but it checks if PyTorch recognizes the GPU (Only for debug)
-flags.DEFINE_integer("debug_mode", 0, "Debug mode.")
-
-# Image size
-# Int specifying the image size for all generators (recommended value 128)
-flags.DEFINE_integer("image_size", 128, "Image size.")
-
-# Overwrite results flag
-# True: the previous output directory is overwritten
-# False: the previous output directory is renamed (recommended value)
-flags.DEFINE_boolean("overwrite_previous_results", False, 
-    "Overwrite results flag.")
-
-# Time budget
-# Maximum time in seconds PER TESTING TASK
-flags.DEFINE_integer("max_time", 1000, "Max time in seconds per test task.") 
-
-# Tesk tasks per dataset
-# The total number of test tasks will be num_datasets x test_tasks_per_dataset
-flags.DEFINE_integer("test_tasks_per_dataset", 100,
-    "Number of test tasks per dataset.")
-
-# Default location of directories
-# If no arguments to ingestion.py are provided, these are the directories used. 
-flags.DEFINE_string("input_data_dir", "../../public_data", "Path to the " 
-    + "directory containing the meta_train and meta_test data.")
-flags.DEFINE_string("output_dir_ingestion","../../ingestion_output", 
-    "Path to the output directory for the ingestion program.")
-flags.DEFINE_string("submission_dir", "../../baselines/random",
-    "Path to the directory containing the solution to use.")
-
-# =============================================================================
-# =========================== END USER OPTIONS ================================
-# =============================================================================
-
 # Program version
 VERSION = 1.1
 
-def ingestion(argv) -> None:
+def ingestion(args) -> None:
     total_time_start = time.time() 
     
-    del argv
-    
-    SEED = FLAGS.seed
-    VERBOSE = FLAGS.verbose
-    DEBUG_MODE = FLAGS.debug_mode
-    IMG_SIZE = FLAGS.image_size
-    OVERWRITE_PREVIOUS_RESULTS = FLAGS.overwrite_previous_results
-    MAX_TIME = FLAGS.max_time
-    TEST_TASKS_PER_DATASET = FLAGS.test_tasks_per_dataset
+    SEED = args.seed
+    VERBOSE = args.verbose
+    DEBUG_MODE = args.debug_mode
+    IMG_SIZE = args.image_size
+    OVERWRITE_PREVIOUS_RESULTS = args.overwrite_previous_results
+    MAX_TIME = args.max_time
+    TEST_TASKS_PER_DATASET = args.test_tasks_per_dataset
 
     vprint(f"Ingestion program version: {VERSION}", VERBOSE)
     vprint(f"Using random seed: {SEED}", VERBOSE)
     
     # Define the path to the directories
-    input_dir = os.path.abspath(FLAGS.input_data_dir)
-    output_dir = os.path.abspath(FLAGS.output_dir_ingestion)
-    submission_dir = os.path.abspath(FLAGS.submission_dir)
+    input_dir = os.path.abspath(args.input_data_dir)
+    output_dir = os.path.abspath(args.output_dir_ingestion)
+    submission_dir = os.path.abspath(args.submission_dir)
         
     # Show python version and directory structure
     print(f"\nPython version: {version}")
@@ -424,6 +371,23 @@ def ingestion(argv) -> None:
     vprint(f"\n{'#'*60}\n{'#'*9} Ingestion program finished successfully "
         + f"{'#'*10}\n{'#'*60}", VERBOSE)
 
+def main(): 
+    parser = argparse.ArgumentParser(description='Ingestion')
+    parser.add_argument('--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.')
+    parser.add_argument('--verbose', type=lambda x: (str(x).lower() == 'true'), default=True,  help='True: show various progression messages (recommended); False: no progression messages are shown. Default: True.')
+    parser.add_argument('--debug_mode', type=int, default=1, choices=[0, 1, 2], help='0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.')
+    parser.add_argument('--image_size', type=int, default=128, help='Int specifying the image size for all generators (recommended value 128). Default: 128.')
+    parser.add_argument('--private_information', type=lambda x: (str(x).lower() == 'true'), default=False, help='True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.')
+    parser.add_argument('--overwrite_previous_results', type=lambda x: (str(x).lower() == 'true'), default=False, help='True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.')
+    parser.add_argument('--max_time', type=int, default=1000, help='Maximum time in seconds PER TESTING TASK. Default: 1000.')
+    parser.add_argument('--test_tasks_per_dataset', type=int, default=100, help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
+    parser.add_argument('--input_data_dir', type=str, default='../../public_data', help='Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
+    parser.add_argument('--output_dir_ingestion', type=str, default='../../ingestion_output', help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".')
+    parser.add_argument('--submission_dir', type=str, default='../../baselines/random', help='Path to the directory containing the solution to use. Default: "../../baselines/random".')
 
-if __name__ == "__main__":	
-    app.run(ingestion)
+    args = parser.parse_args()
+    ingestion(args)
+
+if __name__ == "__main__":
+    main()
+    
