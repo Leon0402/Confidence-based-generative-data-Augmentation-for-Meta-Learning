@@ -19,3 +19,7 @@ scoring_output*
 
 # Notebook cache
 *.ipynb_checkpoints*
+
+.venv
+.keys
+tutorial.ipynb

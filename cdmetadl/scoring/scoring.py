@@ -145,7 +145,7 @@ def scoring(argv) -> None:
     result_files = os.listdir(results_dir)
     number_of_tasks = sum(".predict" in file for file in result_files)
     if number_of_tasks != len(test_datasets) * TEST_TASKS_PER_DATASET: 
-        print(f"[-] There are no enough results in {results_dir}")
+        print(f"[-] There are not enough results in {results_dir}")
         exit(1)
     vprint("\n[+] Ingestion output", VERBOSE)
     
