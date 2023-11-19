@@ -225,7 +225,7 @@ def ingestion(argv) -> None:
         validation_datasets, SEED, VERBOSE)
     vprint("[+] Datasets info", VERBOSE)
     
-    # Initialize genetators
+    # Initialize generators
     vprint("\nInitializing data generators...", VERBOSE)
     # Train generator
     if train_data_format == "task":
