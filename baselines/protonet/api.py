@@ -10,7 +10,7 @@ class Predictor():
     """ This class represents the predictor returned at the end of the 
     Learner's fit method. 
     """
-    
+
     def __init__(self) -> None:
         """ Defines the Predictor initialization.
         """
@@ -34,15 +34,14 @@ class Predictor():
                 - Predicted labels. The array must be of shape 
                     [n_ways*query_size].
         """
-        raise NotImplementedError(("You should implement the predict method "
-            + "for the Predictor class."))
- 
+        raise NotImplementedError(("You should implement the predict method " + "for the Predictor class."))
+
 
 class Learner():
     """ This class represents the learner returned at the end of the 
     meta-learning procedure.
     """
-    
+
     def __init__(self) -> None:
         """ Defines the learner initialization.
         """
@@ -67,9 +66,8 @@ class Learner():
             Predictor: The resulting predictor ready to predict unlabelled 
                 query image examples from new unseen tasks.
         """
-        raise NotImplementedError(("You should implement the fit method for "
-            + "the Learner class."))
-    
+        raise NotImplementedError(("You should implement the fit method for " + "the Learner class."))
+
     def save(self, path_to_save) -> None:
         """ Saves the learning object associated to the Learner. 
         
@@ -79,8 +77,7 @@ class Learner():
         Note: It is mandatory to allow saving the Learner as a file(s) in 
         path_to_save. Otherwise, it won't be a valid submission.
         """
-        raise NotImplementedError(("You should implement the save method for "
-            + "the Learner class."))
+        raise NotImplementedError(("You should implement the save method for " + "the Learner class."))
 
     def load(self, path_to_load) -> None:
         """ Loads the learning object associated to the Learner. It should 
@@ -89,20 +86,16 @@ class Learner():
         Args:
             path_to_load (str): Path where the Learner is saved.
         """
-        raise NotImplementedError(("You should implement the load method for "
-            + "the Learner class."))
+        raise NotImplementedError(("You should implement the load method for " + "the Learner class."))
 
-       
+
 class MetaLearner():
     """ Define the meta-learning algorithm we want to use, through its methods.
     It is an abstract class so one has to overide the core methods depending 
     on the algorithm.
     """
-    
-    def __init__(self, 
-                 train_classes, 
-                 total_classes, 
-                 logger) -> None:
+
+    def __init__(self, train_classes, total_classes, logger) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -135,9 +128,7 @@ class MetaLearner():
         self.total_classes = total_classes
         self.log = logger.log
 
-    def meta_fit(self, 
-                 meta_train_generator, 
-                 meta_valid_generator) -> Learner:
+    def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -184,5 +175,4 @@ class MetaLearner():
         while the second array corresponds to the labels with a shape of 
         [batch_size].
         """
-        raise NotImplementedError(("You should implement the meta_fit method "
-            + f"for the MetaLearner class."))
+        raise NotImplementedError(("You should implement the meta_fit method " + f"for the MetaLearner class."))

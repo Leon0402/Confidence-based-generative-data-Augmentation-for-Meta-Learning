@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 from typing import List
-    
-    
-def update_weights(weights: List[torch.Tensor], 
-                   grads: List[torch.Tensor], 
-                   grad_clip: int, 
+
+
+def update_weights(weights: List[torch.Tensor], grads: List[torch.Tensor], grad_clip: int,
                    lr: float) -> List[torch.Tensor]:
     """ Update the weights based on the gradients and learning rate.
 
@@ -19,19 +17,18 @@ def update_weights(weights: List[torch.Tensor],
         List[torch.Tensor]: Updated weights
     """
     if grad_clip is not None:
-        grads = [torch.clamp(p, -grad_clip, +grad_clip) if p is not None else 0 
-            for p in grads]
-    
+        grads = [torch.clamp(p, -grad_clip, +grad_clip) if p is not None else 0 for p in grads]
+
     new_weights = [weights[i] - lr * grads[i] for i in range(len(grads))]
-    
+
     return new_weights
 
 
-def get_grads(model: nn.Module, 
-              X_train: torch.Tensor, 
-              y_train: torch.Tensor, 
-              weights: List[torch.Tensor] = None, 
-              second_order: bool = False, 
+def get_grads(model: nn.Module,
+              X_train: torch.Tensor,
+              y_train: torch.Tensor,
+              weights: List[torch.Tensor] = None,
+              second_order: bool = False,
               retain_graph: bool = False) -> List[torch.Tensor]:
     """ Compute the gradients of processing the specified input.
 
@@ -55,18 +52,14 @@ def get_grads(model: nn.Module,
         out = model(X_train)
     else:
         out = model.forward_weights(X_train, weights)
-    
+
     loss = model.criterion(out, y_train)
-    grads = torch.autograd.grad(loss, weights, create_graph=second_order, 
-        retain_graph=retain_graph)
-    
+    grads = torch.autograd.grad(loss, weights, create_graph=second_order, retain_graph=retain_graph)
+
     return list(grads)
 
 
-def process_support_set(model: nn.Module, 
-                        weights: List[torch.Tensor], 
-                        X_train: torch.Tensor, 
-                        y_train: torch.Tensor, 
+def process_support_set(model: nn.Module, weights: List[torch.Tensor], X_train: torch.Tensor, y_train: torch.Tensor,
                         num_classes: int) -> torch.Tensor:
     """ Process the support set following the Prototypical Networks strategy.
 
@@ -81,23 +74,18 @@ def process_support_set(model: nn.Module,
         torch.Tensor: Support prototypes.
     """
     # Compute input embeddings
-    support_embeddings = model.forward_weights(X_train, weights, 
-        embedding=True)
-    
+    support_embeddings = model.forward_weights(X_train, weights, embedding=True)
+
     # Compute prototypes
-    prototypes = torch.zeros((num_classes, support_embeddings.size(1)), 
-        device=weights[0].device)
+    prototypes = torch.zeros((num_classes, support_embeddings.size(1)), device=weights[0].device)
     for i in range(num_classes):
         mask = y_train == i
-        prototypes[i] = (support_embeddings[mask].sum(dim=0) / 
-            torch.sum(mask).item())
-        
+        prototypes[i] = (support_embeddings[mask].sum(dim=0) / torch.sum(mask).item())
+
     return prototypes
 
 
-def process_query_set(model: nn.Module, 
-                      weights: List[torch.Tensor], 
-                      X_test: torch.Tensor, 
+def process_query_set(model: nn.Module, weights: List[torch.Tensor], X_test: torch.Tensor,
                       prototypes: torch.Tensor) -> torch.Tensor:
     """ Process the query set following the Matching Networks strategy.
 
@@ -114,8 +102,7 @@ def process_query_set(model: nn.Module,
     query_embeddings = model.forward_weights(X_test, weights, embedding=True)
 
     # Create distance matrix (negative predictions)
-    distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0), 
-        prototypes.unsqueeze(0))**2).squeeze(0) 
+    distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0), prototypes.unsqueeze(0))**2).squeeze(0)
     out = -1 * distance_matrix
-    
+
     return out

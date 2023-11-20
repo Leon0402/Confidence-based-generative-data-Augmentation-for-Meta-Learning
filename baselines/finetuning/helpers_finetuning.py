@@ -4,9 +4,7 @@ import torch.nn as nn
 from typing import Tuple
 
 
-def optimize_linear(model: nn.Module, 
-                    optimizer: torch.optim, 
-                    X: torch.Tensor, 
+def optimize_linear(model: nn.Module, optimizer: torch.optim, X: torch.Tensor,
                     y: torch.Tensor) -> Tuple[torch.Tensor, float]:
     """ Apply an optimization step using the specified model, optimizer and 
     data.
@@ -28,9 +26,7 @@ def optimize_linear(model: nn.Module,
     return out, loss
 
 
-def get_batch(X: torch.Tensor, 
-              y: torch.Tensor, 
-              batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_batch(X: torch.Tensor, y: torch.Tensor, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Get a batch of the specified size from the specified data.
 
     Args:
@@ -46,9 +42,7 @@ def get_batch(X: torch.Tensor,
     return X_batch, y_batch
 
 
-def process_support_set(model: nn.Module, 
-                        X_train: torch.Tensor, 
-                        y_train: torch.Tensor, 
+def process_support_set(model: nn.Module, X_train: torch.Tensor, y_train: torch.Tensor,
                         num_classes: int) -> torch.Tensor:
     """ Process the support set following the NCC strategy.
 
@@ -63,21 +57,17 @@ def process_support_set(model: nn.Module,
     """
     # Compute input embeddings
     support_embeddings = model(X_train, embedding=True)
-    
+
     # Compute prototypes
-    prototypes = torch.zeros((num_classes, support_embeddings.size(1)), 
-        device=X_train.device)
+    prototypes = torch.zeros((num_classes, support_embeddings.size(1)), device=X_train.device)
     for i in range(num_classes):
         mask = y_train == i
-        prototypes[i] = (support_embeddings[mask].sum(dim=0) / 
-            torch.sum(mask).item())
-        
+        prototypes[i] = (support_embeddings[mask].sum(dim=0) / torch.sum(mask).item())
+
     return prototypes
 
 
-def process_query_set(model: nn.Module, 
-                      X_test: torch.Tensor, 
-                      prototypes: torch.Tensor) -> torch.Tensor:
+def process_query_set(model: nn.Module, X_test: torch.Tensor, prototypes: torch.Tensor) -> torch.Tensor:
     """ Process the query set following the Matching Networks strategy.
 
     Args:
@@ -92,8 +82,7 @@ def process_query_set(model: nn.Module,
     query_embeddings = model(X_test, embedding=True)
 
     # Create distance matrix (negative predictions)
-    distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0), 
-        prototypes.unsqueeze(0))**2).squeeze(0) 
+    distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0), prototypes.unsqueeze(0))**2).squeeze(0)
     out = -1 * distance_matrix
-    
+
     return out
