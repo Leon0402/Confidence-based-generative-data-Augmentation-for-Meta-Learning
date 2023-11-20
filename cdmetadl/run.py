@@ -10,28 +10,87 @@ Usage:
 AS A PARTICIPANT, DO NOT MODIFY THIS CODE. 
 """
 import argparse
+from pathlib import Path
 
 from cdmetadl.ingestion import ingestion as cdmetadl_ingestion
 from cdmetadl.scoring import scoring as cdmetadl_scoring
 
 
-def main(): 
+def main():
     """Runs the ingestion and scoring programs sequentially"""
 
     parser = argparse.ArgumentParser(description='Scoring')
-    parser.add_argument('--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.')
-    parser.add_argument('--verbose', type=lambda x: (str(x).lower() == 'true'), default=True, help='True: show various progression messages (recommended); False: no progression messages are shown. Default: True.')
-    parser.add_argument('--debug_mode', type=int, default=1, choices=[0, 1, 2], help='0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.')
-    parser.add_argument('--image_size', type=int, default=128, help='Int specifying the image size for all generators (recommended value 128). Default: 128.')
-    parser.add_argument('--private_information', type=lambda x: (str(x).lower() == 'true'), default=False, help='True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.')
-    parser.add_argument('--overwrite_previous_results',type=lambda x: (str(x).lower() == 'true'), default=False, help='True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.')
-    parser.add_argument('--max_time', type=int, default=1000, help='Maximum time in seconds PER TESTING TASK. Default: 1000.')
-    parser.add_argument('--test_tasks_per_dataset', type=int, default=100, help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
-    parser.add_argument('--input_data_dir', type=str, default='../../public_data', help='Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
-    parser.add_argument('--results_dir', type=str, default='../../ingestion_output', help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".')
-    parser.add_argument('--output_dir_scoring', type=str, default='../../scoring_output', help='Default location of the output directory for the scoring program. Default: "../../scoring_output".')
-    parser.add_argument('--output_dir_ingestion', type=str, default='../../ingestion_output', help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".')
-    parser.add_argument('--submission_dir', type=str, default='../../baselines/random', help='Path to the directory containing the solution to use. Default: "../../baselines/random".')
+    parser.add_argument('--seed',
+                        type=int,
+                        default=93,
+                        help='Any int to be used as random seed for reproducibility. Default: 93.')
+    parser.add_argument(
+        '--verbose',
+        type=lambda x: (str(x).lower() == 'true'),
+        default=True,
+        help=
+        'True: show various progression messages (recommended); False: no progression messages are shown. Default: True.'
+    )
+    parser.add_argument(
+        '--debug_mode',
+        type=int,
+        default=1,
+        choices=[0, 1, 2],
+        help=
+        '0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.'
+    )
+    parser.add_argument('--image_size',
+                        type=int,
+                        default=128,
+                        help='Int specifying the image size for all generators (recommended value 128). Default: 128.')
+    parser.add_argument(
+        '--private_information',
+        type=lambda x: (str(x).lower() == 'true'),
+        default=False,
+        help=
+        'True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.'
+    )
+    parser.add_argument(
+        '--overwrite_previous_results',
+        type=lambda x: (str(x).lower() == 'true'),
+        default=False,
+        help=
+        'True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.'
+    )
+    parser.add_argument('--max_time',
+                        type=int,
+                        default=1000,
+                        help='Maximum time in seconds PER TESTING TASK. Default: 1000.')
+    parser.add_argument(
+        '--test_tasks_per_dataset',
+        type=int,
+        default=100,
+        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
+    parser.add_argument(
+        '--input_data_dir',
+        type=Path,
+        default='../../public_data',
+        help=
+        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
+    parser.add_argument(
+        '--results_dir',
+        type=Path,
+        default='../../ingestion_output',
+        help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".')
+    parser.add_argument(
+        '--output_dir_scoring',
+        type=Path,
+        default='../../scoring_output',
+        help='Default location of the output directory for the scoring program. Default: "../../scoring_output".')
+    parser.add_argument(
+        '--output_dir_ingestion',
+        type=Path,
+        default='../../ingestion_output',
+        help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".')
+    parser.add_argument('--submission_dir',
+                        type=Path,
+                        default='../../baselines/random',
+                        help='Path to the directory containing the solution to use. Default: "../../baselines/random".')
 
     args = parser.parse_args()
     cdmetadl_ingestion.ingestion(args)
