@@ -23,7 +23,7 @@ from api import MetaLearner, Learner, Predictor
 SEED = 98
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-random.seed(SEED)    
+random.seed(SEED)
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 if torch.cuda.is_available():
@@ -33,10 +33,7 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, 
-                 train_classes: int, 
-                 total_classes: int,
-                 logger: Any) -> None:
+    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -70,7 +67,7 @@ class MyMetaLearner(MetaLearner):
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
         super().__init__(train_classes, total_classes, logger)
-        
+
         # General data parameters
         self.should_train = True
         self.ncc = False
@@ -78,29 +75,23 @@ class MyMetaLearner(MetaLearner):
         self.train_batches = 20
         self.val_tasks = 10
         self.val_after = 5
-        
+
         # General model parameters
         self.dev = self.get_device()
         self.opt_fn = torch.optim.Adam
-        self.model_args = {
-            "num_classes": self.train_classes, 
-            "dev": self.dev, 
-            "num_blocks": 18, 
-            "pretrained": False 
-        }
-        
+        self.model_args = {"num_classes": self.train_classes, "dev": self.dev, "num_blocks": 18, "pretrained": False}
+
         # Meta-learner
         self.lr = 0.001
         self.beta1 = 0.9
         self.beta2 = 0.999
         self.meta_learner = ResNet(**self.model_args).to(self.dev)
         self.meta_learner.train()
-        self.optimizer = self.opt_fn(self.meta_learner.parameters(), 
-            lr=self.lr, betas=(self.beta1, self.beta2))
-        
+        self.optimizer = self.opt_fn(self.meta_learner.parameters(), lr=self.lr, betas=(self.beta1, self.beta2))
+
         # Initialize running prototypes
         if self.ncc: self.init_prototypes()
-        
+
         # Validation-learner
         self.best_score = -float("inf")
         self.best_state = None
@@ -111,9 +102,7 @@ class MyMetaLearner(MetaLearner):
         self.val_learner.load_state_dict(self.meta_learner.state_dict())
         self.val_learner.eval()
 
-    def meta_fit(self, 
-                 meta_train_generator: Iterable[Any], 
-                 meta_valid_generator: Iterable[Any]) -> Learner:
+    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -137,43 +126,37 @@ class MyMetaLearner(MetaLearner):
                 X_train, y_train = batch
                 X_train = X_train.to(self.dev)
                 y_train = y_train.view(-1).to(self.dev)
-                
+
                 if self.ncc:
                     # Create prototypes for each class
                     if 0 in self.running_lenght:
                         self.update_prototypes(X_train, y_train)
 
                     # Optimize metalearner
-                    else:                        
+                    else:
                         # Prepare data as a task
-                        (X_train, y_train, 
-                        X_test, y_test) = self.batch_to_task(X_train, y_train, 
-                            self.support_size)
+                        (X_train, y_train, X_test, y_test) = self.batch_to_task(X_train, y_train, self.support_size)
 
                         self.optimizer.zero_grad()
-                        out, loss = self.optimize_ncc(X_train, y_train, X_test, 
-                            y_test, True, None)
+                        out, loss = self.optimize_ncc(X_train, y_train, X_test, y_test, True, None)
                         loss.backward()
-                        self.optimizer.step()  
-                        
+                        self.optimizer.step()
+
                         # Log iteration
-                        self.log((X_test, y_test), out.detach().cpu().numpy(), 
-                            loss.item())
+                        self.log((X_test, y_test), out.detach().cpu().numpy(), loss.item())
                 else:
                     # Optimize metalearner
-                    out, loss = optimize_linear(self.meta_learner, 
-                        self.optimizer, X_train, y_train)
-                
+                    out, loss = optimize_linear(self.meta_learner, self.optimizer, X_train, y_train)
+
                     # Log iteration
                     self.log(batch, out.detach().cpu().numpy(), loss.item())
-                
+
                 if (i + 1) % self.val_after == 0:
                     self.meta_valid(meta_valid_generator)
-                    
+
         if self.best_state is None:
-            self.best_state = {k : v.clone() for k, v in 
-                self.meta_learner.state_dict().items()}
-        
+            self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
+
         learner_params = {
             "opt_fn": self.opt_fn,
             "lr": self.val_lr,
@@ -182,7 +165,7 @@ class MyMetaLearner(MetaLearner):
             "ncc": self.ncc
         }
         return MyLearner(self.model_args, self.best_state, learner_params)
-    
+
     def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
@@ -201,34 +184,30 @@ class MyMetaLearner(MetaLearner):
             X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
             X_test, y_test, _ = task.query_set
             X_test = X_test.to(self.dev)
-            
+
             # Adapt learner
             self.val_learner.load_params(self.meta_learner.state_dict())
             self.val_learner.freeze_layers(num_ways)
-            val_optimizer = self.opt_fn(self.val_learner.parameters(), 
-                self.val_lr)
-            
+            val_optimizer = self.opt_fn(self.val_learner.parameters(), self.val_lr)
+
             if self.ncc:
                 # Evaluate learner
-                out, _ = self.optimize_ncc(X_train, y_train, X_test, y_test, 
-                    False, num_ways)
+                out, _ = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
             else:
                 # Optimize learner
-                for _ in range(self.T):        
-                    X_batch, y_batch = get_batch(X_train, y_train, 
-                        self.val_batch_size)
-                    optimize_linear(self.val_learner, val_optimizer, X_batch, 
-                        y_batch)
+                for _ in range(self.T):
+                    X_batch, y_batch = get_batch(X_train, y_train, self.val_batch_size)
+                    optimize_linear(self.val_learner, val_optimizer, X_batch, y_batch)
 
                 # Evaluate learner
                 with torch.no_grad():
                     out = self.val_learner(X_test)
-            
+
             preds = torch.argmax(out, dim=1).cpu().numpy()
-            
+
             # Log iteration
             self.log(task, out.cpu().numpy(), meta_train=False)
-            
+
             # Keep track of scores
             total_test_images += len(y_test)
             correct_predictions += np.sum(preds == y_test.numpy())
@@ -237,18 +216,16 @@ class MyMetaLearner(MetaLearner):
         val_acc = correct_predictions / total_test_images
         if val_acc > self.best_score:
             self.best_score = val_acc
-            self.best_state = {k : v.clone() for k, v in 
-                self.meta_learner.state_dict().items()}
+            self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
 
     def init_prototypes(self) -> None:
         """ Initialize the prototypes for the NCC classifier with batch 
         learning.
         """
-        self.running_prototypes = torch.zeros((self.train_classes, 
-            self.meta_learner.in_features), device=self.dev, 
-            requires_grad=False)
-        self.running_lenght = torch.zeros(self.train_classes, device=self.dev, 
-            requires_grad=False)
+        self.running_prototypes = torch.zeros((self.train_classes, self.meta_learner.in_features),
+                                              device=self.dev,
+                                              requires_grad=False)
+        self.running_lenght = torch.zeros(self.train_classes, device=self.dev, requires_grad=False)
 
     def get_device(self) -> torch.device:
         """ Get the current device, it can be CPU or GPU.
@@ -263,12 +240,11 @@ class MyMetaLearner(MetaLearner):
             device = torch.device("cpu")
             print("Using CPU")
         return device
-    
-    def update_prototypes(self, 
-                          X: torch.Tensor, 
+
+    def update_prototypes(self,
+                          X: torch.Tensor,
                           y: torch.Tensor,
-                          grad: bool = False) -> Tuple[torch.Tensor, 
-                                                       torch.Tensor]:
+                          grad: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Update the prototypes following the NCC strategy.
 
         Args:
@@ -295,26 +271,22 @@ class MyMetaLearner(MetaLearner):
                 grad_running_lenght = self.running_lenght.clone()
             else:
                 no_grad_embeddings = current_embeddings
-        
+
             # Update prototypes
             for i in range(self.train_classes):
                 mask = y == i
-                self.running_prototypes[i] += no_grad_embeddings[mask].sum(dim=0) 
+                self.running_prototypes[i] += no_grad_embeddings[mask].sum(dim=0)
                 self.running_lenght[i] += torch.sum(mask).item()
-                
+
                 if grad:
-                    grad_running_prototypes[i] += current_embeddings[mask].sum(dim=0) 
+                    grad_running_prototypes[i] += current_embeddings[mask].sum(dim=0)
                     grad_running_lenght[i] += torch.sum(mask).item()
-                    
+
         if grad:
             return grad_running_prototypes, grad_running_lenght
-                
-    
-    def batch_to_task(self,
-                      X: torch.Tensor, 
-                      y: torch.Tensor, 
-                      support_size: int) -> Tuple[torch.Tensor, torch.Tensor, 
-                                              torch.Tensor, torch.Tensor]:
+
+    def batch_to_task(self, X: torch.Tensor, y: torch.Tensor,
+                      support_size: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """ Transform a batch into a task (support and query sets).
 
         Args:
@@ -328,8 +300,7 @@ class MyMetaLearner(MetaLearner):
         """
         # Select support and query indices
         all_indices = list(range(0, X.shape[0]))
-        support_indices = np.random.choice(all_indices, size=support_size, 
-            replace=False)
+        support_indices = np.random.choice(all_indices, size=support_size, replace=False)
         query_indices = [i for i in all_indices if i not in support_indices]
 
         # Split batch into support and query sets
@@ -339,14 +310,9 @@ class MyMetaLearner(MetaLearner):
         y_test = y[query_indices]
 
         return X_train, y_train, X_test, y_test
-    
-    def optimize_ncc(self,
-                     X_train: torch.Tensor, 
-                     y_train: torch.Tensor, 
-                     X_test: torch.Tensor, 
-                     y_test: torch.Tensor,
-                     training: bool, 
-                     num_classes: int) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    def optimize_ncc(self, X_train: torch.Tensor, y_train: torch.Tensor, X_test: torch.Tensor, y_test: torch.Tensor,
+                     training: bool, num_classes: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Compute the output and loss using the specified data.
 
         Args:
@@ -363,18 +329,16 @@ class MyMetaLearner(MetaLearner):
             Tuple[torch.Tensor, torch.Tensor]: Output and loss.
         """
         if training:
-            run_prototypes, run_lenght = self.update_prototypes(X_train, 
-                y_train, grad=True)
+            run_prototypes, run_lenght = self.update_prototypes(X_train, y_train, grad=True)
             prototypes = run_prototypes / run_lenght.unsqueeze(1)
             out = process_query_set(self.meta_learner, X_test, prototypes)
-            loss = self.meta_learner.criterion(out, y_test) 
+            loss = self.meta_learner.criterion(out, y_test)
         else:
             with torch.no_grad():
-                prototypes = process_support_set(self.val_learner, X_train, 
-                    y_train, num_classes)
+                prototypes = process_support_set(self.val_learner, X_train, y_train, num_classes)
                 out = process_query_set(self.val_learner, X_test, prototypes)
                 loss = None
-            
+
         return out, loss
 
     @contextlib.contextmanager
@@ -386,10 +350,7 @@ class MyMetaLearner(MetaLearner):
 
 class MyLearner(Learner):
 
-    def __init__(self, 
-                 model_args: dict = {}, 
-                 model_state: dict = {},
-                 learner_params: dict = {}) -> None:
+    def __init__(self, model_args: dict = {}, model_state: dict = {}, learner_params: dict = {}) -> None:
         """ Defines the learner initialization.
 
         Args:
@@ -405,8 +366,7 @@ class MyLearner(Learner):
         self.model_state = model_state
         self.learner_params = learner_params
 
-    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, 
-                               int, int]) -> Predictor:
+    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
@@ -427,21 +387,20 @@ class MyLearner(Learner):
         """
         X_train, y_train, _, n_ways, _ = support_set
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
-        
+
         self.learner.freeze_layers(n_ways)
-        
+
         if self.ncc:
             with torch.no_grad():
-                prototypes = process_support_set(self.learner, X_train, 
-                    y_train, n_ways)
+                prototypes = process_support_set(self.learner, X_train, y_train, n_ways)
         else:
             # Optimize learner
             optimizer = self.opt_fn(self.learner.parameters(), self.lr)
-            for _ in range(self.T):        
+            for _ in range(self.T):
                 X_batch, y_batch = get_batch(X_train, y_train, self.batch_size)
                 optimize_linear(self.learner, optimizer, X_batch, y_batch)
             prototypes = None
-        
+
         return MyPredictor(self.learner, self.dev, prototypes)
 
     def save(self, path_to_save: str) -> None:
@@ -450,18 +409,17 @@ class MyLearner(Learner):
         Args:
             path_to_save (str): Path where the learning object will be saved.
         """
-        
+
         if not os.path.isdir(path_to_save):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         with open(f"{path_to_save}/model_args.pickle", "wb+") as f:
             pickle.dump(self.model_args, f)
         with open(f"{path_to_save}/model_state.pickle", "wb+") as f:
             pickle.dump(self.model_state, f)
         with open(f"{path_to_save}/learner_params.pickle", "wb+") as f:
             pickle.dump(self.learner_params, f)
- 
+
     def load(self, path_to_load: str) -> None:
         """ Loads the learning object associated to the Learner. It should 
         match the way you saved this object in self.save().
@@ -470,9 +428,8 @@ class MyLearner(Learner):
             path_to_load (str): Path where the Learner is saved.
         """
         if not os.path.isdir(path_to_load):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         model_args_file = f"{path_to_load}/model_args.pickle"
         if os.path.isfile(model_args_file):
             with open(model_args_file, "rb") as f:
@@ -481,7 +438,7 @@ class MyLearner(Learner):
             self.learner = ResNet(**self.model_args).to(self.dev)
         else:
             raise Exception(f"'{model_args_file}' not found")
-        
+
         model_state_file = f"{path_to_load}/model_state.pickle"
         if os.path.isfile(model_state_file):
             with open(model_state_file, "rb") as f:
@@ -490,7 +447,7 @@ class MyLearner(Learner):
             self.learner.load_state_dict(state)
         else:
             raise Exception(f"'{model_state_file}' not found")
-        
+
         learner_params_file = f"{path_to_load}/learner_params.pickle"
         if os.path.isfile(learner_params_file):
             with open(learner_params_file, "rb") as f:
@@ -502,14 +459,11 @@ class MyLearner(Learner):
             self.ncc = self.learner_params["ncc"]
         else:
             raise Exception(f"'{learner_params_file}' not found")
-        
-    
+
+
 class MyPredictor(Predictor):
 
-    def __init__(self, 
-                 model: nn.Module, 
-                 dev: torch.device,
-                 prototypes: torch.Tensor) -> None:
+    def __init__(self, model: nn.Module, dev: torch.device, prototypes: torch.Tensor) -> None:
         """ Defines the Predictor initialization.
 
         Args:
@@ -547,11 +501,11 @@ class MyPredictor(Predictor):
                 query_embeddings = self.model(X_test, embedding=True)
 
                 # Create distance matrix (negative predictions)
-                distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0), 
-                    self.prototypes.unsqueeze(0))**2).squeeze(0) 
+                distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0),
+                                               self.prototypes.unsqueeze(0))**2).squeeze(0)
                 out = -1 * distance_matrix
             else:
                 out = self.model(X_test)
             probs = F.softmax(out, dim=1).cpu().numpy()
-        
+
         return probs
