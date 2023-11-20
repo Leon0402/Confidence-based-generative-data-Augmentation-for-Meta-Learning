@@ -14,6 +14,7 @@ def mean(x):
 
 
 class timer():
+
     def initialize(self, time_begin='auto', time_limit=60 * 100):
         self.time_limit = time_limit
         self.time_begin = time.time() if time_begin == 'auto' else time_begin
@@ -27,41 +28,36 @@ class timer():
             if name in self.named_time:
                 if end:
                     assert self.named_time[name]['time_begin'] is not None
-                    self.named_time[name]['time_period'].append(
-                        self.time_list[-1] - 
-                        self.named_time[name]['time_begin'])
+                    self.named_time[name]['time_period'].append(self.time_list[-1] -
+                                                                self.named_time[name]['time_begin'])
                 else:
                     self.named_time[name]['time_begin'] = self.time_list[-1]
             else:
                 assert end == False
-                self.named_time[name] = {
-                    'time_begin': self.time_list[-1],
-                    'time_period': []
-                }
+                self.named_time[name] = {'time_begin': self.time_list[-1], 'time_period': []}
         return self.time_list[-1] - self.time_list[-2]
 
     def query_time_by_name(self, name, method=mean, default=50):
-        if (name not in self.named_time or 
-            self.named_time[name]['time_period'] == []):
+        if (name not in self.named_time or self.named_time[name]['time_period'] == []):
             return default
         times = self.named_time[name]['time_period']
         return method(times)
 
     def time_left(self):
         return self.time_limit - time.time() + self.time_begin
-    
+
     def begin(self, name):
         self.anchor(name, end=False)
-    
+
     def end(self, name):
         self.anchor(name, end=True)
         return self.named_time[name]['time_period'][-1]
 
 
-DEBUG=0
-INFO=1
-WARN=2
-ERROR=3
+DEBUG = 0
+INFO = 1
+WARN = 2
+ERROR = 3
 LEVEL = DEBUG
 
 _idx2str = ['D', 'I', 'W', 'E']
@@ -70,6 +66,7 @@ get_logger = lambda x, filename='log.txt': Logger(x, filename)
 
 
 class Logger():
+
     def __init__(self, name='', filename='log.txt') -> None:
         self.name = name
         if self.name != '':
@@ -81,17 +78,15 @@ class Logger():
         self.error = self._generate_print_func(ERROR, filename=filename)
 
     def _generate_print_func(self, level=DEBUG, filename='log.txt'):
+
         def prin(*args, end='\n'):
             if level >= LEVEL:
                 strs = ' '.join([str(a) for a in args])
                 str_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-                print('[' + _idx2str[level] + '][' + str_time + ']' + 
-                    self.name, strs, end=end)
-                open(os.path.abspath(os.path.join(os.path.dirname(
-                    os.path.abspath(__file__)), '../../' + filename)), 
-                    'a').write('[' + _idx2str[level] + '][' + str_time + ']' + 
-                    self.name + strs + end
-                )
+                print('[' + _idx2str[level] + '][' + str_time + ']' + self.name, strs, end=end)
+                open(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../' + filename)),
+                     'a').write('[' + _idx2str[level] + '][' + str_time + ']' + self.name + strs + end)
+
         return prin
 
 
@@ -106,7 +101,7 @@ def map_label_propagation(query, supp, alpha=0.2, n_epochs=20):
     way = len(supp)
     model = GaussianModel(way, supp.device)
     model.initFromLabelledDatas(supp)
-    
+
     optim = MAP(alpha)
 
     prob, _ = optim.loop(model, query, n_epochs, None)
@@ -114,36 +109,36 @@ def map_label_propagation(query, supp, alpha=0.2, n_epochs=20):
 
 
 class GaussianModel():
+
     def __init__(self, n_ways, device):
         self.n_ways = n_ways
         self.device = device
 
     def to(self, device):
         self.mus = self.mus.to(device)
-        
+
     def initFromLabelledDatas(self, shot_data):
         self.mus = shot_data.mean(dim=1)
         self.mus_origin = shot_data
 
     def updateFromEstimate(self, estimate, alpha):
-        
+
         Dmus = estimate - self.mus
         self.mus = self.mus + alpha * (Dmus)
-    
+
     def getProbas(self, quer_vec):
         # mus: n_shot * dim
         # quer_vec: n_query * dim
-        dist = ot.dist(quer_vec.detach().cpu().numpy(), 
-            self.mus.detach().cpu().numpy(), metric="cosine")
-        
+        dist = ot.dist(quer_vec.detach().cpu().numpy(), self.mus.detach().cpu().numpy(), metric="cosine")
+
         n_usamples, n_ways = quer_vec.size(0), self.n_ways
 
         if isinstance(dist, torch.Tensor):
             dist = dist.detach().cpu().numpy()
-        p_xj_test = torch.from_numpy(ot.emd(np.ones(n_usamples) / n_usamples, 
+        p_xj_test = torch.from_numpy(ot.emd(np.ones(n_usamples) / n_usamples,
             np.ones(n_ways) / n_ways, dist)).float().to(quer_vec.device) * \
             n_usamples
-        
+
         return p_xj_test
 
     def estimateFromMask(self, quer_vec, mask):
@@ -154,18 +149,19 @@ class GaussianModel():
 
 
 class MAP:
+
     def __init__(self, alpha=None):
         self.alpha = alpha
-    
+
     def getAccuracy(self, probas, labels):
         olabels = probas.argmax(dim=1)
         matches = labels.eq(olabels).float()
         acc_test = matches.mean()
         return acc_test
-    
+
     def performEpoch(self, model: GaussianModel, quer_vec, labels):
         m_estimates = model.estimateFromMask(quer_vec, self.probas)
-               
+
         # update centroids
         model.updateFromEstimate(m_estimates, self.alpha)
 
@@ -176,25 +172,25 @@ class MAP:
         return 0.
 
     def loop(self, model: GaussianModel, quer_vec, n_epochs=20, labels=None):
-        
+
         self.probas = model.getProbas(quer_vec)
         acc_list = []
         if labels is not None:
             acc_list.append(self.getAccuracy(self.probas, labels))
-           
-        for epoch in range(1, n_epochs+1):
+
+        for epoch in range(1, n_epochs + 1):
             acc = self.performEpoch(model, quer_vec, labels)
             if labels is not None:
                 acc_list.append(acc)
-        
+
         return self.probas, acc_list
 
 
 TRAIN_AUGMENT = transforms.Compose([
-    transforms.Normalize(-1.0, 2.0/255.0),
+    transforms.Normalize(-1.0, 2.0 / 255.0),
     transforms.RandomCrop(128, padding=16),
     transforms.RandomHorizontalFlip(),
-    transforms.Normalize(127.5,127.5)
+    transforms.Normalize(127.5, 127.5)
 ])
 
 
@@ -203,9 +199,10 @@ def normalize(emb):
     return emb
 
 
-def resize_tensor(x,size):
-    return transforms.functional.resize(x, [size, size], 
-        transforms.functional.InterpolationMode.BILINEAR, antialias=True)
+def resize_tensor(x, size):
+    return transforms.functional.resize(x, [size, size],
+                                        transforms.functional.InterpolationMode.BILINEAR,
+                                        antialias=True)
 
 
 def augment(x):
