@@ -11,7 +11,7 @@ from typing import Iterable, Any, Tuple
 from api import MetaLearner, Learner, Predictor
 
 # --------------- MANDATORY ---------------
-SEED = 98 
+SEED = 98
 random.seed(SEED)
 np.random.seed(SEED)
 # -----------------------------------------
@@ -19,10 +19,7 @@ np.random.seed(SEED)
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, 
-                 train_classes: int, 
-                 total_classes: int,
-                 logger: Any) -> None:
+    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -57,9 +54,7 @@ class MyMetaLearner(MetaLearner):
         # - self.log (function) See the above description for details
         super().__init__(train_classes, total_classes, logger)
 
-    def meta_fit(self, 
-                 meta_train_generator: Iterable[Any], 
-                 meta_valid_generator: Iterable[Any]) -> Learner:
+    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -87,8 +82,7 @@ class MyLearner(Learner):
         """
         super().__init__()
 
-    def fit(self, support_set: Tuple[Tensor, Tensor, Tensor, 
-                               int, int]) -> Predictor:
+    def fit(self, support_set: Tuple[Tensor, Tensor, Tensor, int, int]) -> Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
@@ -116,13 +110,12 @@ class MyLearner(Learner):
         Args:
             path_to_save (str): Path where the learning object will be saved.
         """
-        
+
         if not os.path.isdir(path_to_save):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         pickle.dump(self, open(f"{path_to_save}/learner.pickle", "wb"))
- 
+
     def load(self, path_to_load: str) -> None:
         """ Loads the learning object associated to the Learner. It should 
         match the way you saved this object in self.save().
@@ -131,16 +124,15 @@ class MyLearner(Learner):
             path_to_load (str): Path where the Learner is saved.
         """
         if not os.path.isdir(path_to_load):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         model_file = f"{path_to_load}/learner.pickle"
         if os.path.isfile(model_file):
             with open(model_file, "rb") as f:
                 saved_learner = pickle.load(f)
             self = saved_learner
-        
-    
+
+
 class MyPredictor(Predictor):
 
     def __init__(self, labels: np.ndarray) -> None:

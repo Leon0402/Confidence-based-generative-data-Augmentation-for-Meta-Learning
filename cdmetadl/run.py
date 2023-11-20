@@ -9,94 +9,95 @@ Usage:
     
 AS A PARTICIPANT, DO NOT MODIFY THIS CODE. 
 """
-import sys
-from shlex import split
-from subprocess import call
+import argparse
+from pathlib import Path
 
-from absl import app, flags
-
-FLAGS = flags.FLAGS
-
-flags.DEFINE_integer("seed", 93, "Random seed.")
-
-flags.DEFINE_boolean("verbose", True, "Verbose mode.")
-
-flags.DEFINE_integer("debug_mode", 1, "Debug mode.")
-
-flags.DEFINE_integer("image_size", 128, "Image size.")
-
-flags.DEFINE_integer("max_time", 1000, 
-    "Maximum time in seconds per testing task.")
-
-flags.DEFINE_boolean("overwrite_previous_results", False, 
-    "Overwrite results flag.")
-
-flags.DEFINE_integer("test_tasks_per_dataset", 100, 
-    "Number of test tasks per dataset.")
-
-flags.DEFINE_boolean("private_information", False, "Private information flag.")
-
-flags.DEFINE_string("input_data_dir", "../public_data", "Path to the directory" 
-    + " containing the meta_train and meta_test data.")
-
-flags.DEFINE_string("output_dir_ingestion","../ingestion_output", 
-    "Path to the output directory for the ingestion program.")
-
-flags.DEFINE_string("submission_dir", "../baselines/random", 
-    "Path to the directory containing the solution to use.")
-
-flags.DEFINE_string("output_dir_scoring", "../scoring_output", 
-    "Path to the ourput directory for the scoring program.")
+from cdmetadl.ingestion import ingestion as cdmetadl_ingestion
+from cdmetadl.scoring import scoring as cdmetadl_scoring
 
 
-def main(argv) -> None:
-    """ Runs the ingestion and scoring programs sequentially, as they are 
-    handled in CodaLab.
-    """
-    del argv
-    
-    seed = FLAGS.seed
-    verbose = FLAGS.verbose
-    debug_mode = FLAGS.debug_mode
-    image_size = FLAGS.image_size
-    max_time = FLAGS.max_time
-    overwrite_previous_results = FLAGS.overwrite_previous_results
-    test_tasks_per_dataset = FLAGS.test_tasks_per_dataset
-    private_information = FLAGS.private_information
-    input_data_dir = FLAGS.input_data_dir
-    output_dir_ingestion = FLAGS.output_dir_ingestion
-    submission_dir = FLAGS.submission_dir
-    output_dir_scoring = FLAGS.output_dir_scoring
+def main():
+    """Runs the ingestion and scoring programs sequentially"""
 
-    command_ingestion = f"-m cdmetadl.ingestion.ingestion " \
-        + f"--seed={seed} " \
-        + f"--verbose={verbose} " \
-        + f"--debug_mode={debug_mode} " \
-        + f"--image_size={image_size} " \
-        + f"--overwrite_previous_results={overwrite_previous_results} " \
-        + f"--max_time={max_time} " \
-        + f"--test_tasks_per_dataset={test_tasks_per_dataset} " \
-        + f"--input_data_dir={input_data_dir} " \
-        + f"--output_dir_ingestion={output_dir_ingestion} " \
-        + f"--submission_dir={submission_dir}"
+    parser = argparse.ArgumentParser(description='Scoring')
+    parser.add_argument('--seed',
+                        type=int,
+                        default=93,
+                        help='Any int to be used as random seed for reproducibility. Default: 93.')
+    parser.add_argument(
+        '--verbose',
+        type=lambda x: (str(x).lower() == 'true'),
+        default=True,
+        help=
+        'True: show various progression messages (recommended); False: no progression messages are shown. Default: True.'
+    )
+    parser.add_argument(
+        '--debug_mode',
+        type=int,
+        default=1,
+        choices=[0, 1, 2],
+        help=
+        '0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.'
+    )
+    parser.add_argument('--image_size',
+                        type=int,
+                        default=128,
+                        help='Int specifying the image size for all generators (recommended value 128). Default: 128.')
+    parser.add_argument(
+        '--private_information',
+        type=lambda x: (str(x).lower() == 'true'),
+        default=False,
+        help=
+        'True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.'
+    )
+    parser.add_argument(
+        '--overwrite_previous_results',
+        type=lambda x: (str(x).lower() == 'true'),
+        default=False,
+        help=
+        'True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.'
+    )
+    parser.add_argument('--max_time',
+                        type=int,
+                        default=1000,
+                        help='Maximum time in seconds PER TESTING TASK. Default: 1000.')
+    parser.add_argument(
+        '--test_tasks_per_dataset',
+        type=int,
+        default=100,
+        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
+    parser.add_argument(
+        '--input_data_dir',
+        type=Path,
+        default='../../public_data',
+        help=
+        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
+    parser.add_argument(
+        '--results_dir',
+        type=Path,
+        default='../../ingestion_output',
+        help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".')
+    parser.add_argument(
+        '--output_dir_scoring',
+        type=Path,
+        default='../../scoring_output',
+        help='Default location of the output directory for the scoring program. Default: "../../scoring_output".')
+    parser.add_argument(
+        '--output_dir_ingestion',
+        type=Path,
+        default='../../ingestion_output',
+        help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".')
+    parser.add_argument('--submission_dir',
+                        type=Path,
+                        default='../../baselines/random',
+                        help='Path to the directory containing the solution to use. Default: "../../baselines/random".')
 
-    command_scoring = f"-m cdmetadl.scoring.scoring " \
-        + f"--seed={seed} " \
-        + f"--verbose={verbose} " \
-        + f"--debug_mode={debug_mode} " \
-        + f"--private_information={private_information} " \
-        + f"--overwrite_previous_results={overwrite_previous_results} " \
-        + f"--test_tasks_per_dataset={test_tasks_per_dataset} " \
-        + f"--input_data_dir={input_data_dir} " \
-        + f"--results_dir={output_dir_ingestion} " \
-        + f"--output_dir_scoring={output_dir_scoring}"
-        
-    cmd_ing = [sys.executable] + split(command_ingestion)
-    cmd_sco = [sys.executable] + split(command_scoring)
-    
-    call(cmd_ing)
-    call(cmd_sco)
+    args = parser.parse_args()
+    cdmetadl_ingestion.ingestion(args)
+
+    args.results_dir = args.output_dir_ingestion
+    cdmetadl_scoring.scoring(args)
 
 
 if __name__ == "__main__":
-    app.run(main)
+    main()

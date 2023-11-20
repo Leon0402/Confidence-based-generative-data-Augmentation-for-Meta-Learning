@@ -23,7 +23,7 @@ from api import MetaLearner, Learner, Predictor
 SEED = 98
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-random.seed(SEED)    
+random.seed(SEED)
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 if torch.cuda.is_available():
@@ -33,10 +33,7 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, 
-                 train_classes: int, 
-                 total_classes: int,
-                 logger: Any) -> None:
+    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -70,14 +67,14 @@ class MyMetaLearner(MetaLearner):
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
         super().__init__(train_classes, total_classes, logger)
-        
-        # in order to match the number of seen examples in a meta_fit call with 
+
+        # in order to match the number of seen examples in a meta_fit call with
         # the finetuning baseline, then we need to ensure that:
         # (finetuning_episodic) train_batch_size * T_train * train_tasks \
         #                       == (finetuning) train_batches * batch_size
-        # furthermore, we'd better have: 
+        # furthermore, we'd better have:
         #   (finetuning_episodic) train_batch_size == (finetuning) batch_size
-        
+
         # General data parameters
         self.should_train = True
         self.ncc = True
@@ -85,37 +82,60 @@ class MyMetaLearner(MetaLearner):
         self.train_tasks = 10
         self.val_tasks = 10
         self.val_after = 5
-        
+
         # Helpers for convert to global labels
         self.classes_per_dataset = {
-            "ACT_40": 39, "ACT_410": 29, "APL": 21, "AWA": 50, "BCT": 33, 
-            "BRD": 315, "BTS": 26, "CRS": 196, "DOG": 120, "FLW": 102, 
-            "FNG": 25, "INS": 104, "INS_2": 102, "MD_5_BIS": 706, "MD_6": 703, 
-            "MD_MIX": 706, "MED_LF": 25, "PLK": 86, "PLT_DOC": 27, "PLT_NET": 25, 
-            "PLT_VIL": 38, "PNU": 19, "PRT": 21, "RESISC": 45, "RSD": 38, 
-            "RSICB": 45, "SPT": 73, "TEX": 64, "TEX_ALOT": 250, "TEX_DTD": 47
+            "ACT_40": 39,
+            "ACT_410": 29,
+            "APL": 21,
+            "AWA": 50,
+            "BCT": 33,
+            "BRD": 315,
+            "BTS": 26,
+            "CRS": 196,
+            "DOG": 120,
+            "FLW": 102,
+            "FNG": 25,
+            "INS": 104,
+            "INS_2": 102,
+            "MD_5_BIS": 706,
+            "MD_6": 703,
+            "MD_MIX": 706,
+            "MED_LF": 25,
+            "PLK": 86,
+            "PLT_DOC": 27,
+            "PLT_NET": 25,
+            "PLT_VIL": 38,
+            "PNU": 19,
+            "PRT": 21,
+            "RESISC": 45,
+            "RSD": 38,
+            "RSICB": 45,
+            "SPT": 73,
+            "TEX": 64,
+            "TEX_ALOT": 250,
+            "TEX_DTD": 47
         }
         self.mapping = {}
-        
+
         # General model parameters
         self.dev = self.get_device()
         self.opt_fn = torch.optim.Adam
         self.model_args = {
             "num_classes": self.train_classes if self.ncc else self.total_classes,
-            "dev": self.dev, 
-            "num_blocks": 18, 
-            "pretrained": False 
+            "dev": self.dev,
+            "num_blocks": 18,
+            "pretrained": False
         }
-        
+
         # Meta-learner
         self.lr = 0.001
         self.beta1 = 0.9
         self.beta2 = 0.999
         self.meta_learner = ResNet(**self.model_args).to(self.dev)
         self.meta_learner.train()
-        self.optimizer = self.opt_fn(self.meta_learner.parameters(), 
-            lr=self.lr, betas=(self.beta1, self.beta2))
-        
+        self.optimizer = self.opt_fn(self.meta_learner.parameters(), lr=self.lr, betas=(self.beta1, self.beta2))
+
         # Validation-learner
         self.best_score = -float("inf")
         self.best_state = None
@@ -126,9 +146,7 @@ class MyMetaLearner(MetaLearner):
         self.val_learner.load_state_dict(self.meta_learner.state_dict())
         self.val_learner.eval()
 
-    def meta_fit(self, 
-                 meta_train_generator: Iterable[Any], 
-                 meta_valid_generator: Iterable[Any]) -> Learner:
+    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -155,17 +173,17 @@ class MyMetaLearner(MetaLearner):
                     X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
                     X_test, y_test, _ = task.query_set
                     X_test, y_test = X_test.to(self.dev), y_test.to(self.dev)
-                    
+
                     # Optimize metalearner
                     self.optimizer.zero_grad()
-                    out, loss = self.compute_out_and_loss(self.meta_learner, 
-                        X_train, y_train, X_test, y_test, True, num_ways)
+                    out, loss = self.compute_out_and_loss(self.meta_learner, X_train, y_train, X_test, y_test, True,
+                                                          num_ways)
                     loss.backward()
-                    self.optimizer.step()  
-                        
+                    self.optimizer.step()
+
                     # Log iteration
                     self.log(task, out.detach().cpu().numpy(), loss.item())
-                    
+
                 else:
                     # Prepare data
                     dataset = task.dataset
@@ -177,28 +195,25 @@ class MyMetaLearner(MetaLearner):
                     # Both support set and query set are used to fine-tune
                     X_train = torch.cat([X_train, X_test], dim=0)
                     y_train = torch.cat([y_train, y_test], dim=0)
-                    
+
                     # Convert local to global labels
                     y_train = self.convert_to_global_labels(y_train, dataset)
-                    
+
                     # Optimize learner
                     for start in range(0, X_train.shape[0], self.batch_size):
                         end = start + self.batch_size
                         X_batch, y_batch = X_train[start:end], y_train[start:end]
-                        out, loss = optimize(self.meta_learner, self.optimizer, 
-                            X_batch, y_batch)
-                    
+                        out, loss = optimize(self.meta_learner, self.optimizer, X_batch, y_batch)
+
                         # Log iteration
-                        self.log((X_batch, y_batch), out.detach().cpu().numpy(), 
-                            loss)
-                
+                        self.log((X_batch, y_batch), out.detach().cpu().numpy(), loss)
+
                 if (i + 1) % self.val_after == 0:
                     self.meta_valid(meta_valid_generator)
-                    
+
         if self.best_state is None:
-            self.best_state = {k : v.clone() for k, v in 
-                self.meta_learner.state_dict().items()}
-        
+            self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
+
         learner_params = {
             "opt_fn": self.opt_fn,
             "lr": self.val_lr,
@@ -207,7 +222,7 @@ class MyMetaLearner(MetaLearner):
             "ncc": self.ncc
         }
         return MyLearner(self.model_args, self.best_state, learner_params)
-    
+
     def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
@@ -226,34 +241,32 @@ class MyMetaLearner(MetaLearner):
             X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
             X_test, y_test, _ = task.query_set
             X_test = X_test.to(self.dev)
-            
+
             # Adapt learner
             self.val_learner.load_params(self.meta_learner.state_dict())
             self.val_learner.freeze_layers(num_ways)
-            val_optimizer = self.opt_fn(self.val_learner.parameters(), 
-                self.val_lr)
-            
+            val_optimizer = self.opt_fn(self.val_learner.parameters(), self.val_lr)
+
             if self.ncc:
                 # Evaluate learner
-                out, _ = self.compute_out_and_loss(self.val_learner, X_train, 
-                    y_train, X_test, y_test, False, num_ways, True)
+                out, _ = self.compute_out_and_loss(self.val_learner, X_train, y_train, X_test, y_test, False, num_ways,
+                                                   True)
                 preds = torch.argmax(out, dim=1).cpu().numpy()
-            
+
             else:
                 # Optimize learner
-                for _ in range(self.T):        
-                    X_batch, y_batch = get_batch(X_train, y_train, 
-                        self.val_batch_size)
+                for _ in range(self.T):
+                    X_batch, y_batch = get_batch(X_train, y_train, self.val_batch_size)
                     optimize(self.val_learner, val_optimizer, X_batch, y_batch)
 
                 # Evaluate learner
                 with torch.no_grad():
                     out = self.val_learner(X_test)
                     preds = torch.argmax(out, dim=1).cpu().numpy()
-            
+
             # Log iteration
             self.log(task, out.cpu().numpy(), meta_train=False)
-            
+
             # Keep track of scores
             total_test_images += len(y_test)
             correct_predictions += np.sum(preds == y_test.numpy())
@@ -262,8 +275,7 @@ class MyMetaLearner(MetaLearner):
         val_acc = correct_predictions / total_test_images
         if val_acc > self.best_score:
             self.best_score = val_acc
-            self.best_state = {k : v.clone() for k, v in 
-                self.meta_learner.state_dict().items()}
+            self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
 
     def get_device(self) -> torch.device:
         """ Get the current device, it can be CPU or GPU.
@@ -278,10 +290,8 @@ class MyMetaLearner(MetaLearner):
             device = torch.device("cpu")
             print("Using CPU")
         return device
-    
-    def convert_to_global_labels(self, 
-                                 local_labels: torch.Tensor,
-                                 dataset: str) -> torch.Tensor:
+
+    def convert_to_global_labels(self, local_labels: torch.Tensor, dataset: str) -> torch.Tensor:
         """ Convert the local labels of the current task to global labels. 
 
         Args:
@@ -294,25 +304,24 @@ class MyMetaLearner(MetaLearner):
         if len(self.mapping) == 0:
             self.mapping[dataset] = 0
             return local_labels
-        
+
         if dataset not in self.mapping:
             val = 0
             for c_dataset in self.mapping.keys():
                 val += self.classes_per_dataset[c_dataset]
             self.mapping[dataset] = val
-            
+
         return local_labels + self.mapping[dataset]
-        
+
     def compute_out_and_loss(self,
                              model: nn.Module,
-                             X_train: torch.Tensor, 
-                             y_train: torch.Tensor, 
-                             X_test: torch.Tensor, 
+                             X_train: torch.Tensor,
+                             y_train: torch.Tensor,
+                             X_test: torch.Tensor,
                              y_test: torch.Tensor,
-                             training: bool, 
+                             training: bool,
                              num_classes: int,
-                             no_loss: bool = False) -> Tuple[torch.Tensor, 
-                                                             torch.Tensor]:
+                             no_loss: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Compute the output and loss using the specified data.
 
         Args:
@@ -339,15 +348,13 @@ class MyMetaLearner(MetaLearner):
             context = torch.no_grad
 
         with context():
-            prototypes = process_support_set(model, X_train, y_train, 
-                num_classes)
+            prototypes = process_support_set(model, X_train, y_train, num_classes)
             out = process_query_set(model, X_test, prototypes)
             if no_loss:
                 loss = None
             else:
-                loss = model.criterion(out, y_test) / (num_classes 
-                    * len(y_test)) 
-            
+                loss = model.criterion(out, y_test) / (num_classes * len(y_test))
+
         return out, loss
 
     @contextlib.contextmanager
@@ -359,10 +366,7 @@ class MyMetaLearner(MetaLearner):
 
 class MyLearner(Learner):
 
-    def __init__(self, 
-                 model_args: dict = {}, 
-                 model_state: dict = {},
-                 learner_params: dict = {}) -> None:
+    def __init__(self, model_args: dict = {}, model_state: dict = {}, learner_params: dict = {}) -> None:
         """ Defines the learner initialization.
 
         Args:
@@ -378,8 +382,7 @@ class MyLearner(Learner):
         self.model_state = model_state
         self.learner_params = learner_params
 
-    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, 
-                               int, int]) -> Predictor:
+    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
@@ -400,22 +403,21 @@ class MyLearner(Learner):
         """
         X_train, y_train, _, n_ways, _ = support_set
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
-        
+
         self.learner.freeze_layers(n_ways)
         optimizer = self.opt_fn(self.learner.parameters(), self.lr)
-        
+
         if self.ncc:
             with torch.no_grad():
-                prototypes = process_support_set(self.learner, X_train, 
-                    y_train, n_ways)
-        
+                prototypes = process_support_set(self.learner, X_train, y_train, n_ways)
+
         else:
             # Optimize learner
-            for _ in range(self.T):        
+            for _ in range(self.T):
                 X_batch, y_batch = get_batch(X_train, y_train, self.batch_size)
                 optimize(self.learner, optimizer, X_batch, y_batch)
             prototypes = None
-        
+
         return MyPredictor(self.learner, self.dev, prototypes)
 
     def save(self, path_to_save: str) -> None:
@@ -424,18 +426,17 @@ class MyLearner(Learner):
         Args:
             path_to_save (str): Path where the learning object will be saved.
         """
-        
+
         if not os.path.isdir(path_to_save):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         with open(f"{path_to_save}/model_args.pickle", "wb+") as f:
             pickle.dump(self.model_args, f)
         with open(f"{path_to_save}/model_state.pickle", "wb+") as f:
             pickle.dump(self.model_state, f)
         with open(f"{path_to_save}/learner_params.pickle", "wb+") as f:
             pickle.dump(self.learner_params, f)
- 
+
     def load(self, path_to_load: str) -> None:
         """ Loads the learning object associated to the Learner. It should 
         match the way you saved this object in self.save().
@@ -444,9 +445,8 @@ class MyLearner(Learner):
             path_to_load (str): Path where the Learner is saved.
         """
         if not os.path.isdir(path_to_load):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         model_args_file = f"{path_to_load}/model_args.pickle"
         if os.path.isfile(model_args_file):
             with open(model_args_file, "rb") as f:
@@ -455,7 +455,7 @@ class MyLearner(Learner):
             self.learner = ResNet(**self.model_args).to(self.dev)
         else:
             raise Exception(f"'{model_args_file}' not found")
-        
+
         model_state_file = f"{path_to_load}/model_state.pickle"
         if os.path.isfile(model_state_file):
             with open(model_state_file, "rb") as f:
@@ -464,7 +464,7 @@ class MyLearner(Learner):
             self.learner.load_state_dict(state)
         else:
             raise Exception(f"'{model_state_file}' not found")
-        
+
         learner_params_file = f"{path_to_load}/learner_params.pickle"
         if os.path.isfile(learner_params_file):
             with open(learner_params_file, "rb") as f:
@@ -476,14 +476,11 @@ class MyLearner(Learner):
             self.ncc = self.learner_params["ncc"]
         else:
             raise Exception(f"'{learner_params_file}' not found")
-        
-    
+
+
 class MyPredictor(Predictor):
 
-    def __init__(self, 
-                 model: nn.Module, 
-                 dev: torch.device,
-                 prototypes: torch.Tensor) -> None:
+    def __init__(self, model: nn.Module, dev: torch.device, prototypes: torch.Tensor) -> None:
         """ Defines the Predictor initialization.
 
         Args:
@@ -521,5 +518,5 @@ class MyPredictor(Predictor):
             else:
                 out = self.model(X_test)
             probs = F.softmax(out, dim=1).cpu().numpy()
-        
+
         return probs

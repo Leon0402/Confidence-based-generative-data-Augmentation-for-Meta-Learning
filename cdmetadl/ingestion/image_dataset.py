@@ -15,9 +15,7 @@ from typing import Tuple, List
 
 class ImageDataset(Dataset):
 
-    def __init__(self,
-                 datasets_info: dict,
-                 img_size: int = 128):
+    def __init__(self, datasets_info: dict, img_size: int = 128):
         """
         Args:
             datasets_info (dict): Dictionary with the information of the 
@@ -28,23 +26,21 @@ class ImageDataset(Dataset):
             img_size (int, optional): Desired image size. Defaults to 128.
         """
         datasets = list(datasets_info.keys())
-        if len(datasets) == 1: 
+        if len(datasets) == 1:
             self.name = datasets[0]
         else:
             self.name = f"Multiple datasets: {','.join(datasets)}"
-        
-        self.transform = transforms.Compose([
-            transforms.Resize((img_size, img_size)), transforms.ToTensor()])
-            
+
+        self.transform = transforms.Compose([transforms.Resize((img_size, img_size)), transforms.ToTensor()])
+
         self.img_paths = list()
         self.labels = list()
         id_ = 0
         for dataset in datasets:
             (label_col, file_col, img_path, md_path) = datasets_info[dataset]
             metadata = pd.read_csv(md_path)
-            self.img_paths.extend([os.path.join(img_path, x) for x in 
-                metadata[file_col]])
-            
+            self.img_paths.extend([os.path.join(img_path, x) for x in metadata[file_col]])
+
             # Transform string labels into non-negative integer IDs
             label_to_id = dict()
             for label in metadata[label_col]:
@@ -53,7 +49,7 @@ class ImageDataset(Dataset):
                     id_ += 1
                 self.labels.append(label_to_id[label])
         self.labels = np.array(self.labels)
-        
+
         self.idx_per_label = list()
         self.min_examples_per_class = float("inf")
         for i in range(max(self.labels) + 1):
@@ -83,10 +79,9 @@ class ImageDataset(Dataset):
         path, label = self.img_paths[i], self.labels[i]
         image = self.transform(Image.open(path))
         return image, torch.LongTensor([label]).squeeze()
-    
-    
-def create_datasets(datasets_info: dict,
-                    img_size: int = 128) -> List[ImageDataset]:
+
+
+def create_datasets(datasets_info: dict, img_size: int = 128) -> List[ImageDataset]:
     """ Creates one dataset for each of the keys in datasets_info.
 
     Args:

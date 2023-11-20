@@ -21,7 +21,7 @@ from api import MetaLearner, Learner, Predictor
 SEED = 98
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-random.seed(SEED)    
+random.seed(SEED)
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 if torch.cuda.is_available():
@@ -31,10 +31,7 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, 
-                 train_classes: int, 
-                 total_classes: int,
-                 logger: Any) -> None:
+    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -68,19 +65,12 @@ class MyMetaLearner(MetaLearner):
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
         super().__init__(train_classes, total_classes, logger)
-        
+
         self.dev = self.get_device()
-        self.model_args = {
-            "num_classes": 5, 
-            "dev": self.dev, 
-            "num_blocks": 18,
-            "pretrained": False 
-        }
+        self.model_args = {"num_classes": 5, "dev": self.dev, "num_blocks": 18, "pretrained": False}
         self.meta_learner = ResNet(**self.model_args).to(self.dev)
 
-    def meta_fit(self, 
-                 meta_train_generator: Iterable[Any], 
-                 meta_valid_generator: Iterable[Any]) -> Learner:
+    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -98,7 +88,7 @@ class MyMetaLearner(MetaLearner):
             Learner: Resulting learner ready to be trained and evaluated on new
                 unseen tasks.
         """
-        
+
         return MyLearner(self.model_args, self.meta_learner.state_dict())
 
     def get_device(self) -> torch.device:
@@ -114,13 +104,11 @@ class MyMetaLearner(MetaLearner):
             device = torch.device("cpu")
             print("Using CPU")
         return device
-    
+
 
 class MyLearner(Learner):
 
-    def __init__(self,
-                 model_args: dict = {}, 
-                 model_state: dict = {}) -> None:
+    def __init__(self, model_args: dict = {}, model_state: dict = {}) -> None:
         """ Defines the learner initialization.
 
         Args:
@@ -138,8 +126,7 @@ class MyLearner(Learner):
         self.model_state = model_state
         self.ncc = False
 
-    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, 
-                               int, int]) -> Predictor:
+    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
@@ -160,7 +147,7 @@ class MyLearner(Learner):
         """
         X_train, y_train, _, n_ways, _ = support_set
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
-        
+
         self.learner.modify_out_layer(n_ways)
         optimizer = self.opt_fn(self.learner.parameters(), lr=self.lr)
 
@@ -170,24 +157,21 @@ class MyLearner(Learner):
                 support_embeddings = self.learner(X_train, embedding=True)
 
                 # Compute prototypes
-                prototypes = torch.zeros((n_ways, support_embeddings.size(1)), 
-                    device=self.dev)
+                prototypes = torch.zeros((n_ways, support_embeddings.size(1)), device=self.dev)
                 for i in range(n_ways):
                     mask = y_train == i
-                    prototypes[i] = (support_embeddings[mask].sum(dim=0) / 
-                        torch.sum(mask).item())
+                    prototypes[i] = (support_embeddings[mask].sum(dim=0) / torch.sum(mask).item())
         else:
-            # Sample T batches and make updates to the parameters 
-            for _ in range(self.T):        
-                X_batch, y_batch = self.get_batch(X_train, y_train,
-                    self.batch_size)
+            # Sample T batches and make updates to the parameters
+            for _ in range(self.T):
+                X_batch, y_batch = self.get_batch(X_train, y_train, self.batch_size)
                 optimizer.zero_grad()
                 out = self.learner(X_batch)
                 loss = self.learner.criterion(out, y_batch)
                 loss.backward()
                 optimizer.step()
             prototypes = None
-        
+
         return MyPredictor(self.learner, self.dev, prototypes)
 
     def save(self, path_to_save: str) -> None:
@@ -196,16 +180,15 @@ class MyLearner(Learner):
         Args:
             path_to_save (str): Path where the learning object will be saved.
         """
-        
+
         if not os.path.isdir(path_to_save):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         with open(f"{path_to_save}/model_args.pickle", "wb+") as f:
             pickle.dump(self.model_args, f)
         with open(f"{path_to_save}/model_state.pickle", "wb+") as f:
             pickle.dump(self.model_state, f)
- 
+
     def load(self, path_to_load: str) -> None:
         """ Loads the learning object associated to the Learner. It should 
         match the way you saved this object in self.save().
@@ -214,9 +197,8 @@ class MyLearner(Learner):
             path_to_load (str): Path where the Learner is saved.
         """
         if not os.path.isdir(path_to_load):
-            raise ValueError(("The model directory provided is invalid. Please"
-                + " check that its path is valid."))
-        
+            raise ValueError(("The model directory provided is invalid. Please" + " check that its path is valid."))
+
         model_args_file = f"{path_to_load}/model_args.pickle"
         if os.path.isfile(model_args_file):
             with open(model_args_file, "rb") as f:
@@ -225,7 +207,7 @@ class MyLearner(Learner):
             self.learner = ResNet(**self.model_args).to(self.dev)
         else:
             raise Exception(f"'{model_args_file}' not found")
-        
+
         model_state_file = f"{path_to_load}/model_state.pickle"
         if os.path.isfile(model_state_file):
             with open(model_state_file, "rb") as f:
@@ -233,11 +215,8 @@ class MyLearner(Learner):
             self.learner.load_state_dict(state)
         else:
             raise Exception(f"'{model_state_file}' not found")
-            
-    def get_batch(self,
-                  X: torch.Tensor, 
-                  y: torch.Tensor, 
-                  batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    def get_batch(self, X: torch.Tensor, y: torch.Tensor, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Get a batch of the specified size from the specified data.
 
         Args:
@@ -251,14 +230,11 @@ class MyLearner(Learner):
         batch_indices = np.random.randint(0, X.size()[0], batch_size)
         X_batch, y_batch = X[batch_indices], y[batch_indices]
         return X_batch, y_batch
-        
-    
+
+
 class MyPredictor(Predictor):
 
-    def __init__(self, 
-                 model: nn.Module, 
-                 dev: torch.device,
-                 prototypes: torch.Tensor) -> None:
+    def __init__(self, model: nn.Module, dev: torch.device, prototypes: torch.Tensor) -> None:
         """ Defines the Predictor initialization.
 
         Args:
@@ -296,11 +272,11 @@ class MyPredictor(Predictor):
                 query_embeddings = self.model(X_test, embedding=True)
 
                 # Create distance matrix (negative predictions)
-                distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0), 
-                    self.prototypes.unsqueeze(0))**2).squeeze(0) 
+                distance_matrix = (torch.cdist(query_embeddings.unsqueeze(0),
+                                               self.prototypes.unsqueeze(0))**2).squeeze(0)
                 out = -1 * distance_matrix
             else:
                 out = self.model(X_test)
             probs = F.softmax(out, dim=1).cpu().numpy()
-        
+
         return probs
