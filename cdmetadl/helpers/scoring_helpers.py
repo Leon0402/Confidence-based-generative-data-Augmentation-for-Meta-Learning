@@ -13,10 +13,10 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, \
     recall_score
 from typing import Tuple, Callable
 
-
 # =============================================================================
 # ========================= SCORE RELATED HELPERS =============================
 # =============================================================================
+
 
 def read_results_file(file: str) -> np.ndarray:
     """ Read the results of the ingestion program, ground truth or predictions.
@@ -37,12 +37,10 @@ def read_results_file(file: str) -> np.ndarray:
         results = np.loadtxt(file, dtype=int)
         return results
     except:
-        raise Exception(f"In read_results_file, file '{file}' could not be "
-            + f"opened")
-    
+        raise Exception(f"In read_results_file, file '{file}' could not be " + f"opened")
 
-def get_score(score_file_path: str) -> Tuple[str, 
-        Callable[[np.ndarray, np.ndarray], float]]:
+
+def get_score(score_file_path: str) -> Tuple[str, Callable[[np.ndarray, np.ndarray], float]]:
     """ Read the score that should be used to evaluate the submissions.
 
     Args:
@@ -70,10 +68,9 @@ def get_score(score_file_path: str) -> Tuple[str,
     score_name = score_name.replace("_", " ")
     score_name = score_name.title()
     return score_name, scoring_function
-        
 
-def mean_confidence_interval(data: list, 
-                             confidence: float = 0.95) -> Tuple[float, float]:
+
+def mean_confidence_interval(data: list, confidence: float = 0.95) -> Tuple[float, float]:
     """ Compute the mean and the confidence interval of the specified data. The
     confidence interval is computed at per-task level.
 
@@ -94,19 +91,15 @@ def mean_confidence_interval(data: list,
         scale = st.sem(data)
         if scale < 1e-15:
             scale = 1e-15
-        lb, _ = st.t.interval(alpha=confidence, df=len(data)-1, loc=mean, 
-            scale=scale)
-        conf_int = mean - lb 
+        lb, _ = st.t.interval(alpha=confidence, df=len(data) - 1, loc=mean, scale=scale)
+        conf_int = mean - lb
     else:
         mean = data[0]
         conf_int = 0.0
     return mean, conf_int
 
 
-def create_histogram(data: list, 
-                     score_name: str, 
-                     title: str, 
-                     path: str) -> str:
+def create_histogram(data: list, score_name: str, title: str, path: str) -> str:
     """ Create, save and load a frequency histogram with the specified data.
 
     Args:
@@ -119,27 +112,27 @@ def create_histogram(data: list,
         str: Frequency histogram.
     """
     sns.set_style('darkgrid')
-    
+
     df = pd.DataFrame(data, columns=["value"])
-    
-    fig, ax = plt.subplots(figsize=(8,4))
-    
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+
     # KDE plot
     sns.set_style('white')
     sns.kdeplot(data=df, x="value", ax=ax, warn_singular=False)
-    
+
     # Histogram plot
     ax2 = ax.twinx()
-    sns.histplot(data=df, x="value",  bins=40, ax=ax2)
+    sns.histplot(data=df, x="value", bins=40, ax=ax2)
 
     # Format axes
     x_min, x_max = np.min(data), np.max(data)
     if not np.isclose(x_min, x_max):
         ax.set_xlim((x_min, x_max))
-    ax.set_xlabel(f"Score ({score_name})") 
+    ax.set_xlabel(f"Score ({score_name})")
     ax2.set_ylabel("Frequency")
-    ax.set_title(title, size = 17)
-    
+    ax.set_title(title, size=17)
+
     # Save and return plot
     fig.savefig(path, dpi=fig.dpi)
     plt.close(fig)
@@ -148,12 +141,7 @@ def create_histogram(data: list,
     return histogram
 
 
-def create_heatmap(data: dict, 
-                   keys: list, 
-                   yticks: list, 
-                   score_name: str, 
-                   title: str, 
-                   path: str) -> str:
+def create_heatmap(data: dict, keys: list, yticks: list, score_name: str, title: str, path: str) -> str:
     """ Create, save and load a frequency heatmap with the specified data.
 
     Args:
@@ -172,23 +160,21 @@ def create_heatmap(data: dict,
     maximum = -np.inf
     for key in keys:
         minimum = min(np.min(data[key][score_name]), minimum)
-        maximum = max(np.max(data[key][score_name]), maximum)    
-    
+        maximum = max(np.max(data[key][score_name]), maximum)
+
     # Heatmap data
     bins = np.linspace(minimum, maximum, 11)
-    heatmap = [np.histogram(data[key][score_name], bins=bins)[0] for key in 
-        keys]
-      
+    heatmap = [np.histogram(data[key][score_name], bins=bins)[0] for key in keys]
+
     # Plot
-    fig, ax = plt.subplots(figsize=(8,4))
+    fig, ax = plt.subplots(figsize=(8, 4))
     sns.heatmap(heatmap, cmap="Blues", linewidths=.2, yticklabels=yticks)
     ax.set_xticks(np.arange(len(bins)), labels=np.round(bins, 2))
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", 
-        rotation_mode="anchor")
-    ax.set_xlabel(f"Score ({score_name})") 
-    ax.set_title(title, size = 17)
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    ax.set_xlabel(f"Score ({score_name})")
+    ax.set_title(title, size=17)
     fig.tight_layout()
-    
+
     # Save and return plot
     fig.savefig(path, dpi=fig.dpi)
     plt.close(fig)
@@ -196,13 +182,13 @@ def create_heatmap(data: dict,
         heatmap = base64.b64encode(image_file.read()).decode('ascii')
     return heatmap
 
+
 # =============================================================================
 # ============================== SCORE FUNCTIONS ==============================
 # =============================================================================
 
-def normalized_accuracy(y_true: np.ndarray, 
-                        y_pred: np.ndarray,
-                        num_ways: int) -> float:
+
+def normalized_accuracy(y_true: np.ndarray, y_pred: np.ndarray, num_ways: int) -> float:
     """ Compute the normalized accuracy of the given predictions regarding the 
     number of ways.
 
@@ -221,16 +207,14 @@ def normalized_accuracy(y_true: np.ndarray,
     if len(y_pred.shape) == 2:
         y_pred = np.argmax(y_pred, axis=1)
     try:
-        bac = recall_score(y_true, y_pred, average = "macro", zero_division=0)
-        base_bac = 1/num_ways # random guessing
+        bac = recall_score(y_true, y_pred, average="macro", zero_division=0)
+        base_bac = 1 / num_ways  # random guessing
         return (bac - base_bac) / (1 - base_bac)
     except Exception as e:
-        raise Exception(f"In normalized_accuracy, score cannot be computed. "
-            + f"Detailed error: {repr(e)}")
-        
+        raise Exception(f"In normalized_accuracy, score cannot be computed. " + f"Detailed error: {repr(e)}")
 
-def accuracy(y_true: np.ndarray, 
-             y_pred: np.ndarray) -> float:
+
+def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """ Compute the accuracy of the given predictions.
 
     Args:
@@ -248,12 +232,10 @@ def accuracy(y_true: np.ndarray,
     try:
         return accuracy_score(y_true, y_pred)
     except Exception as e:
-        raise Exception(f"In accuracy, score cannot be computed. Detailed "
-            + f"error: {repr(e)}")
-    
+        raise Exception(f"In accuracy, score cannot be computed. Detailed " + f"error: {repr(e)}")
 
-def macro_f1_score(y_true: np.ndarray, 
-                   y_pred: np.ndarray) -> float:
+
+def macro_f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """ Compute the macro averaged f1 score of the given predictions.
 
     Args:
@@ -270,14 +252,12 @@ def macro_f1_score(y_true: np.ndarray,
     if len(y_pred.shape) == 2:
         y_pred = np.argmax(y_pred, axis=1)
     try:
-        return f1_score(y_true, y_pred, average = "macro", zero_division = 0)
+        return f1_score(y_true, y_pred, average="macro", zero_division=0)
     except Exception as e:
-        raise Exception(f"In macro_f1_score, score cannot be computed. "
-            + f"Detailed error: {repr(e)}")
-        
+        raise Exception(f"In macro_f1_score, score cannot be computed. " + f"Detailed error: {repr(e)}")
 
-def macro_precision(y_true: np.ndarray, 
-                    y_pred: np.ndarray) -> float:
+
+def macro_precision(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """ Compute the macro averaged precision of the given predictions.
 
     Args:
@@ -294,15 +274,12 @@ def macro_precision(y_true: np.ndarray,
     if len(y_pred.shape) == 2:
         y_pred = np.argmax(y_pred, axis=1)
     try:
-        return precision_score(y_true, y_pred, average = "macro", 
-            zero_division = 0)
+        return precision_score(y_true, y_pred, average="macro", zero_division=0)
     except Exception as e:
-        raise Exception(f"In macro_precision, score cannot be computed. "
-            + f"Detailed error: {repr(e)}")
-        
-        
-def macro_recall(y_true: np.ndarray, 
-                 y_pred: np.ndarray) -> float:
+        raise Exception(f"In macro_precision, score cannot be computed. " + f"Detailed error: {repr(e)}")
+
+
+def macro_recall(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """ Compute the macro averaged recall of the given predictions.
 
     Args:
@@ -319,17 +296,12 @@ def macro_recall(y_true: np.ndarray,
     if len(y_pred.shape) == 2:
         y_pred = np.argmax(y_pred, axis=1)
     try:
-        return recall_score(y_true, y_pred, average = "macro", 
-            zero_division = 0)
+        return recall_score(y_true, y_pred, average="macro", zero_division=0)
     except Exception as e:
-        raise Exception(f"In macro_recall, score cannot be computed. Detailed "
-            + f"error: {repr(e)}")
+        raise Exception(f"In macro_recall, score cannot be computed. Detailed " + f"error: {repr(e)}")
 
 
-def compute_all_scores(y_true: np.ndarray, 
-                       y_pred: np.ndarray,
-                       num_ways: int,
-                       batch: bool = False) -> dict:
+def compute_all_scores(y_true: np.ndarray, y_pred: np.ndarray, num_ways: int, batch: bool = False) -> dict:
     """ Computes the normalized accuracy, accuracy, macro averaged f1 score,
     macro averaged precision and macro averaged recall of the given predictions
 
@@ -352,7 +324,7 @@ def compute_all_scores(y_true: np.ndarray,
     }
     if batch:
         del scoring["Normalized Accuracy"]
-        
+
     scores = dict()
     for key in scoring.keys():
         scoring_function = scoring[key]

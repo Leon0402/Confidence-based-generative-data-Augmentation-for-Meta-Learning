@@ -18,18 +18,15 @@ def get_torch_gpu_environment() -> List[str]:
     if torch.cuda.is_available():
         env_info.append(f"Cuda version: {torch.version.cuda}")
         env_info.append(f"cuDNN version: {torch.backends.cudnn.version()}")
-        env_info.append("Number of available GPUs: "
-            + f"{torch.cuda.device_count()}")
-        env_info.append("Current GPU name: " +
-            f"{torch.cuda.get_device_name(torch.cuda.current_device())}")
+        env_info.append("Number of available GPUs: " + f"{torch.cuda.device_count()}")
+        env_info.append("Current GPU name: " + f"{torch.cuda.get_device_name(torch.cuda.current_device())}")
     else:
         env_info.append("Number of available GPUs: 0")
-    
+
     return env_info
 
 
-def cycle(steps: int,
-          iterable: Any) -> Iterator[Any]:
+def cycle(steps: int, iterable: Any) -> Iterator[Any]:
     """ Creates a cycle of the specified number of steps using the specified 
     iterable.
 
@@ -50,4 +47,3 @@ def cycle(steps: int,
             yield x
         if c_steps == steps:
             break
-            
