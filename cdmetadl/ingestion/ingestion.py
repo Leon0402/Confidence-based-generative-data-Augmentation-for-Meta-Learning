@@ -37,10 +37,9 @@ from pathlib import Path
 import numpy as np
 from torch.utils.data import DataLoader
 
+import cdmetadl.dataset.split
 from cdmetadl.helpers.ingestion_helpers import *
 from cdmetadl.helpers.general_helpers import *
-from cdmetadl.ingestion.image_dataset import ImageDataset, create_datasets
-from cdmetadl.ingestion.data_generator import CompetitionDataLoader
 from cdmetadl.ingestion.competition_logger import Logger
 
 # Program version
@@ -147,8 +146,10 @@ def ingestion(args) -> None:
         if "validation_datasets" in user_config:
             validation_datasets = user_config["validation_datasets"]
             if validation_datasets is not None and validation_datasets > 9:
-                print("[-] Defining generators config: validation_datasets " + "cannot be greater than 9. Received: " +
-                      f"{validation_datasets}")
+                print(
+                    "[-] Defining generators config: validation_datasets " + "cannot be greater than 9. Received: " +
+                    f"{validation_datasets}"
+                )
                 exit(1)
         if "train_config" in user_config:
             train_generator_config.update(user_config["train_config"])
@@ -157,58 +158,30 @@ def ingestion(args) -> None:
 
     vprint("[+] Generators config", args.verbose)
 
-    vprint("\nPreparing datasets info...", args.verbose)
-    (train_datasets_info, valid_datasets_info,
-     test_datasets_info) = prepare_datasets_information(input_dir, validation_datasets, args.seed, args.verbose)
-    vprint("[+] Datasets info", args.verbose)
+    vprint("\nPreparing dataset", args.verbose)
+    # TODO(leon): Adjust, make configurable
+    args.datasets = ["BCT, BRD, CRS, FLW, MD_MIX, PLK"] if args.domain_type == 'cross-domain' else ["BCT"]
+    datasets_info = check_datasets(input_dir, args.datasets, args.verbose)
+    dataset = cdmetadl.dataset.split.MetaImageDataset(datasets_info.values(), args.image_size)
 
-    # Initialize generators
-    vprint("\nInitializing data generators...", args.verbose)
-    # Train generator
+    if args.domain_type == 'cross-domain':
+        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(
+            dataset, [0.3, 0.3, 0.4],
+            torch.Generator().manual_seed(args.seed)
+        )
+    elif args.domain_type == 'within-domain':
+        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(
+            dataset, [0.3, 0.3, 0.4],
+            torch.Generator().manual_seed(args.seed)
+        )
+
     if train_data_format == "task":
-        train_datasets = create_datasets(train_datasets_info, args.image_size)
-        train_loader = CompetitionDataLoader(datasets=train_datasets,
-                                             episodes_config=train_generator_config,
-                                             seed=args.seed,
-                                             verbose=args.verbose)
-        meta_train_generator = train_loader.generator
-        train_classes = train_generator_config["N"]
-        total_classes = sum([len(dataset.idx_per_label) for dataset in train_datasets])
+        meta_train_generator = cdmetadl.dataset.create_batch_generator(train_dataset)
     else:
-        g = torch.Generator()
-        g.manual_seed(args.seed)
-        train_dataset = ImageDataset(train_datasets_info, args.image_size)
-        meta_train_generator = lambda batches: iter(
-            cycle(batches,
-                  DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, generator=g)))
-        train_classes = len(train_dataset.idx_per_label)
-        total_classes = train_classes
-    vprint("\t[+] Train generator", args.verbose)
+        meta_train_generator = cdmetadl.dataset.create_task_generator(train_dataset)
 
-    # Valid generator
-    if len(valid_datasets_info) > 0:
-        valid_datasets = create_datasets(valid_datasets_info, args.image_size)
-        valid_loader = CompetitionDataLoader(datasets=valid_datasets,
-                                             episodes_config=valid_generator_config,
-                                             seed=args.seed,
-                                             verbose=args.verbose)
-        meta_valid_generator = valid_loader.generator
-        vprint("\t[+] Valid generator", args.verbose)
-    else:
-        meta_valid_generator = None
-        vprint("\t[!] Valid generator is None", args.verbose)
-
-    # Test generator
-    test_datasets = create_datasets(test_datasets_info, args.image_size)
-    test_loader = CompetitionDataLoader(datasets=test_datasets,
-                                        episodes_config=test_generator_config,
-                                        seed=args.seed,
-                                        test_generator=True,
-                                        verbose=args.verbose)
-    meta_test_generator = test_loader.generator
-    vprint("\t[+] Test generator", args.verbose)
-
-    vprint("[+] Data generators", args.verbose)
+    meta_val_generator = cdmetadl.dataset.create_task_generator(val_dataset, sample_dataset=True)
+    meta_test_generator = cdmetadl.dataset.create_task_generator(val_dataset)
 
     # Create output dir
     if output_dir.exists() and not args.overwrite_previous_results:
@@ -233,68 +206,68 @@ def ingestion(args) -> None:
     gpu_info = get_torch_gpu_environment()
     gpu_settings.extend(gpu_info)
 
-    data_settings = [
-        "\n----- Data settings -----", f"# Train datasets: {len(train_datasets_info)}",
-        f"# Validation datasets: {len(valid_datasets_info)}", f"# Test datasets: {len(test_datasets_info)}",
-        f"Image size: {args.image_size}", f"Random seed: {args.seed}"
-    ]
+    # data_settings = [
+    #     "\n----- Data settings -----", f"# Train datasets: {len(train_datasets_info)}",
+    #     f"# Validation datasets: {len(valid_datasets_info)}", f"# Test datasets: {len(test_datasets_info)}",
+    #     f"Image size: {args.image_size}", f"Random seed: {args.seed}"
+    # ]
 
-    if train_data_format == "task":
-        train_settings = [
-            "\n----- Train settings -----", f"Train data format: {train_data_format}", f"N-way: {train_loader.n_way}",
-            f"Minimum ways: {train_loader.min_ways}", f"Maximum ways: {train_loader.max_ways}",
-            f"k-shot: {train_loader.k_shot}", f"Minimum shots: {train_loader.min_shots}",
-            f"Maximum shots: {train_loader.max_shots}", f"Query size: {train_loader.query_size}"
-        ]
-    else:
-        train_settings = [
-            "\n----- Train settings -----", f"Train data format: {train_data_format}", f"Batch size: {batch_size}"
-        ]
+    # if train_data_format == "task":
+    #     train_settings = [
+    #         "\n----- Train settings -----", f"Train data format: {train_data_format}", f"N-way: {train_loader.n_way}",
+    #         f"Minimum ways: {train_loader.min_ways}", f"Maximum ways: {train_loader.max_ways}",
+    #         f"k-shot: {train_loader.k_shot}", f"Minimum shots: {train_loader.min_shots}",
+    #         f"Maximum shots: {train_loader.max_shots}", f"Query size: {train_loader.query_size}"
+    #     ]
+    # else:
+    #     train_settings = [
+    #         "\n----- Train settings -----", f"Train data format: {train_data_format}", f"Batch size: {batch_size}"
+    #     ]
 
-    if len(valid_datasets_info) > 0:
-        validation_settings = [
-            "\n----- Validation settings -----", f"N-way: {valid_loader.n_way}",
-            f"Minimum ways: {valid_loader.min_ways}", f"Maximum ways: {valid_loader.max_ways}",
-            f"k-shot: {valid_loader.k_shot}", f"Minimum shots: {valid_loader.min_shots}",
-            f"Maximum shots: {valid_loader.max_shots}", f"Query size: {valid_loader.query_size}"
-        ]
+    # if len(valid_datasets_info) > 0:
+    #     validation_settings = [
+    #         "\n----- Validation settings -----", f"N-way: {valid_loader.n_way}",
+    #         f"Minimum ways: {valid_loader.min_ways}", f"Maximum ways: {valid_loader.max_ways}",
+    #         f"k-shot: {valid_loader.k_shot}", f"Minimum shots: {valid_loader.min_shots}",
+    #         f"Maximum shots: {valid_loader.max_shots}", f"Query size: {valid_loader.query_size}"
+    #     ]
 
-    test_settings = [
-        "\n----- Test settings -----", f"N-way: {test_loader.n_way}", f"Minimum ways: {test_loader.min_ways}",
-        f"Maximum ways: {test_loader.max_ways}", f"k-shot: {test_loader.k_shot}",
-        f"Minimum shots: {test_loader.min_shots}", f"Maximum shots: {test_loader.max_shots}",
-        f"Query size: {test_loader.query_size}"
-    ]
+    # test_settings = [
+    #     "\n----- Test settings -----", f"N-way: {test_loader.n_way}", f"Minimum ways: {test_loader.min_ways}",
+    #     f"Maximum ways: {test_loader.max_ways}", f"k-shot: {test_loader.k_shot}",
+    #     f"Minimum shots: {test_loader.min_shots}", f"Maximum shots: {test_loader.max_shots}",
+    #     f"Query size: {test_loader.query_size}"
+    # ]
 
-    if len(valid_datasets_info) > 0:
-        all_settings = [
-            f"\n{'*'*9} Experimental settings {'*'*9}",
-            join_list(gpu_settings),
-            join_list(data_settings),
-            join_list(train_settings),
-            join_list(validation_settings),
-            join_list(test_settings), f"\n{'*'*41}"
-        ]
-    else:
-        all_settings = [
-            f"\n{'*'*9} Experimental settings {'*'*9}",
-            join_list(gpu_settings),
-            join_list(data_settings),
-            join_list(train_settings),
-            join_list(test_settings), f"\n{'*'*41}"
-        ]
+    # if len(valid_datasets_info) > 0:
+    #     all_settings = [
+    #         f"\n{'*'*9} Experimental settings {'*'*9}",
+    #         join_list(gpu_settings),
+    #         join_list(data_settings),
+    #         join_list(train_settings),
+    #         join_list(validation_settings),
+    #         join_list(test_settings), f"\n{'*'*41}"
+    #     ]
+    # else:
+    #     all_settings = [
+    #         f"\n{'*'*9} Experimental settings {'*'*9}",
+    #         join_list(gpu_settings),
+    #         join_list(data_settings),
+    #         join_list(train_settings),
+    #         join_list(test_settings), f"\n{'*'*41}"
+    #     ]
 
-    experimental_settings = join_list(all_settings)
-    vprint(experimental_settings, args.verbose)
-    experimental_settings_file = f"{logs_dir}/experimental_settings.txt"
-    with open(experimental_settings_file, "w") as f:
-        f.writelines(experimental_settings)
+    # experimental_settings = join_list(all_settings)
+    # vprint(experimental_settings, args.verbose)
+    # experimental_settings_file = f"{logs_dir}/experimental_settings.txt"
+    # with open(experimental_settings_file, "w") as f:
+    #     f.writelines(experimental_settings)
 
     # Meta-train
     vprint("\nMeta-training your meta-learner...", args.verbose)
     meta_training_start = time.time()
     meta_learner = MyMetaLearner(train_classes, total_classes, logger)
-    learner = meta_learner.meta_fit(meta_train_generator, meta_valid_generator)
+    learner = meta_learner.meta_fit(meta_train_generator, meta_val_generator)
     meta_training_time = time.time() - meta_training_start
     learner.save(model_dir)
     vprint("[+] Meta-learner meta-trained", args.verbose)
@@ -319,8 +292,10 @@ def ingestion(args) -> None:
         task_time = time.time() - task_start
         if args.debug_mode >= 1:
             if task_time > args.max_time:
-                print(f"\t\t[-] Task {i+1} exceeded the maximum time allowed. " +
-                      f"Max time {args.max_time}, execution time {task_time}")
+                print(
+                    f"\t\t[-] Task {i+1} exceeded the maximum time allowed. " +
+                    f"Max time {args.max_time}, execution time {task_time}"
+                )
                 exit(1)
 
         file_name = f"{output_dir}/task_{i+1}"
@@ -337,7 +312,7 @@ def ingestion(args) -> None:
         global_metadata_file.write(f"Total execution time: {total_time}\n")
         global_metadata_file.write(f"Meta-train time: {meta_training_time}\n")
         global_metadata_file.write(f"Meta-test time: {meta_testing_time}\n")
-        global_metadata_file.write("Number of test datasets: " + f"{len(test_datasets_info)}\n")
+        # global_metadata_file.write("Number of test datasets: " + f"{len(test_datasets_info)}\n")
         global_metadata_file.write("Tasks per dataset: " + f"{args.test_tasks_per_dataset}")
     vprint(f"\nOverall time spent: {total_time} seconds", args.verbose)
 
@@ -346,10 +321,9 @@ def ingestion(args) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description='Ingestion')
-    parser.add_argument('--seed',
-                        type=int,
-                        default=93,
-                        help='Any int to be used as random seed for reproducibility. Default: 93.')
+    parser.add_argument(
+        '--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.'
+    )
     parser.add_argument(
         '--verbose',
         type=lambda x: (str(x).lower() == 'true'),
@@ -365,10 +339,12 @@ def main():
         help=
         '0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.'
     )
-    parser.add_argument('--image_size',
-                        type=int,
-                        default=128,
-                        help='Int specifying the image size for all generators (recommended value 128). Default: 128.')
+    parser.add_argument(
+        '--image_size',
+        type=int,
+        default=128,
+        help='Int specifying the image size for all generators (recommended value 128). Default: 128.'
+    )
     parser.add_argument(
         '--private_information',
         type=lambda x: (str(x).lower() == 'true'),
@@ -383,30 +359,41 @@ def main():
         help=
         'True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.'
     )
-    parser.add_argument('--max_time',
-                        type=int,
-                        default=1000,
-                        help='Maximum time in seconds PER TESTING TASK. Default: 1000.')
+    parser.add_argument(
+        '--max_time', type=int, default=1000, help='Maximum time in seconds PER TESTING TASK. Default: 1000.'
+    )
     parser.add_argument(
         '--test_tasks_per_dataset',
         type=int,
         default=100,
-        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
+        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
+    )
+    parser.add_argument(
+        '--domain_type',
+        choices=['cross-domain', 'within-domain'],
+        default="cross-domain",
+        help=
+        "Choose the domain type for meta-learning. 'cross-domain' indicates a setup where multiple distinct datasets are utilized, ensuring that the training, validation, and testing sets are entirely separate, thereby promoting generalization across diverse data sources. 'within-domain', on the other hand, refers to using a single dataset, segmented into different classes for training, validation, and testing, focusing on learning variations within a more homogeneous data environment. Default: cross-domain."
+    )
     parser.add_argument(
         '--input_data_dir',
         type=Path,
         default='../../public_data',
         help=
-        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
+        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".'
+    )
     parser.add_argument(
         '--output_dir_ingestion',
         type=Path,
         default='../../ingestion_output',
-        help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".')
-    parser.add_argument('--submission_dir',
-                        type=Path,
-                        default='../../baselines/random',
-                        help='Path to the directory containing the solution to use. Default: "../../baselines/random".')
+        help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".'
+    )
+    parser.add_argument(
+        '--submission_dir',
+        type=Path,
+        default='../../baselines/random',
+        help='Path to the directory containing the solution to use. Default: "../../baselines/random".'
+    )
 
     args = parser.parse_args()
     ingestion(args)
