@@ -25,7 +25,7 @@ class TestImageDataset(unittest.TestCase):
                 dataset, cdmetadl.dataset.split.ImageDataset, f"Failed to initialize ImageDataset for {dataset_name}"
             )
 
-    def test_ength(self):
+    def test_length(self):
         # Test the length of the dataset
         for dataset_name, dataset_info in self.train_datasets_info.items():
             dataset = cdmetadl.dataset.split.ImageDataset(dataset_info)

@@ -391,13 +391,7 @@ class MyLearner(Learner):
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
 
         self.learner.freeze_layers(n_ways)
-
-        print("Debug")
-        print(X_train.shape)
-        print(y_train.shape)
-        print(n_ways)
-        print(k_shots)
-
+        
         if self.ncc:
             with torch.no_grad():
                 prototypes = process_support_set(self.learner, X_train, y_train, n_ways)
