@@ -4,7 +4,7 @@ import csv
 import numpy as np
 from typing import Any
 
-from cdmetadl.ingestion.data_generator import Task
+import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
 
 
@@ -45,7 +45,7 @@ class Logger():
         """
         # Check the data format
         is_task = False
-        if isinstance(data, Task):
+        if isinstance(data, cdmetadl.dataset.Task):
             is_task = True
 
         first_log = False
@@ -119,15 +119,19 @@ class Logger():
             score_names.append("Loss")
             score_values.append(loss)
             if is_task:
-                print(f"{print_text}" + f"\t{scores['Normalized Accuracy']:.4f} (Normalized " + "Accuracy)" +
-                      f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t{loss:.4f} (Loss)" +
-                      f"\t[{N}-way {k}-shot task from {dataset}]")
+                print(
+                    f"{print_text}" + f"\t{scores['Normalized Accuracy']:.4f} (Normalized " + "Accuracy)" +
+                    f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t{loss:.4f} (Loss)" +
+                    f"\t[{N}-way {k}-shot task from {dataset}]"
+                )
             else:
                 print(f"{print_text}" + f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t{loss:.4f} (Loss)")
         else:
             if is_task:
-                print(f"{print_text}" + f"\t{scores['Normalized Accuracy']:.4f} (Normalized " + "Accuracy)" +
-                      f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t[{N}-way {k}-shot task from {dataset}]")
+                print(
+                    f"{print_text}" + f"\t{scores['Normalized Accuracy']:.4f} (Normalized " + "Accuracy)" +
+                    f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t[{N}-way {k}-shot task from {dataset}]"
+                )
             else:
                 print(f"{print_text}" + f"\t{scores['Accuracy']:.4f} (Accuracy)")
 

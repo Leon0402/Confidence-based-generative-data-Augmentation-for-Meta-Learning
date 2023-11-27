@@ -46,6 +46,52 @@ from cdmetadl.ingestion.competition_logger import Logger
 VERSION = 1.1
 
 
+def read_generator_configs(config_file: Path) -> Tuple[str, dict, dict, dict]:
+    train_data_format = "task"
+
+    train_generator_config = {
+        "N": 5,
+        "min_N": None,
+        "max_N": None,
+        "k": None,
+        "min_k": 1,
+        "max_k": 20,
+        "query_images_per_class": 20,
+        "batch_size": 16
+    }
+
+    valid_generator_config = {
+        "N": None,
+        "min_N": 2,
+        "max_N": 20,
+        "k": None,
+        "min_k": 1,
+        "max_k": 20,
+        "query_images_per_class": 20
+    }
+
+    test_generator_config = {
+        "N": None,
+        "min_N": 2,
+        "max_N": 20,
+        "k": None,
+        "min_k": 1,
+        "max_k": 20,
+        "query_images_per_class": 20
+    }
+
+    if config_file.exists():
+        user_config = load_json(config_file)
+        if "train_data_format" in user_config:
+            train_data_format = user_config["train_data_format"]
+        if "train_config" in user_config:
+            train_generator_config.update(user_config["train_config"])
+        if "valid_config" in user_config:
+            valid_generator_config.update(user_config["valid_config"])
+
+    return train_data_format, train_generator_config, valid_generator_config, test_generator_config
+
+
 def ingestion(args) -> None:
     total_time_start = time.time()
 
@@ -97,91 +143,37 @@ def ingestion(args) -> None:
     exist_dir(submission_dir)
     vprint("[+] Directories", args.verbose)
 
-    # Define the configuration for the generators
     vprint("\nDefining generators config..", args.verbose)
-    train_data_format = "task"
-    batch_size = 16
-    validation_datasets = None
-
-    train_generator_config = {
-        "N": 5,
-        "min_N": None,
-        "max_N": None,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
-    valid_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 20,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
-    test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 20,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
-    config_file = submission_dir / "config.json"
-    if config_file.exists():
-        user_config = load_json(config_file)
-        if "train_data_format" in user_config:
-            train_data_format = user_config["train_data_format"]
-        if "batch_size" in user_config:
-            batch_size = user_config["batch_size"]
-            if batch_size is not None and batch_size < 1:
-                print("[-] Defining generators config: batch_size cannot be " + f"less than 1. Received: {batch_size}")
-                exit(1)
-        if "validation_datasets" in user_config:
-            validation_datasets = user_config["validation_datasets"]
-            if validation_datasets is not None and validation_datasets > 9:
-                print(
-                    "[-] Defining generators config: validation_datasets " + "cannot be greater than 9. Received: " +
-                    f"{validation_datasets}"
-                )
-                exit(1)
-        if "train_config" in user_config:
-            train_generator_config.update(user_config["train_config"])
-        if "valid_config" in user_config:
-            valid_generator_config.update(user_config["valid_config"])
-
-    vprint("[+] Generators config", args.verbose)
+    train_data_format, train_generator_config, valid_generator_config, test_generator_config = read_generator_configs(
+        submission_dir / "config.json"
+    )
 
     vprint("\nPreparing dataset", args.verbose)
     # TODO(leon): Adjust, make configurable
-    args.datasets = ["BCT, BRD, CRS, FLW, MD_MIX, PLK"] if args.domain_type == 'cross-domain' else ["BCT"]
+    args.datasets = ["BCT", "BRD", "CRS", "FLW", "MD_MIX", "PLK"] if args.domain_type == 'cross-domain' else ["BCT"]
     datasets_info = check_datasets(input_dir, args.datasets, args.verbose)
-    dataset = cdmetadl.dataset.split.MetaImageDataset(datasets_info.values(), args.image_size)
+    dataset = cdmetadl.dataset.MetaImageDataset([
+        cdmetadl.dataset.ImageDataset(name, info, args.image_size) for name, info in datasets_info.items()
+    ])
 
     if args.domain_type == 'cross-domain':
-        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(
-            dataset, [0.3, 0.3, 0.4],
-            torch.Generator().manual_seed(args.seed)
-        )
+        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(dataset, [0.3, 0.3, 0.4])
     elif args.domain_type == 'within-domain':
-        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(
-            dataset, [0.3, 0.3, 0.4],
-            torch.Generator().manual_seed(args.seed)
-        )
+        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(dataset, [0.3, 0.3, 0.4])
 
+    total_classes = sum(dataset.number_of_classes for dataset in train_dataset.datasets)
     if train_data_format == "task":
-        meta_train_generator = cdmetadl.dataset.create_batch_generator(train_dataset)
+        meta_train_generator = cdmetadl.dataset.create_task_generator(train_dataset, train_generator_config)
+        # TODO(leon): Isn't "train_classes" dynamic here in any-way any-shot?
+        train_classes = train_generator_config["N"]
     else:
-        meta_train_generator = cdmetadl.dataset.create_task_generator(train_dataset)
+        meta_train_generator = cdmetadl.dataset.create_batch_generator(train_dataset)
+        train_classes = total_classes
 
-    meta_val_generator = cdmetadl.dataset.create_task_generator(val_dataset, sample_dataset=True)
-    meta_test_generator = cdmetadl.dataset.create_task_generator(val_dataset)
+    meta_val_generator = cdmetadl.dataset.create_task_generator(
+        val_dataset, valid_generator_config, sample_dataset=True
+    )
+    meta_test_generator = cdmetadl.dataset.create_task_generator(test_dataset, test_generator_config)
 
     # Create output dir
     if output_dir.exists() and not args.overwrite_previous_results:

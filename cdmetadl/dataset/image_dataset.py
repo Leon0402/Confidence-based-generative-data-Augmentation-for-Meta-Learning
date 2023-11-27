@@ -1,13 +1,12 @@
-import random
+__all__ = ["ImageDataset"]
 
 import pandas as pd
 import numpy as np
 import torch.utils.data
 import torchvision.transforms
-import sklearn.utils
 import PIL
 
-import cdmetadl.dataset
+from .task import Task
 
 
 class ImageDataset(torch.utils.data.Dataset):
@@ -22,9 +21,10 @@ class ImageDataset(torch.utils.data.Dataset):
         transform (torchvision.transforms.Compose): Transformation to apply to each image.
     """
 
-    def __init__(self, dataset_info: dict, img_size: int = 128):
+    def __init__(self, name: str, dataset_info: dict, img_size: int = 128):
         """
         Args:
+            name (str): Name of the dataset
             dataset_info (dict): Contains the following keys:
                              - 'label_column': Column name for labels in metadata CSV.
                              - 'file_column': Column name for file names in metadata CSV.
@@ -32,6 +32,7 @@ class ImageDataset(torch.utils.data.Dataset):
                              - 'metadata_path': Path to the CSV file containing metadata.
             img_size (int, optional): Size to resize images to. Default is 128.
         """
+        self.name = name
         label_column, file_column, imgage_path, metadata_path = dataset_info
 
         metadata = pd.read_csv(metadata_path)
@@ -41,6 +42,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.labels = np.array([label_to_id[label] for label in metadata[label_column]])
 
         self.idx_per_label = [np.flatnonzero(self.labels == i) for i in range(max(self.labels) + 1)]
+        self.number_of_classes = len(self.idx_per_label)
         self.min_examples_per_class = min(len(idx) for idx in self.idx_per_label)
 
         self.transform = torchvision.transforms.Compose([
@@ -69,50 +71,41 @@ class ImageDataset(torch.utils.data.Dataset):
         """
         return self.transform(PIL.Image.open(self.img_paths[idx])), torch.tensor(self.labels[idx])
 
-    def generate_task(self, min_ways: int, max_ways: int, min_shots: int, max_shots: int) -> cdmetadl.dataset.Task:
-        generator = sklearn.utils.check_random_state(42)
+    def generate_task(self, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int) -> Task:
+        if max_ways > self.number_of_classes:
+            raise ValueError(
+                f"Max ways was set to {max_ways}, but dataset {self.name} only has {self.number_of_classes} classes"
+            )
+        if max_shots + query_size > self.min_examples_per_class:
+            raise ValueError(
+                f"Max shots was set to {max_shots} and query size to {query_size}, but dataset {self.name} only has {self.min_examples_per_class} examples of its smallest class"
+            )
 
-        # TODO(leon): Needs more work with error handling (n_way > number of classes for instance)
-        n_way = generator.randint(min_ways, max_ways + 1)
-        k_shot = generator.randint(min_shots, max_shots + 1)
-        query_size = 10
+        n_way = np.random.randint(min_ways, max_ways + 1)
+        k_shot = np.random.randint(min_shots, max_shots + 1)
 
-        selected_classes = generator.permutation(len(self.idx_per_label))[:n_way]
+        selected_classes = np.random.permutation(len(self.idx_per_label))[:n_way]
+        # Indices for support and query set are sampled together to ensure no indix appears twice
+        sampled_indices_per_class = [
+            np.random.choice(self.idx_per_label[cls], k_shot + query_size, replace=False) for cls in selected_classes
+        ]
 
-        # Initialize support and query sets
-        support_images = []
-        support_labels = []
-        query_images = []
-        query_labels = []
-        original_class_idx = []
+        support_images = torch.stack([
+            self[idx][0] for indices in sampled_indices_per_class for idx in indices[:k_shot]
+        ])
+        query_images = torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]])
 
-        for cls in selected_classes:
-            all_indices = self.idx_per_label[cls]
-            sampled_indices = generator.choice(all_indices, k_shot + query_size, replace=False)
-            support_idx, query_idx = sampled_indices[:k_shot], sampled_indices[k_shot:]
-
-            # Add to support and query sets
-            for idx in support_idx:
-                img, label = self[idx]
-                support_images.append(img)
-                support_labels.append(torch.tensor(cls))
-
-            for idx in query_idx:
-                img, label = self[idx]
-                query_images.append(img)
-                query_labels.append(torch.tensor(cls))
-
-            original_class_idx.append(cls)
-
-        return cdmetadl.dataset.Task(
+        return Task(
             num_ways=n_way,
             num_shots=k_shot,
             support_set=(
-                torch.stack(support_images), torch.tensor(support_labels), torch.tensor(np.array(original_class_idx))
+                support_images, torch.tensor(np.arange(len(selected_classes)).repeat(n_way)),
+                torch.tensor(selected_classes.repeat(k_shot))
             ),
             query_set=(
-                torch.stack(query_images), torch.tensor(query_labels), torch.tensor(np.array(original_class_idx))
+                query_images, torch.tensor(np.arange(len(selected_classes)).repeat(query_size)),
+                torch.tensor(selected_classes.repeat(query_size))
             ),
-            original_class_idx=original_class_idx,
+            original_class_idx=selected_classes,
             dataset=self.name
         )

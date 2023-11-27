@@ -1,3 +1,5 @@
+__all__ = ["Task"]
+
 from dataclasses import dataclass
 
 import torch

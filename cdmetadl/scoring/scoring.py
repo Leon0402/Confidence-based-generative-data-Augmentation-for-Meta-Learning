@@ -34,8 +34,6 @@ from pathlib import Path
 
 from cdmetadl.helpers.scoring_helpers import *
 from cdmetadl.helpers.general_helpers import *
-from cdmetadl.ingestion.image_dataset import create_datasets
-from cdmetadl.ingestion.data_generator import CompetitionDataLoader
 
 # Program version
 VERSION = 1.1
@@ -80,12 +78,14 @@ def scoring(args) -> None:
         "query_images_per_class": 20
     }
     test_datasets = create_datasets(test_datasets_info)
-    test_loader = CompetitionDataLoader(datasets=test_datasets,
-                                        episodes_config=test_generator_config,
-                                        seed=args.seed,
-                                        private_info=args.private_information,
-                                        test_generator=True,
-                                        verbose=args.verbose)
+    test_loader = CompetitionDataLoader(
+        datasets=test_datasets,
+        episodes_config=test_generator_config,
+        seed=args.seed,
+        private_info=args.private_information,
+        test_generator=True,
+        verbose=args.verbose
+    )
     meta_test_generator = test_loader.generator
     vprint("[+] Data generator", args.verbose)
 
@@ -204,9 +204,10 @@ def scoring(args) -> None:
                 else:
                     score_file.write(f"overall_{scores_names_to_save[i]}: " + f"{overall_score}\n")
                 vprint(f"\tOverall {score_name}: {overall_score:.3f} ± " + f"{overall_ci:.3f}", args.verbose)
-                overall_histogram = create_histogram(scores[score_name], score_name,
-                                                     f"Overall Frequency Histogram ({score_name})",
-                                                     f"{plots_dir}/overall_histogram_{scores_names_to_save[i]}")
+                overall_histogram = create_histogram(
+                    scores[score_name], score_name, f"Overall Frequency Histogram ({score_name})",
+                    f"{plots_dir}/overall_histogram_{scores_names_to_save[i]}"
+                )
                 overall_scores[score_name] = {
                     "mean_score": round(overall_score, 3),
                     "ci": round(overall_ci, 3),
@@ -230,9 +231,10 @@ def scoring(args) -> None:
                     dataset_info["ci"].append(round(conf_int, 3))
                 scores_grouped_by_dataset.append(dataset_info)
             for i, score_name in enumerate(scores_names):
-                datasets_heatmap = create_heatmap(scores_per_dataset, keys, keys, score_name,
-                                                  f"Frequency Heatmap per Dataset ({score_name})",
-                                                  f"{plots_dir}/heatmap_dataset_{scores_names_to_save[i]}")
+                datasets_heatmap = create_heatmap(
+                    scores_per_dataset, keys, keys, score_name, f"Frequency Heatmap per Dataset ({score_name})",
+                    f"{plots_dir}/heatmap_dataset_{scores_names_to_save[i]}"
+                )
                 datasets_heatmaps[score_name] = datasets_heatmap
 
             # Score per number of ways
@@ -251,9 +253,11 @@ def scoring(args) -> None:
                     ways_info["ci"].append(round(conf_int, 3))
                 scores_grouped_by_ways.append(ways_info)
             for i, score_name in enumerate(scores_names):
-                ways_heatmap = create_heatmap(scores_per_ways, keys, [f"{key}-ways" for key in keys], score_name,
-                                              f"Frequency Heatmap per Number of Ways ({score_name})",
-                                              f"{plots_dir}/heatmap_way_{scores_names_to_save[i]}")
+                ways_heatmap = create_heatmap(
+                    scores_per_ways, keys, [f"{key}-ways" for key in keys], score_name,
+                    f"Frequency Heatmap per Number of Ways ({score_name})",
+                    f"{plots_dir}/heatmap_way_{scores_names_to_save[i]}"
+                )
                 ways_heatmaps[score_name] = ways_heatmap
 
             # Score per number of shots
@@ -272,9 +276,11 @@ def scoring(args) -> None:
                     shots_info["ci"].append(round(conf_int, 3))
                 scores_grouped_by_shots.append(shots_info)
             for i, score_name in enumerate(scores_names):
-                shots_heatmap = create_heatmap(scores_per_shots, keys, [f"{key}-shot" for key in keys], score_name,
-                                               f"Frequency Heatmap per Number of Shots ({score_name})",
-                                               f"{plots_dir}/heatmap_shot_{scores_names_to_save[i]}")
+                shots_heatmap = create_heatmap(
+                    scores_per_shots, keys, [f"{key}-shot" for key in keys], score_name,
+                    f"Frequency Heatmap per Number of Shots ({score_name})",
+                    f"{plots_dir}/heatmap_shot_{scores_names_to_save[i]}"
+                )
                 shots_heatmaps[score_name] = shots_heatmap
 
             # Global metadata information
@@ -292,20 +298,21 @@ def scoring(args) -> None:
     # Create HTML report
     vprint(f"\nCreating HTML report...", args.verbose)
     try:
-        subs = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(os.path.dirname(__file__))).get_template("template.html").render(
-                title="Results Report",
-                scores_names=scores_names,
-                overall_scores=overall_scores,
-                tasks_per_dataset=tasks_per_dataset,
-                total_datasets=total_datasets,
-                scores_grouped_by_dataset=scores_grouped_by_dataset,
-                datasets_heatmaps=datasets_heatmaps,
-                scores_grouped_by_ways=scores_grouped_by_ways,
-                ways_heatmaps=ways_heatmaps,
-                scores_grouped_by_shots=scores_grouped_by_shots,
-                shots_heatmaps=shots_heatmaps,
-                tasks=tasks)
+        subs = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__))
+                                  ).get_template("template.html").render(
+                                      title="Results Report",
+                                      scores_names=scores_names,
+                                      overall_scores=overall_scores,
+                                      tasks_per_dataset=tasks_per_dataset,
+                                      total_datasets=total_datasets,
+                                      scores_grouped_by_dataset=scores_grouped_by_dataset,
+                                      datasets_heatmaps=datasets_heatmaps,
+                                      scores_grouped_by_ways=scores_grouped_by_ways,
+                                      ways_heatmaps=ways_heatmaps,
+                                      scores_grouped_by_shots=scores_grouped_by_shots,
+                                      shots_heatmaps=shots_heatmaps,
+                                      tasks=tasks
+                                  )
 
         with open(output_dir / "detailed_results.html", 'w', encoding="utf-8") as f:
             f.write(subs)
@@ -320,10 +327,9 @@ def scoring(args) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description='Scoring')
-    parser.add_argument('--seed',
-                        type=int,
-                        default=93,
-                        help='Any int to be used as random seed for reproducibility. Default: 93.')
+    parser.add_argument(
+        '--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.'
+    )
     parser.add_argument(
         '--verbose',
         type=lambda x: (str(x).lower() == 'true'),
@@ -357,23 +363,27 @@ def main():
         '--test_tasks_per_dataset',
         type=int,
         default=100,
-        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
+        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
+    )
     parser.add_argument(
         '--input_data_dir',
         type=Path,
         default='../../public_data',
         help=
-        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
+        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".'
+    )
     parser.add_argument(
         '--results_dir',
         type=Path,
         default='../../ingestion_output',
-        help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".')
+        help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".'
+    )
     parser.add_argument(
         '--output_dir_scoring',
         type=Path,
         default='../../scoring_output',
-        help='Default location of the output directory for the scoring program. Default: "../../scoring_output".')
+        help='Default location of the output directory for the scoring program. Default: "../../scoring_output".'
+    )
 
     args = parser.parse_args()
     scoring(args)

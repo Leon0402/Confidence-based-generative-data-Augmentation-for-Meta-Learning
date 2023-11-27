@@ -1,3 +1,5 @@
+__all__ = ["MetaImageDataset"]
+
 from typing import Iterator
 import bisect
 import itertools
@@ -5,13 +7,24 @@ import random
 
 import torch.utils.data
 
-import cdmetadl.dataset
+from .image_dataset import ImageDataset
+from .task import Task
 
 
 class MetaImageDataset(torch.utils.data.Dataset):
+    """
+    A custom dataset class for handling multiple image datasets from MetaAlbum in PyTorch. 
+    
+    Attributes:
+        datasets (list[ImageDataset]): List of datasets this meta dataset holds.
+        dataset_end_index (list[int]): Lift of end indices of the datasets (non inclusive).
+    """
 
-    def __init__(self, datasets_info):
-        self.datasets = [cdmetadl.dataset.ImageDataset(dataset_info) for dataset_info in datasets_info]
+    def __init__(self, datasets: list[ImageDataset]):
+        """
+        TODO
+        """
+        self.datasets = datasets
         self.dataset_end_index = list(itertools.accumulate(len(dataset) for dataset in self.datasets))
 
     def __len__(self) -> int:
@@ -33,31 +46,34 @@ class MetaImageDataset(torch.utils.data.Dataset):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: A tuple containing the image and its label, both as tensors.
         """
-        dataset_idx = bisect.bisect_left(self.dataset_end_index, idx)
-        local_idx = idx - self.dataset_end_index.get(dataset_idx - 1, 0)
+        dataset_idx, local_idx = self._calculate_2d_index_from_1d(idx)
         return self.datasets[dataset_idx][local_idx]
 
-    def generate_tasks(self, num_tasks: int, n_way: int, k_shot: int,
-                       query_size: int) -> Iterator[cdmetadl.dataset.Task]:
+    def _calculate_2d_index_from_1d(self, idx: int) -> tuple[int, int]:
+        """
+        Given an one dimensional index it calculates a 2D index indicating the dataset and the index within that dataset.
+
+        Args:
+            idx (int): 1D index which should be converted.
+
+        Returns:
+            tuple[int, int]: A tuple containing the index of the dataset and the index within the dataset.
+        """
+        dataset_idx = bisect.bisect_left(self.dataset_end_index, idx)
+        previous_dataset_start_index = self.dataset_end_index[dataset_idx - 1] if dataset_idx != 0 else 0
+        local_idx = idx - previous_dataset_start_index
+        return dataset_idx, local_idx
+
+    def generate_tasks(
+        self, num_tasks: int, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int
+    ) -> Iterator[Task]:
         for _ in range(num_tasks):
             dataset = random.choice(self.datasets)
-            yield dataset.generate_task()
+            yield dataset.generate_task(min_ways, max_ways, min_shots, max_shots, query_size)
 
-    def generate_tasks_for_each_dataset(self, num_tasks_per_dataset: int, n_way: int, k_shot: int,
-                                        query_size: int) -> Iterator[cdmetadl.dataset.Task]:
+    def generate_tasks_for_each_dataset(
+        self, num_tasks_per_dataset: int, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int
+    ) -> Iterator[Task]:
         for dataset in self.datasets:
             for _ in range(num_tasks_per_dataset):
-                yield dataset.generate_task()
-
-def create_batch_generator(dataset: cdmetadl.dataset.MetaImageDataset)
-    def batch_generator(num_batches: int):
-        return iter(cdmetadl.helpers.general_helpers.cycle(num_batches, torch.utils.data.DataLoader(dataset)))
-    
-    return batch_generator
-
-def create_task_generator(dataset: cdmetadl.dataset.MetaImageDataset):
-
-    def task_generator(num_tasks: int):
-        yield from dataset.generate_tasks()
-    
-    return task_generator
+                yield dataset.generate_task(min_ways, max_ways, min_shots, max_shots, query_size)
