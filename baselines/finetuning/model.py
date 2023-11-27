@@ -311,8 +311,10 @@ class MyMetaLearner(MetaLearner):
 
         return X_train, y_train, X_test, y_test
 
-    def optimize_ncc(self, X_train: torch.Tensor, y_train: torch.Tensor, X_test: torch.Tensor, y_test: torch.Tensor,
-                     training: bool, num_classes: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def optimize_ncc(
+        self, X_train: torch.Tensor, y_train: torch.Tensor, X_test: torch.Tensor, y_test: torch.Tensor, training: bool,
+        num_classes: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Compute the output and loss using the specified data.
 
         Args:
@@ -385,10 +387,16 @@ class MyLearner(Learner):
             Predictor: The resulting predictor ready to predict unlabelled 
                 query image examples from new unseen tasks.
         """
-        X_train, y_train, _, n_ways, _ = support_set
+        X_train, y_train, _, n_ways, k_shots = support_set
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
 
         self.learner.freeze_layers(n_ways)
+
+        print("Debug")
+        print(X_train.shape)
+        print(y_train.shape)
+        print(n_ways)
+        print(k_shots)
 
         if self.ncc:
             with torch.no_grad():

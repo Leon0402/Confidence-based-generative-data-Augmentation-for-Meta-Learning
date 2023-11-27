@@ -99,11 +99,11 @@ class ImageDataset(torch.utils.data.Dataset):
             num_ways=n_way,
             num_shots=k_shot,
             support_set=(
-                support_images, torch.tensor(np.arange(len(selected_classes)).repeat(n_way)),
+                support_images, torch.tensor(np.arange(n_way).repeat(k_shot)),
                 torch.tensor(selected_classes.repeat(k_shot))
             ),
             query_set=(
-                query_images, torch.tensor(np.arange(len(selected_classes)).repeat(query_size)),
+                query_images, torch.tensor(np.arange(n_way).repeat(query_size)),
                 torch.tensor(selected_classes.repeat(query_size))
             ),
             original_class_idx=selected_classes,

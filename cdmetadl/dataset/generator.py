@@ -4,8 +4,6 @@ from typing import Any, Iterator
 
 import torch
 
-import cdmetadl.helpers.general_helpers
-
 from .meta_image_dataset import MetaImageDataset
 
 
