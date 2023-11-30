@@ -105,6 +105,22 @@ def main():
         default='../../baselines/random',
         help='Path to the directory containing the solution to use. Default: "../../baselines/random".'
     )
+    parser.add_argument(
+        '--datasets',
+        type=str,
+        default= "BCT, BRD, CRS, FLW, MD_MIX, PLK",
+        help='Specify the datasets that will be used for. Default: "BCT, BRD, CRS, FLW, MD_MIX, PLK"'
+    )
+    parser.add_argument(
+        '--split_size',
+        type=str,
+        default= "0.3, 0.3, 0.4",
+        help='''Defines how much of the data will be assigned to the training, testing and validation data.
+                Please ensure that the values sum up to one.
+                In the order: training, validation, test.
+                Default: "0.3, 0.3, 0.4"'''
+    )
+
 
     args = parser.parse_args()
     cdmetadl_ingestion.ingestion(args)
