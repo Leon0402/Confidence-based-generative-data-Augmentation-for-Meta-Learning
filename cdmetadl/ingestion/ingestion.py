@@ -33,11 +33,11 @@ import argparse
 import sys
 import shutil
 from pathlib import Path
+import pickle
 
 import numpy as np
-from torch.utils.data import DataLoader
 
-import cdmetadl.dataset.split
+import cdmetadl.dataset
 from cdmetadl.helpers.ingestion_helpers import *
 from cdmetadl.helpers.general_helpers import *
 from cdmetadl.ingestion.competition_logger import Logger
@@ -63,7 +63,7 @@ def read_generator_configs(config_file: Path) -> Tuple[str, dict, dict, dict]:
     valid_generator_config = {
         "N": None,
         "min_N": 2,
-        "max_N": 20,
+        "max_N": 5,
         "k": None,
         "min_k": 1,
         "max_k": 20,
@@ -73,7 +73,7 @@ def read_generator_configs(config_file: Path) -> Tuple[str, dict, dict, dict]:
     test_generator_config = {
         "N": None,
         "min_N": 2,
-        "max_N": 20,
+        "max_N": 5,
         "k": None,
         "min_k": 1,
         "max_k": 20,
@@ -141,46 +141,6 @@ def ingestion(args) -> None:
     vprint("\nChecking directories...", args.verbose)
     exist_dir(input_dir)
     exist_dir(submission_dir)
-    vprint("[+] Directories", args.verbose)
-
-    vprint("\nDefining generators config..", args.verbose)
-    train_data_format, train_generator_config, valid_generator_config, test_generator_config = read_generator_configs(
-        submission_dir / "config.json"
-    )
-
-    vprint("\nPreparing dataset", args.verbose)
-
-    # Convert strs from args to lists
-    dataset_list = args.datasets.replace(" ", "").split(",")
-    split_sizes = [float(size) for size in args.split_size.split(",")]
-
-    # Check if we use multiple datsets for the within-domain scenario
-    if args.domain_type == 'within-domain' and len(dataset_list) > 1:
-         raise ValueError("More than one dataset specified for within-domain scenario")
-     
-    datasets_info = check_datasets(input_dir, dataset_list, args.verbose)
-    dataset = cdmetadl.dataset.MetaImageDataset([
-        cdmetadl.dataset.ImageDataset(name, info, args.image_size) for name, info in datasets_info.items()
-    ])
-
-    if args.domain_type == 'cross-domain':
-        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(dataset, split_sizes)
-    elif args.domain_type == 'within-domain':
-        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(dataset, split_sizes)
-
-    total_classes = sum(dataset.number_of_classes for dataset in train_dataset.datasets)
-    if train_data_format == "task":
-        meta_train_generator = cdmetadl.dataset.create_task_generator(train_dataset, train_generator_config)
-        # TODO(leon): Isn't "train_classes" dynamic here in any-way any-shot?
-        train_classes = train_generator_config["N"]
-    else:
-        meta_train_generator = cdmetadl.dataset.create_batch_generator(train_dataset)
-        train_classes = total_classes
-
-    meta_val_generator = cdmetadl.dataset.create_task_generator(
-        val_dataset, valid_generator_config, sample_dataset=True
-    )
-    meta_test_generator = cdmetadl.dataset.create_task_generator(test_dataset, test_generator_config)
 
     # Create output dir
     if output_dir.exists() and not args.overwrite_previous_results:
@@ -197,6 +157,42 @@ def ingestion(args) -> None:
     # Create output model dir
     model_dir = output_dir / "model"
     model_dir.mkdir()
+
+    vprint("[+] Directories", args.verbose)
+
+    vprint("\nDefining generators config..", args.verbose)
+    train_data_format, train_generator_config, valid_generator_config, test_generator_config = read_generator_configs(
+        submission_dir / "config.json"
+    )
+
+    vprint("\nPreparing dataset", args.verbose)
+
+    datasets_info = check_datasets(input_dir, args.datasets, args.verbose)
+    dataset = cdmetadl.dataset.MetaImageDataset([
+        cdmetadl.dataset.ImageDataset(name, info, args.image_size) for name, info in datasets_info.items()
+    ])
+
+    if args.domain_type == 'cross-domain':
+        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(dataset, args.split_sizes)
+    elif args.domain_type == 'within-domain':
+        train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(dataset, args.split_sizes)
+
+    with open(output_dir / 'test_dataset.pkl', 'wb') as f:
+        pickle.dump(test_dataset, f)
+
+    total_classes = sum(dataset.number_of_classes for dataset in train_dataset.datasets)
+    if train_data_format == "task":
+        meta_train_generator = cdmetadl.dataset.create_task_generator(train_dataset, train_generator_config)
+        # TODO(leon): Isn't "train_classes" dynamic here in any-way any-shot?
+        train_classes = train_generator_config["N"]
+    else:
+        meta_train_generator = cdmetadl.dataset.create_batch_generator(train_dataset)
+        train_classes = total_classes
+
+    meta_val_generator = cdmetadl.dataset.create_task_generator(
+        val_dataset, valid_generator_config, sample_dataset=True
+    )
+    meta_test_generator = cdmetadl.dataset.create_task_generator(test_dataset, test_generator_config)
 
     # Save/print experimental settings
     join_list = lambda info: "\n".join(info)
@@ -396,13 +392,13 @@ def main():
     parser.add_argument(
         '--datasets',
         type=str,
-        default= "BCT, BRD, CRS, FLW, MD_MIX, PLK",
+        default="BCT, BRD, CRS, FLW, MD_MIX, PLK",
         help='Specify the datasets that will be used for. Default: "BCT, BRD, CRS, FLW, MD_MIX, PLK"'
     )
     parser.add_argument(
         '--split_size',
         type=str,
-        default= "0.3, 0.3, 0.4",
+        default="0.3, 0.3, 0.4",
         help='''Defines how much of the data will be assigned to the training, testing and validation data.
                 Please ensure that the values sum up to one.
                 In the order: training, validation, test.

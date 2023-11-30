@@ -11,8 +11,8 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
 
-torch = {version = ">=2.0.0, !=2.0.1, !=2.1.0"}
-torchvision = {version = "^0.15"}
+torch = {version = "^2.1.1"}
+torchvision = {version = "^0.16"}
 pyyaml = "^6.0.1"
 pandas = "^2.1.2"
 seaborn = "^0.13.0"

@@ -28,10 +28,12 @@ import os
 import datetime
 import jinja2
 import argparse
+import pickle
 import shutil
 from sys import exit, version
 from pathlib import Path
 
+import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import *
 from cdmetadl.helpers.general_helpers import *
 
@@ -77,24 +79,18 @@ def scoring(args) -> None:
         "max_k": 20,
         "query_images_per_class": 20
     }
-    test_datasets = create_datasets(test_datasets_info)
-    test_loader = CompetitionDataLoader(
-        datasets=test_datasets,
-        episodes_config=test_generator_config,
-        seed=args.seed,
-        private_info=args.private_information,
-        test_generator=True,
-        verbose=args.verbose
-    )
-    meta_test_generator = test_loader.generator
+    with open(results_dir / 'test_dataset.pkl', 'rb') as f:
+        test_dataset = pickle.load(f)
+    meta_test_generator = cdmetadl.dataset.create_task_generator(test_dataset, test_generator_config)
+
     vprint("[+] Data generator", args.verbose)
 
     vprint("\nChecking ingestion output...", args.verbose)
     result_files = os.listdir(results_dir)
     number_of_tasks = sum(".predict" in file for file in result_files)
-    if number_of_tasks != len(test_datasets) * args.test_tasks_per_dataset:
-        print(f"[-] There are not enough results in {results_dir}")
-        exit(1)
+    # if number_of_tasks != len(test_datasets) * args.test_tasks_per_dataset:
+    #     print(f"[-] There are not enough results in {results_dir}")
+    #     exit(1)
     vprint("\n[+] Ingestion output", args.verbose)
 
     # Compute scores

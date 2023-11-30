@@ -10,6 +10,7 @@ Usage:
 AS A PARTICIPANT, DO NOT MODIFY THIS CODE. 
 """
 import argparse
+import random
 from pathlib import Path
 
 from cdmetadl.ingestion import ingestion as cdmetadl_ingestion
@@ -108,21 +109,31 @@ def main():
     parser.add_argument(
         '--datasets',
         type=str,
-        default= "BCT, BRD, CRS, FLW, MD_MIX, PLK",
-        help='Specify the datasets that will be used for. Default: "BCT, BRD, CRS, FLW, MD_MIX, PLK"'
+        help=
+        'Specify the datasets that will be used for. If not specified, it uses all datasets in the cross domain setuo or one random selected dataset in the within domain setup.'
     )
     parser.add_argument(
-        '--split_size',
+        '--split_sizes',
         type=str,
-        default= "0.3, 0.3, 0.4",
+        default="0.3, 0.3, 0.4",
         help='''Defines how much of the data will be assigned to the training, testing and validation data.
                 Please ensure that the values sum up to one.
                 In the order: training, validation, test.
                 Default: "0.3, 0.3, 0.4"'''
     )
 
-
     args = parser.parse_args()
+    if not args.datasets:
+        args.datasets = [dir.name for dir in args.input_data_dir.iterdir() if dir.is_dir() and dir.name.isupper()]
+        if args.domain_type == "within-domain":
+            args.datasets = [random.choice(args.datasets)]
+    else:
+        args.datasets = args.datasets.replace(" ", "").split(",")
+    args.split_sizes = [float(size) for size in args.split_sizes.split(",")]
+
+    if args.domain_type == 'within-domain' and len(args.datasets) > 1:
+        raise ValueError("More than one dataset specified for within-domain scenario")
+
     cdmetadl_ingestion.ingestion(args)
 
     args.results_dir = args.output_dir_ingestion

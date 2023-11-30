@@ -21,7 +21,7 @@ class ImageDataset(torch.utils.data.Dataset):
         transform (torchvision.transforms.Compose): Transformation to apply to each image.
     """
 
-    def __init__(self, name: str, dataset_info: dict, img_size: int = 128):
+    def __init__(self, name: str, dataset_info: dict, img_size: int = 128, included_classes: set[str] = None):
         """
         Args:
             name (str): Name of the dataset
@@ -31,18 +31,32 @@ class ImageDataset(torch.utils.data.Dataset):
                              - 'imgage_path': Path to the directory containing images.
                              - 'metadata_path': Path to the CSV file containing metadata.
             img_size (int, optional): Size to resize images to. Default is 128.
+            included_classes (set[str]): Only includes datapoints with a ground truth label present in this set
         """
         self.name = name
+        self.dataset_info = dataset_info
+        self.img_size = img_size
         label_column, file_column, imgage_path, metadata_path = dataset_info
 
         metadata = pd.read_csv(metadata_path)
 
-        self.img_paths = [imgage_path / image_name for image_name in metadata[file_column]]
-        label_to_id = {label: id for id, label in enumerate(set(metadata[label_column]))}
-        self.labels = np.array([label_to_id[label] for label in metadata[label_column]])
+        self.label_names = set(metadata[label_column])
+        if included_classes is not None:
+            self.label_names &= included_classes
+        self.number_of_classes = len(self.label_names)
 
-        self.idx_per_label = [np.flatnonzero(self.labels == i) for i in range(max(self.labels) + 1)]
-        self.number_of_classes = len(self.idx_per_label)
+        self.text_to_numerical_label = {label: idx for idx, label in enumerate(self.label_names)}
+        self.labels = np.array([
+            self.text_to_numerical_label[label] for label in metadata[label_column] if label in self.label_names
+        ])
+
+        self.img_paths = [
+            imgage_path / name
+            for name, label in metadata[[file_column, label_column]].values
+            if label in self.label_names
+        ]
+
+        self.idx_per_label = [np.flatnonzero(self.labels == label) for label in self.text_to_numerical_label.values()]
         self.min_examples_per_class = min(len(idx) for idx in self.idx_per_label)
 
         self.transform = torchvision.transforms.Compose([
