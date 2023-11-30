@@ -84,7 +84,7 @@ class ImageDataset(torch.utils.data.Dataset):
         n_way = np.random.randint(min_ways, max_ways + 1)
         k_shot = np.random.randint(min_shots, max_shots + 1)
 
-        selected_classes = np.random.permutation(len(self.idx_per_label))[:n_way]
+        selected_classes = np.random.permutation(self.number_of_classes)[:n_way]
         # Indices for support and query set are sampled together to ensure no indix appears twice
         sampled_indices_per_class = [
             np.random.choice(self.idx_per_label[cls], k_shot + query_size, replace=False) for cls in selected_classes

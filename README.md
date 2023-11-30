@@ -32,6 +32,7 @@ python -m cdmetadl.run \
     --submission_dir=baselines/finetuning \
     --output_dir_ingestion=ingestion_output \
     --output_dir_scoring=scoring_output \
+    --domain_type="cross-domain" \
     --verbose=True \
     --overwrite_previous_results=True \
     --test_tasks_per_dataset=10
