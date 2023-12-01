@@ -29,7 +29,6 @@ AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 import os
 import time
 import datetime
-import argparse
 import sys
 import shutil
 from pathlib import Path
@@ -293,9 +292,11 @@ def ingestion(args) -> None:
                 )
                 exit(1)
 
-        file_name = f"{output_dir}/task_{i+1}"
         fmt = "%f" if len(y_pred.shape) == 2 else "%d"
-        np.savetxt(f"{file_name}.predict", y_pred, fmt=fmt)
+        np.savetxt(output_dir / f"task_{i+1}.predict", y_pred, fmt=fmt)
+        with open(output_dir / f"task_{i+1}.pkl", 'wb') as f:
+            pickle.dump(task, f)
+
         vprint("\t\t[+] Predictions saved", args.verbose)
 
         vprint(f"\t[+] Task {i+1} finished in {task_time} seconds", args.verbose)
@@ -307,107 +308,8 @@ def ingestion(args) -> None:
         global_metadata_file.write(f"Total execution time: {total_time}\n")
         global_metadata_file.write(f"Meta-train time: {meta_training_time}\n")
         global_metadata_file.write(f"Meta-test time: {meta_testing_time}\n")
-        # global_metadata_file.write("Number of test datasets: " + f"{len(test_datasets_info)}\n")
-        global_metadata_file.write("Tasks per dataset: " + f"{args.test_tasks_per_dataset}")
+        global_metadata_file.write(f"Number of test datasets: {test_dataset.number_of_datasets}\n")
+        global_metadata_file.write(f"Tasks per dataset: {args.test_tasks_per_dataset}")
     vprint(f"\nOverall time spent: {total_time} seconds", args.verbose)
 
     vprint(f"\n{'#'*60}\n{'#'*9} Ingestion program finished successfully " + f"{'#'*10}\n{'#'*60}", args.verbose)
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Ingestion')
-    parser.add_argument(
-        '--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.'
-    )
-    parser.add_argument(
-        '--verbose',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=True,
-        help=
-        'True: show various progression messages (recommended); False: no progression messages are shown. Default: True.'
-    )
-    parser.add_argument(
-        '--debug_mode',
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help=
-        '0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.'
-    )
-    parser.add_argument(
-        '--image_size',
-        type=int,
-        default=128,
-        help='Int specifying the image size for all generators (recommended value 128). Default: 128.'
-    )
-    parser.add_argument(
-        '--private_information',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=False,
-        help=
-        'True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.'
-    )
-    parser.add_argument(
-        '--overwrite_previous_results',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=False,
-        help=
-        'True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.'
-    )
-    parser.add_argument(
-        '--max_time', type=int, default=1000, help='Maximum time in seconds PER TESTING TASK. Default: 1000.'
-    )
-    parser.add_argument(
-        '--test_tasks_per_dataset',
-        type=int,
-        default=100,
-        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
-    )
-    parser.add_argument(
-        '--domain_type',
-        choices=['cross-domain', 'within-domain'],
-        default="cross-domain",
-        help=
-        "Choose the domain type for meta-learning. 'cross-domain' indicates a setup where multiple distinct datasets are utilized, ensuring that the training, validation, and testing sets are entirely separate, thereby promoting generalization across diverse data sources. 'within-domain', on the other hand, refers to using a single dataset, segmented into different classes for training, validation, and testing, focusing on learning variations within a more homogeneous data environment. Default: cross-domain."
-    )
-    parser.add_argument(
-        '--input_data_dir',
-        type=Path,
-        default='../../public_data',
-        help=
-        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".'
-    )
-    parser.add_argument(
-        '--output_dir_ingestion',
-        type=Path,
-        default='../../ingestion_output',
-        help='Path to the output directory for the ingestion program. Default: "../../ingestion_output".'
-    )
-    parser.add_argument(
-        '--submission_dir',
-        type=Path,
-        default='../../baselines/random',
-        help='Path to the directory containing the solution to use. Default: "../../baselines/random".'
-    )
-    parser.add_argument(
-        '--datasets',
-        type=str,
-        default="BCT, BRD, CRS, FLW, MD_MIX, PLK",
-        help='Specify the datasets that will be used for. Default: "BCT, BRD, CRS, FLW, MD_MIX, PLK"'
-    )
-    parser.add_argument(
-        '--split_size',
-        type=str,
-        default="0.3, 0.3, 0.4",
-        help='''Defines how much of the data will be assigned to the training, testing and validation data.
-                Please ensure that the values sum up to one.
-                In the order: training, validation, test.
-                Default: "0.3, 0.3, 0.4"'''
-    )
-
-    args = parser.parse_args()
-    ingestion(args)
-
-
-if __name__ == "__main__":
-    main()

@@ -2,6 +2,8 @@
 
 AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 """
+from functools import partial
+
 import base64
 import numpy as np
 import pandas as pd
@@ -316,7 +318,7 @@ def compute_all_scores(y_true: np.ndarray, y_pred: np.ndarray, num_ways: int, ba
         dict: Dictionary with all the scores.
     """
     scoring = {
-        "Normalized Accuracy": normalized_accuracy,
+        "Normalized Accuracy": partial(normalized_accuracy, num_ways=num_ways),
         "Accuracy": accuracy,
         "Macro F1 Score": macro_f1_score,
         "Macro Precision": macro_precision,
@@ -324,12 +326,4 @@ def compute_all_scores(y_true: np.ndarray, y_pred: np.ndarray, num_ways: int, ba
     }
     if batch:
         del scoring["Normalized Accuracy"]
-
-    scores = dict()
-    for key in scoring.keys():
-        scoring_function = scoring[key]
-        if key == "Normalized Accuracy":
-            scores[key] = scoring_function(y_true, y_pred, num_ways)
-        else:
-            scores[key] = scoring_function(y_true, y_pred)
-    return scores
+    return {score: scoring_function(y_true, y_pred) for score, scoring_function in scoring.items()}

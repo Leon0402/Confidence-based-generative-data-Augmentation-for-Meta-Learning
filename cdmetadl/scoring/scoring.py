@@ -27,13 +27,10 @@ AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 import os
 import datetime
 import jinja2
-import argparse
 import pickle
 import shutil
 from sys import exit, version
-from pathlib import Path
 
-import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import *
 from cdmetadl.helpers.general_helpers import *
 
@@ -47,7 +44,6 @@ def scoring(args) -> None:
 
     # Define the path to the directory
     results_dir = args.results_dir.resolve()
-    ref_dir = args.input_data_dir.resolve()
     output_dir = args.output_dir_scoring.resolve()
 
     # Show python version and directory structure
@@ -64,11 +60,6 @@ def scoring(args) -> None:
     exist_dir(results_dir)
     vprint("[+] Directories", args.verbose)
 
-    # Prepare test generator to access test tasks
-    vprint("\nPreparing datasets info...", args.verbose)
-    _, _, test_datasets_info = prepare_datasets_information(ref_dir, 0, args.seed, args.verbose, True)
-    vprint("[+] Datasets info", args.verbose)
-
     vprint("\nInitializing test generator...", args.verbose)
     test_generator_config = {
         "N": None,
@@ -81,16 +72,15 @@ def scoring(args) -> None:
     }
     with open(results_dir / 'test_dataset.pkl', 'rb') as f:
         test_dataset = pickle.load(f)
-    meta_test_generator = cdmetadl.dataset.create_task_generator(test_dataset, test_generator_config)
 
     vprint("[+] Data generator", args.verbose)
 
     vprint("\nChecking ingestion output...", args.verbose)
     result_files = os.listdir(results_dir)
     number_of_tasks = sum(".predict" in file for file in result_files)
-    # if number_of_tasks != len(test_datasets) * args.test_tasks_per_dataset:
-    #     print(f"[-] There are not enough results in {results_dir}")
-    #     exit(1)
+    if number_of_tasks != test_dataset.number_of_datasets * args.test_tasks_per_dataset:
+        print(f"[-] There are not enough results in {results_dir}")
+        exit(1)
     vprint("\n[+] Ingestion output", args.verbose)
 
     # Compute scores
@@ -112,8 +102,11 @@ def scoring(args) -> None:
     scores_per_ways = dict()
     scores_per_shots = dict()
     tasks = list()
-    for i, task in enumerate(meta_test_generator(args.test_tasks_per_dataset)):
+    for i in range(number_of_tasks):
         vprint(f"\tTask {i} started...", args.verbose)
+
+        with open(results_dir / f"task_{i + 1}.pkl", 'rb') as f:
+            task = pickle.load(f)
 
         # Extract task information
         y_true = task.query_set[1].numpy()
@@ -319,71 +312,3 @@ def scoring(args) -> None:
     vprint(f"\n{'#'*60}\n{'#'*10} Scoring program finished successfully " + f"{'#'*11}\n{'#'*60}\n", args.verbose)
 
     print("Your detailed results are available in this file: " + f"{args.output_dir_scoring}/detailed_results.html")
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Scoring')
-    parser.add_argument(
-        '--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.'
-    )
-    parser.add_argument(
-        '--verbose',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=True,
-        help=
-        'True: show various progression messages (recommended); False: no progression messages are shown. Default: True.'
-    )
-    parser.add_argument(
-        '--debug_mode',
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help=
-        '0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.'
-    )
-    parser.add_argument(
-        '--private_information',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=False,
-        help=
-        'True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.'
-    )
-    parser.add_argument(
-        '--overwrite_previous_results',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=False,
-        help=
-        'True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.'
-    )
-    parser.add_argument(
-        '--test_tasks_per_dataset',
-        type=int,
-        default=100,
-        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
-    )
-    parser.add_argument(
-        '--input_data_dir',
-        type=Path,
-        default='../../public_data',
-        help=
-        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".'
-    )
-    parser.add_argument(
-        '--results_dir',
-        type=Path,
-        default='../../ingestion_output',
-        help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".'
-    )
-    parser.add_argument(
-        '--output_dir_scoring',
-        type=Path,
-        default='../../scoring_output',
-        help='Default location of the output directory for the scoring program. Default: "../../scoring_output".'
-    )
-
-    args = parser.parse_args()
-    scoring(args)
-
-
-if __name__ == "__main__":
-    main()

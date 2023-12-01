@@ -25,6 +25,7 @@ class MetaImageDataset(torch.utils.data.Dataset):
         TODO
         """
         self.datasets = datasets
+        self.number_of_datasets = len(self.datasets)
         self.dataset_end_index = list(itertools.accumulate(len(dataset) for dataset in self.datasets))
 
     def __len__(self) -> int:
