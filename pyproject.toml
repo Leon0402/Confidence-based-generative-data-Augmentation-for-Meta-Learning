@@ -23,6 +23,10 @@ scipy = "1.10"
 pillow = "^10.1.0"
 jinja2 = "3.1.0"
 more-itertools = "^10.1.0"
+tqdm = "^4.66.1"
+plotly = "^5.18.0"
+dash = "^2.14.2"
+dash-mantine-components = "^0.12.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
@@ -35,7 +39,7 @@ COLUMN_LIMIT = 120
 SPLIT_COMPLEX_COMPREHENSION = true
 DEDENT_CLOSING_BRACKETS = true
 COALESCE_BRACKETS = true
-
+SPLIT_BEFORE_NAMED_ASSIGNS = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

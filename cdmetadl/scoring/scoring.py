@@ -39,63 +39,8 @@ VERSION = 1.1
 
 
 def scoring(args) -> None:
-    vprint(f"Scoring program version: {VERSION}", args.verbose)
-    vprint(f"Using random seed: {args.seed}", args.verbose)
-
-    # Define the path to the directory
-    results_dir = args.results_dir.resolve()
-    output_dir = args.output_dir_scoring.resolve()
-
-    # Show python version and directory structure
-    if args.debug_mode > 1:
-        print(f"\nPython version: {version}")
-        print(f"Using results_dir: {results_dir}")
-        print(f"Using output_dir: {output_dir}")
-        show_dir(".")
-
-    vprint(f"\n{'#'*60}\n{'#'*18} Scoring program starts {'#'*18}\n{'#'*60}\n", args.verbose)
-
-    # Check all the required directories
-    vprint("\nChecking directories...", args.verbose)
-    exist_dir(results_dir)
-    vprint("[+] Directories", args.verbose)
-
-    vprint("\nInitializing test generator...", args.verbose)
-    test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 20,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-    with open(results_dir / 'test_dataset.pkl', 'rb') as f:
-        test_dataset = pickle.load(f)
-
-    vprint("[+] Data generator", args.verbose)
-
-    vprint("\nChecking ingestion output...", args.verbose)
-    result_files = os.listdir(results_dir)
-    number_of_tasks = sum(".predict" in file for file in result_files)
-    if number_of_tasks != test_dataset.number_of_datasets * args.test_tasks_per_dataset:
-        print(f"[-] There are not enough results in {results_dir}")
-        exit(1)
-    vprint("\n[+] Ingestion output", args.verbose)
-
-    # Compute scores
-    vprint("\nComputing scores...", args.verbose)
-    # Compute the score for each task
-    if args.debug_mode < 1:
-        # Read metric and count the number of tasks
-        curr_dir_path = os.path.dirname(os.path.realpath(__file__))
-        score_file = os.path.join(curr_dir_path, "scores.txt")
-        score_name, scoring_function = get_score(score_file)
-        main_score = score_name
-        vprint(f"\tUsing score: {score_name}", args.verbose)
-    else:
-        main_score = "Normalized Accuracy"
-        vprint(f"\tUsing scores: Accuracy, Macro F1 Score, Macro Precision, " + f"Macro Recall", args.verbose)
+    main_score = "Normalized Accuracy"
+    vprint(f"\tUsing scores: Accuracy, Macro F1 Score, Macro Precision, " + f"Macro Recall", args.verbose)
 
     scores = dict()
     scores_per_dataset = dict()
@@ -119,15 +64,7 @@ def scoring(args) -> None:
         y_pred = read_results_file(f"{task_name}.predict")
         vprint("\t\t[+] Information loaded", args.verbose)
 
-        # Compute and store the scores
-        if args.debug_mode < 1:
-            if score_name == "Normalized Accuracy":
-                task_scores = scoring_function(y_true, y_pred, task_ways)
-            else:
-                task_scores = scoring_function(y_true, y_pred)
-            task_scores = {score_name: task_scores}
-        else:
-            task_scores = compute_all_scores(y_true, y_pred, task_ways)
+        task_scores = compute_all_scores(y_true, y_pred, task_ways)
         keys = list(task_scores.keys())
         vprint("\t\t[+] Score(s) computed", args.verbose)
 

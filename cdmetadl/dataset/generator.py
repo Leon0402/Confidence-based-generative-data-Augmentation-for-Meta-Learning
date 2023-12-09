@@ -1,52 +1,53 @@
-__all__ = ["create_batch_generator", "create_task_generator"]
-
-from typing import Any, Iterator
+__all__ = ["DataGenerator", "BatchGenerator", "TaskGenerator"]
 
 import torch
 
 from .meta_image_dataset import MetaImageDataset
 
 
-def cycle(steps: int, iterable: Any) -> Iterator[Any]:
-    """ Creates a cycle of the specified number of steps using the specified 
-    iterable.
+class DataGenerator():
 
-    Args:
-        steps (int): Steps of the cycle.
-        iterable (Any): Any iterable. In the ingestion program it is used when
-            batch data format is selected for training.
-
-    Yields:
-        Iterator[Any]: The output of the iterable.
-    """
-    c_steps = -1
-    while True:
-        for x in iterable:
-            c_steps += 1
-            if c_steps == steps:
-                return
-            yield x
+    def __init__(self, dataset: MetaImageDataset, number_of_classes: int):
+        self.dataset = dataset
+        self.total_number_of_classes = self.dataset.total_number_of_classes
+        self.number_of_classes = number_of_classes
 
 
-def create_batch_generator(dataset: MetaImageDataset):
+class BatchGenerator(DataGenerator):
 
-    def batch_generator(num_batches: int):
-        return iter(cycle(num_batches, torch.utils.data.DataLoader(dataset)))
+    def __init__(self, dataset: MetaImageDataset):
+        super().__init__(dataset, dataset.total_number_of_classes)
 
-    return batch_generator
+    def __call__(self, num_batches: int):
+        generated_batches = 0
+        while True:
+            for batch in torch.utils.data.DataLoader(self.dataset):
+                if generated_batches == num_batches:
+                    return
+                yield batch
+                generated_batches += 1
 
 
-def create_task_generator(dataset: MetaImageDataset, config: dict, sample_dataset: bool = False):
-    min_N = config["N"] or config["min_N"]
-    max_N = config["N"] or config["max_N"]
-    min_k = config["k"] or config["min_k"]
-    max_k = config["k"] or config["max_k"]
-    query_size = config["query_images_per_class"]
+class TaskGenerator(DataGenerator):
 
-    def sample_task_generator(num_tasks: int):
-        yield from dataset.generate_tasks(num_tasks, min_N, max_N, min_k, max_k, query_size)
+    def __init__(self, dataset: MetaImageDataset, config: dict, sample_dataset: bool = False):
+        super().__init__(dataset, config["N"] or None)
+        self.sample_dataset = sample_dataset
 
-    def task_generator(num_tasks: int):
-        yield from dataset.generate_tasks_for_each_dataset(num_tasks, min_N, max_N, min_k, max_k, query_size)
+        self.min_N = config["N"] or config["min_N"]
+        self.max_N = config["N"] or config["max_N"]
+        self.min_k = config["k"] or config["min_k"]
+        self.max_k = config["k"] or config["max_k"]
+        self.query_size = config["query_images_per_class"]
 
-    return sample_task_generator if sample_dataset else task_generator
+        self.classes = self.min_N if self.min_N == self.max_N else None
+
+    def __call__(self, num_tasks: int):
+        if self.sample_dataset:
+            yield from self.dataset.generate_tasks(
+                num_tasks, self.min_N, self.max_N, self.min_k, self.max_k, self.query_size
+            )
+        else:
+            yield from self.dataset.generate_tasks_for_each_dataset(
+                num_tasks, self.min_N, self.max_N, self.min_k, self.max_k, self.query_size
+            )

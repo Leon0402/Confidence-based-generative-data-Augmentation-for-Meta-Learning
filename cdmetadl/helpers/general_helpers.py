@@ -6,10 +6,28 @@ import yaml
 import json
 import re
 import pathlib
+import sys
+import importlib
+
 import pandas as pd
 from sklearn.utils import check_random_state
 from glob import glob as ls
 from typing import List, Tuple
+
+
+def load_module_from_path(module_path):
+    sys.path.append(str(module_path.parent))
+
+    try:
+        spec = importlib.util.spec_from_file_location(module_path.stem, module_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception as e:
+        print(f"Error loading module from {module_path}: {e}")
+        sys.exit(1)
+    finally:
+        sys.path.pop()
 
 
 def vprint(message: str, verbose: bool) -> None:
@@ -140,7 +158,8 @@ def check_datasets(input_dir: pathlib.Path, datasets: List[str], verbose: bool =
     """
     vprint(
         "\t[!] Make sure your datasets follow this format: " +
-        "https://github.com/ihsaan-ullah/meta-album/tree/master/" + "DataFormat", verbose)
+        "https://github.com/ihsaan-ullah/meta-album/tree/master/" + "DataFormat", verbose
+    )
 
     datasets_info = dict()
     for i, dataset in enumerate(datasets):
@@ -200,11 +219,13 @@ def check_datasets(input_dir: pathlib.Path, datasets: List[str], verbose: bool =
     return datasets_info
 
 
-def prepare_datasets_information(input_dir: pathlib.Path,
-                                 validation_datasets: int,
-                                 seed: int,
-                                 verbose: bool = False,
-                                 scoring: bool = False) -> Tuple[dict, dict, dict]:
+def prepare_datasets_information(
+    input_dir: pathlib.Path,
+    validation_datasets: int,
+    seed: int,
+    verbose: bool = False,
+    scoring: bool = False
+) -> Tuple[dict, dict, dict]:
     """ Prepare the required dataset information for the available datasets.
 
     Args:

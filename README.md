@@ -11,31 +11,45 @@ Dependencies:
 * Python 3.11 (pyenv can be used)
 * Poetry ^1.7.0
 
-Install dependencies from the lock file in a virtual environment with: 
-```py
-$ poetry install 
+Install dependencies from the lock file (virtual environment will be created automatically): 
+
+```bash
+poetry install 
 ```
 
 > **_NOTE:_** For better compatibility with editors like vs code it might be helpful to run `poetry config virtualenvs.in-project true` beforehand. This will create the virtual environment in the project folder and allows the editor to autodetect it.
 
 Open a shell within the virtual environment with: 
-```
-$ poetry shell
+
+```bash
+poetry shell
 ```
 
 Alternatively prefix all following commands with `poetry run <command here>`. 
 
-Run the code with: 
-```py
-python -m cdmetadl.run \
-    --input_data_dir=public_data \
-    --submission_dir=baselines/finetuning \
-    --output_dir_ingestion=ingestion_output \
-    --output_dir_scoring=scoring_output \
+Run the code with:
+
+```bash
+python -m cdmetadl.train \
+    --model_dir=baselines/finetuning \
     --domain_type="cross-domain" \
-    --verbose=True \
-    --overwrite_previous_results=True \
-    --test_tasks_per_dataset=10
+    --overwrite_previous_results \
+    --verbose 
 ```
 
-Alternatively, you can also run `ingestion.py` for training and prediction and `scoring.py` for evaluation seperatly in a similar fashion.
+Arguments can be adjusted as needed. Run `python -m cdmetadl.train --help` to get the documentation of the command line arguments.
+
+Evaluation can be run with: 
+
+```bash
+python -m cdmetadl.eval \
+    --model_dir=baselines/finetuning \
+    --test_tasks_per_dataset=10 \
+    --verbose 
+```
+
+Open dashboard with: 
+
+```bash
+python -m cdmetadl.dashboard
+```

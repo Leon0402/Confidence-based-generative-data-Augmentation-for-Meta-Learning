@@ -8,8 +8,8 @@
 # Data
 *.zip
 public_data/
-ingestion_output*
-scoring_output*
+training_output*
+eval_output*
 
 # logs 
 *logs*
