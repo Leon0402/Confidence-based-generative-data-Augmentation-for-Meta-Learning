@@ -1,13 +1,14 @@
-""" Helper functions to use in the ingestion and scoring programs. 
-
-AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
-"""
+""" Helper functions to use in the ingestion and scoring programs."""
 import yaml
 import json
 import re
 import pathlib
 import sys
 import importlib
+import random
+
+import numpy as np
+import torch
 
 import pandas as pd
 from sklearn.utils import check_random_state
@@ -28,6 +29,20 @@ def load_module_from_path(module_path):
         sys.exit(1)
     finally:
         sys.path.pop()
+
+
+def set_seed(seed):
+    """
+    Set the seed for reproducibility in numpy, torch, and python random.
+    
+    Args:
+    seed (int): The seed number to use.
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    random.seed(seed)
 
 
 def vprint(message: str, verbose: bool) -> None:
@@ -220,11 +235,7 @@ def check_datasets(input_dir: pathlib.Path, datasets: List[str], verbose: bool =
 
 
 def prepare_datasets_information(
-    input_dir: pathlib.Path,
-    validation_datasets: int,
-    seed: int,
-    verbose: bool = False,
-    scoring: bool = False
+    input_dir: pathlib.Path, validation_datasets: int, seed: int, verbose: bool = False, scoring: bool = False
 ) -> Tuple[dict, dict, dict]:
     """ Prepare the required dataset information for the available datasets.
 

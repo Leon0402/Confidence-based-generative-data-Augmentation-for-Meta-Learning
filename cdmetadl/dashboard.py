@@ -78,19 +78,19 @@ app.layout = dmc.Container([
                     dmc.Title("Scores per Feature", order=1),
                     dmc.SegmentedControl(
                         id="feature-selector",
-                        value="dataset",
+                        value="Dataset",
                         data=[
                             {
-                                "value": "dataset",
+                                "value": "Dataset",
                                 "label": "Dataset"
                             },
                             {
-                                "value": "way",
-                                "label": "Way"
+                                "value": "Number of Ways",
+                                "label": "Number of Ways"
                             },
                             {
-                                "value": "shot",
-                                "label": "Shot"
+                                "value": "Number of Shots",
+                                "label": "Number of Shots"
                             },
                         ],
                         mt=10,

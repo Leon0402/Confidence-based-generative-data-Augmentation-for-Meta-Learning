@@ -5,8 +5,6 @@ import pathlib
 import tqdm.contrib
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
 
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
@@ -23,7 +21,6 @@ def define_argparser() -> argparse.ArgumentParser:
         '--training_output_dir', type=pathlib.Path, default="./training_output",
         help='Path to the output directory for training. Default: "./training_output".'
     )
-    # TODO: Save this model dir during training instead of passing it again
     parser.add_argument(
         '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the solution to use.'
     )
@@ -113,9 +110,9 @@ def evaluate(args: argparse.Namespace):
         task_scores = cdmetadl.helpers.scoring_helpers.compute_all_scores(
             task.query_set[1].numpy(), y_pred, task.num_ways
         )
-        task_scores['dataset'] = task.dataset
-        task_scores['way'] = task.num_ways
-        task_scores['shot'] = task.num_shots
+        task_scores['Dataset'] = task.dataset
+        task_scores['Number of Ways'] = task.num_ways
+        task_scores['Number of Shots'] = task.num_shots
 
         data.append(task_scores)
 
@@ -125,6 +122,8 @@ def evaluate(args: argparse.Namespace):
 def main():
     parser = define_argparser()
     args = parser.parse_args()
+
+    cdmetadl.helpers.general_helpers.set_seed(42)
 
     cdmetadl.helpers.general_helpers.vprint("\nProcess command line arguments", args.verbose)
     process_args(args)

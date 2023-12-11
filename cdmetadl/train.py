@@ -209,6 +209,8 @@ def main():
     parser = define_argparser()
     args = parser.parse_args()
 
+    cdmetadl.helpers.general_helpers.set_seed(42)
+
     cdmetadl.helpers.general_helpers.vprint("\nProcess command line arguments", args.verbose)
     process_args(args)
     cdmetadl.helpers.general_helpers.vprint("[+] Command line arguments processed", args.verbose)
