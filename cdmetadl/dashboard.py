@@ -8,7 +8,7 @@ import plotly.express as px
 
 all_metrics = ['Normalized Accuracy', 'Accuracy', 'Macro F1 Score', 'Macro Precision', 'Macro Recall']
 
-dfs = {path.name: pd.read_pickle(path / "eval/eval.pkl") for path in pathlib.Path("./eval_output").iterdir()}
+dfs = {path.name: pd.read_pickle(path / "evaluation.pkl") for path in pathlib.Path("./eval_output").iterdir()}
 for key in dfs:
     dfs[key].insert(0, 'Model', key)
 

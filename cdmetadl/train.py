@@ -75,9 +75,7 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
 
 def define_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument(
-        '--seed', type=int, default=93, help='Any int to be used as random seed for reproducibility. Default: 93.'
-    )
+    parser.add_argument('--seed', type=int, default=42, help='Seed to make results reproducible. Default: 42.')
     parser.add_argument(
         '--verbose', action=argparse.BooleanOptionalAction, default=True,
         help='Show various progression messages. Default: True.'
@@ -165,9 +163,13 @@ def prepare_data_generators(
     splitting = [args.train_split, args.validation_split, args.test_split]
     match args.domain_type:
         case DomainType.CROSS_DOMAIN:
-            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(meta_dataset, splitting)
+            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(
+                meta_dataset, splitting, seed=args.seed
+            )
         case DomainType.WITHIN_DOMAIN:
-            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(meta_dataset, splitting)
+            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(
+                meta_dataset, splitting, seed=args.seed
+            )
 
     dataset_output_dir = args.output_dir / "datasets"
     dataset_output_dir.mkdir()
@@ -209,7 +211,7 @@ def main():
     parser = define_argparser()
     args = parser.parse_args()
 
-    cdmetadl.helpers.general_helpers.set_seed(42)
+    cdmetadl.helpers.general_helpers.set_seed(args.seed)
 
     cdmetadl.helpers.general_helpers.vprint("\nProcess command line arguments", args.verbose)
     process_args(args)
