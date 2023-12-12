@@ -125,7 +125,7 @@ def process_args(args: argparse.Namespace) -> None:
 
     if not args.datasets:
         args.datasets = [dir.name for dir in args.data_dir.iterdir() if dir.is_dir() and dir.name.isupper()]
-        if args.domain_type == "within-domain":
+        if args.domain_type == DomainType.WITHIN_DOMAIN:
             args.datasets = [random.choice(args.datasets)]
 
     if args.domain_type == 'within-domain' and len(args.datasets) > 1:
@@ -136,7 +136,7 @@ def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.data_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
-    args.output_dir /= args.model_dir.name
+    args.output_dir /= f"{args.model_dir.name}/{args.domain_type}/dataset"
 
     if args.output_dir.exists() and args.overwrite_previous_results:
         shutil.rmtree(args.output_dir)
@@ -150,6 +150,9 @@ def prepare_directories(args: argparse.Namespace) -> None:
 
     args.output_model_dir = args.output_dir / "model"
     args.output_model_dir.mkdir()
+
+    args.dataset_output_dir = args.output_dir / "datasets"
+    args.dataset_output_dir.mkdir()
 
 
 def prepare_data_generators(
@@ -171,13 +174,11 @@ def prepare_data_generators(
                 meta_dataset, splitting, seed=args.seed
             )
 
-    dataset_output_dir = args.output_dir / "datasets"
-    dataset_output_dir.mkdir()
-    with open(dataset_output_dir / 'train_dataset.pkl', 'wb') as f:
+    with open(args.dataset_output_dir / 'train_dataset.pkl', 'wb') as f:
         pickle.dump(train_dataset, f)
-    with open(dataset_output_dir / 'val_dataset.pkl', 'wb') as f:
+    with open(args.dataset_output_dir / 'val_dataset.pkl', 'wb') as f:
         pickle.dump(val_dataset, f)
-    with open(dataset_output_dir / 'test_dataset.pkl', 'wb') as f:
+    with open(args.dataset_output_dir / 'test_dataset.pkl', 'wb') as f:
         pickle.dump(test_dataset, f)
 
     train_data_format, train_generator_config, valid_generator_config, _ = read_generator_configs(
@@ -228,6 +229,14 @@ def main():
     cdmetadl.helpers.general_helpers.vprint("\nMeta-training your meta-learner...", args.verbose)
     meta_learn(args, meta_train_generator, meta_val_generator)
     cdmetadl.helpers.general_helpers.vprint("[+] Meta-learner meta-trained", args.verbose)
+
+    # Rename file based on test dataset. TODO: Little bit hacky
+    with open(args.dataset_output_dir / 'test_dataset.pkl', 'rb') as f:
+        test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
+
+    final_output_path = args.output_dir.parent / "-".join([dataset.name for dataset in test_dataset.datasets])
+    final_output_path.mkdir(parents=True)
+    args.output_dir.rename(final_output_path)
 
 
 if __name__ == "__main__":

@@ -18,8 +18,7 @@ def define_argparser() -> argparse.ArgumentParser:
     )
     parser.add_argument('--seed', type=int, default=42, help='Seed to make results reproducible. Default: 42.')
     parser.add_argument(
-        '--training_output_dir', type=pathlib.Path, default="./training_output",
-        help='Path to the output directory for training. Default: "./training_output".'
+        '--training_output_dir', type=pathlib.Path, required=True, help='Path to the output directory for training'
     )
     parser.add_argument(
         '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the solution to use.'
@@ -43,12 +42,11 @@ def process_args(args: argparse.Namespace) -> None:
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
-    args.training_output_dir /= args.model_dir.name
     cdmetadl.helpers.general_helpers.exist_dir(args.training_output_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
     # TODO: How to deal with existing output dir
-    args.output_dir /= args.model_dir.name
+    args.output_dir /= args.training_output_dir.relative_to(args.training_output_dir.parent.parent.parent)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -59,7 +57,7 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
     test_generator_config = {
         "N": None,
         "min_N": 2,
-        "max_N": 20,
+        "max_N": 5,
         "k": None,
         "min_k": 1,
         "max_k": 20,

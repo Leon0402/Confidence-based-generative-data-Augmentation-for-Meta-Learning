@@ -44,6 +44,7 @@ Evaluation can be run with:
 ```bash
 python -m cdmetadl.eval \
     --model_dir=baselines/finetuning \
+    --training_output_dir="training_output/finetuning/cross-domain/SPT-CRS" \
     --test_tasks_per_dataset=10 \
     --verbose 
 ```
@@ -52,4 +53,16 @@ Open dashboard with:
 
 ```bash
 python -m cdmetadl.dashboard
+```
+
+## Automation Scriots 
+
+For ease of use the following script can be used to run a model in cross-domain and with-domain setting: 
+
+```bash
+./scripts/train.sh --datasets_dir "./public_data" --model_dir "./baselines/finetuning"
+```
+
+```bash
+./scripts/eval.sh --model_dir "./baselines/finetuning"
 ```
