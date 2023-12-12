@@ -8,9 +8,21 @@ import plotly.express as px
 
 all_metrics = ['Normalized Accuracy', 'Accuracy', 'Macro F1 Score', 'Macro Precision', 'Macro Recall']
 
-dfs = {path.name: pd.read_pickle(path / "evaluation.pkl") for path in pathlib.Path("./eval_output").iterdir()}
-for key in dfs:
-    dfs[key].insert(0, 'Model', key)
+
+def read_df(path: pathlib.Path) -> pd.DataFrame:
+    df = pd.read_pickle(path)
+    domain = "CD" if path.parent.parent.name == "cross-domain" else "WD"
+    df.insert(0, 'Model', f"{path.parent.parent.parent.name} ({domain})")
+    return df
+
+
+full_df = pd.concat([read_df(filepath) for filepath in pathlib.Path("./eval_output").glob('**/evaluation.pkl')])
+
+# Keep only datasets present in all models
+keep_groups = full_df.groupby("Dataset")["Model"].nunique() == 4
+full_df = full_df[full_df['Dataset'].isin(keep_groups[keep_groups].index)]
+
+dfs = {model: full_df[full_df["Model"] == model] for model in full_df["Model"].unique()}
 
 
 def sort_metrics(selected_metrics):
@@ -39,7 +51,7 @@ app = dash.Dash(__name__)
 app.layout = dmc.Container([
     dmc.AppShell(
         navbar=dmc.Navbar(
-            width={"base": 200}, fixed=True, p="md", children=[
+            width={"base": 400}, fixed=True, p="md", children=[
                 dmc.Stack(
                     children=[
                         dmc.CheckboxGroup(
@@ -56,6 +68,16 @@ app.layout = dmc.Container([
                             orientation="vertical",
                             children=[dmc.Checkbox(label=metric, value=metric) for metric in all_metrics],
                         ),
+                        dmc.CheckboxGroup(
+                            id='dataset-selector',
+                            label="Select Datasets:",
+                            value=full_df['Dataset'].unique(),
+                            orientation="horizontal",
+                            children=[
+                                dmc.Checkbox(label=dataset, value=dataset, style={"width": "100px"})
+                                for dataset in full_df['Dataset'].unique()
+                            ],
+                        )
                     ]
                 ),
             ]
@@ -121,7 +143,7 @@ app.layout = dmc.Container([
 )
 def average_table(metrics, models):
     df = get_data(models)
-    averages = df.groupby('Model')[sort_metrics(metrics)].mean().reset_index()
+    averages = df.groupby('Model')[sort_metrics(metrics)].mean().reset_index().round(decimals=3)
     return averages.to_dict('records')
 
 
@@ -154,7 +176,7 @@ def overall_frequence_histogram(metrics, models):
                ])
 def scores_per_dataset(feature, metrics, models):
     df = get_data(models)
-    averages = df.pivot_table(index=feature, columns='Model', values=metrics).reset_index()
+    averages = df.pivot_table(index=feature, columns='Model', values=metrics).reset_index().round(decimals=3)
     return convert_df_to_dash(averages)
 
 
