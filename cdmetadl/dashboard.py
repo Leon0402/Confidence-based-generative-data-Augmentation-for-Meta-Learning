@@ -137,14 +137,27 @@ app.layout = dmc.Container([
 
 
 @app.callback(
-    dash.Output('average_table', 'data'),
+    [dash.Output('average_table', 'data'), dash.Output('average_table', 'style_data_conditional')],
     [dash.Input('metric-selector', 'value'),
      dash.Input('model-selector', 'value')]
 )
 def average_table(metrics, models):
     df = get_data(models)
-    averages = df.groupby('Model')[sort_metrics(metrics)].mean().reset_index().round(decimals=3)
-    return averages.to_dict('records')
+
+    means = df.groupby('Model')[metrics].mean().round(decimals=3)
+    std_devs = df.groupby('Model')[metrics].std().round(decimals=3)
+    averages = means.astype(str) + " ± " + std_devs.astype(str)
+    averages.reset_index(inplace=True)
+
+    style = [{
+        'if': {
+            'filter_query': f'{{{metric}}} contains {means[metric].max()}',
+            'column_id': metric
+        },
+        'fontWeight': 'bold'
+    } for metric in metrics]
+
+    return averages.to_dict('records'), style
 
 
 @app.callback(
