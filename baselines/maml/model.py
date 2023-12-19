@@ -75,7 +75,7 @@ class MyMetaLearner(MetaLearner):
         # General data parameters
         self.should_train = True
         self.ncc = False
-        self.train_tasks = 20
+        self.train_tasks = 500
         self.val_tasks = 10
         self.val_after = 5
 
@@ -172,8 +172,11 @@ class MyMetaLearner(MetaLearner):
                 # Log iteration
                 self.log(task, out.detach().cpu().numpy(), loss.item())
 
+                # Tensorboard iteration
+                self.tensorboard_update(task, out.detach().cpu().numpy(), i, loss.item(), True)
+
                 if (i + 1) % self.val_after == 0:
-                    self.meta_valid(meta_valid_generator)
+                    self.meta_valid(meta_valid_generator, i)
 
         if self.best_state is None:
             self.best_state = [p.clone().detach() for p in self.weights]
@@ -187,7 +190,7 @@ class MyMetaLearner(MetaLearner):
         }
         return MyLearner(self.model_args, self.meta_learner.state_dict(), self.best_state, maml_params)
 
-    def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
+    def meta_valid(self, meta_valid_generator: Iterable[Any], iteration: int) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
 
@@ -195,6 +198,8 @@ class MyMetaLearner(MetaLearner):
             meta_valid_generator (Iterable[Task]): Function that generates the 
                 validation data. The generated data always come in form of 
                 N-way k-shot tasks.
+            iteration (int): Current iteration of the Meta-Training procedure
+                in order to keep track for logging. 
         """
         total_test_images = 0
         correct_predictions = 0
@@ -219,13 +224,16 @@ class MyMetaLearner(MetaLearner):
                 p.requires_grad = True
 
             # Evaluate learner
-            out, _ = self.compute_out_and_loss(
-                self.val_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, False, True
+            out, loss = self.compute_out_and_loss(
+                self.val_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, False, False
             )
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
             self.log(task, out.cpu().numpy(), meta_train=False)
+
+            # Tensorboard iteration
+            self.tensorboard_update(task, out.detach().cpu().numpy(), iteration, loss.item(), False)
 
             # Keep track of scores
             total_test_images += len(y_test)
@@ -309,7 +317,7 @@ class MyMetaLearner(MetaLearner):
                 loss = None
             else:
                 reg = num_classes * len(y_test) if self.ncc else 1
-                loss = model.criterion(out, y_test) / reg
+                loss = model.criterion(out, y_test.to(out.device)) / reg
 
         return out, loss
 

@@ -9,13 +9,40 @@ import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
 
 class TensorboardWriter:
-    """ TODO: Comment this class
+    """ TODO: Comment this class, TensorbardWriter and Logger share a lot of calculations we should merge these classes later
     """
     def __init__(self, writer = SummaryWriter, tensorboard_dir=None) -> None:
-        self.writer = writer(tensorboard_dir)
-  
-    def update(self) -> None:
-        None
+        self.writer_train = writer(f"{tensorboard_dir}/train")
+        self.writer_valid = writer(f"{tensorboard_dir}/valid")
+
+
+    def update(self, data: Any, predictions: np.ndarray, iteration: int, loss: float = None, meta_train: bool = True) -> None:
+        #TODO: Find a way to convert itations to epochs/tasks
+        if meta_train:
+            writer = self.writer_train
+        else:
+            writer = self.writer_valid
+
+        writer.add_scalar(f"Loss/iteration", loss, iteration + 1)
+
+        # Check the data format
+        is_task = False
+        if isinstance(data, cdmetadl.dataset.Task):
+            is_task = True
+
+        # Save task information
+        dataset = data.dataset
+        N = data.num_ways
+        k = data.num_shots
+
+        # Extract labels from task
+        ground_truth = data.query_set[1].cpu().numpy()
+        scores = compute_all_scores(ground_truth, predictions, N, not is_task)
+
+        # Log scalar values
+        for metric, value in scores.items():
+            writer.add_scalar(f"{metric}", value, iteration + 1)
+
 
 class Logger():
     """ Class to define the logger that can be used by the participants during 

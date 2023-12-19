@@ -157,6 +157,10 @@ def prepare_directories(args: argparse.Namespace) -> None:
     args.tensorboard_output_dir = args.output_dir / "tensorboard"
     args.tensorboard_output_dir.mkdir()
 
+    for mode in ["train", "validation"]:
+        tensorbord_mode_dir = args.tensorboard_output_dir / mode
+        tensorbord_mode_dir.mkdir()
+
 
 def prepare_data_generators(
     args: argparse.Namespace
@@ -192,7 +196,7 @@ def prepare_data_generators(
         case DataFormat.TASK:
             meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config)
         case DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset)
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config)
 
     meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config, sample_dataset=True)
     return meta_train_generator, meta_val_generator

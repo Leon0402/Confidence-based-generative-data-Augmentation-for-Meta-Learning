@@ -15,13 +15,14 @@ class DataGenerator():
 
 class BatchGenerator(DataGenerator):
 
-    def __init__(self, dataset: MetaImageDataset):
+    def __init__(self, dataset: MetaImageDataset,  config):
         super().__init__(dataset, dataset.total_number_of_classes)
+        self.config = config
 
     def __call__(self, num_batches: int):
         generated_batches = 0
         while True:
-            for batch in torch.utils.data.DataLoader(self.dataset):
+            for batch in torch.utils.data.DataLoader(self.dataset, self.config["batch_size"]):
                 if generated_batches == num_batches:
                     return
                 yield batch
