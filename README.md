@@ -27,6 +27,12 @@ poetry shell
 
 Alternatively prefix all following commands with `poetry run <command here>`. 
 
+
+Download and verify the datasets:
+```bash
+python ./cdmetadl/helpers/initial_setup.py
+```
+
 Run the code with:
 
 ```bash
