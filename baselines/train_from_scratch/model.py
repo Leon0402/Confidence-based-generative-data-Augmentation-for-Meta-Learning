@@ -31,7 +31,7 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
+    def __init__(self, train_classes: int, total_classes: int, logger: Any, tensorboard_writer: Any) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -59,12 +59,16 @@ class MyMetaLearner(MetaLearner):
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
                     True.
+            tensorboard_writer (TensorboardWriter): Writer that will create
+                the required outputs for the tensorboard.
+                # TODO: Add Arguments
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
-        super().__init__(train_classes, total_classes, logger)
+        # - self.tensorboard_update (function) See the above description for details
+        super().__init__(train_classes, total_classes, logger, tensorboard_writer)
 
         self.dev = self.get_device()
         self.model_args = {"num_classes": 5, "dev": self.dev, "num_blocks": 18, "pretrained": False}

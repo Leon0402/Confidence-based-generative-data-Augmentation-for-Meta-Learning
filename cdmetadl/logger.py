@@ -2,11 +2,20 @@ import pathlib
 
 import csv
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 from typing import Any
 
 import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
 
+class TensorboardWriter:
+    """ TODO: Comment this class
+    """
+    def __init__(self, writer = SummaryWriter, tensorboard_dir=None) -> None:
+        self.writer = writer(tensorboard_dir)
+  
+    def update(self) -> None:
+        None
 
 class Logger():
     """ Class to define the logger that can be used by the participants during 

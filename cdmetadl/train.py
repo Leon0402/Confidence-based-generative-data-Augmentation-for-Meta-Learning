@@ -154,6 +154,9 @@ def prepare_directories(args: argparse.Namespace) -> None:
     args.dataset_output_dir = args.output_dir / "datasets"
     args.dataset_output_dir.mkdir()
 
+    args.tensorboard_output_dir = args.output_dir / "tensorboard"
+    args.tensorboard_output_dir.mkdir()
+
 
 def prepare_data_generators(
     args: argparse.Namespace
@@ -202,8 +205,11 @@ def meta_learn(
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     logger = cdmetadl.logger.Logger(args.logger_dir)
+    tensorboard_writer = cdmetadl.logger.TensorboardWriter(tensorboard_dir=args.tensorboard_output_dir)
+
+
     meta_learner = model_module.MyMetaLearner(
-        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
+        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger, tensorboard_writer
     )
     meta_learner.meta_fit(meta_train_generator, meta_val_generator).save(args.output_model_dir)
 
@@ -226,7 +232,7 @@ def main():
     meta_train_generator, meta_val_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
 
-    cdmetadl.helpers.general_helpers.vprint("\nMeta-training your meta-learner...", args.verbose)
+    cdmetadl.helpers.general_helpers.vprint("\nMeta-train your meta-learner...", args.verbose)
     meta_learn(args, meta_train_generator, meta_val_generator)
     cdmetadl.helpers.general_helpers.vprint("[+] Meta-learner meta-trained", args.verbose)
 
@@ -235,6 +241,7 @@ def main():
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
     final_output_path = args.output_dir.parent / "-".join([dataset.name for dataset in test_dataset.datasets])
+    # TODO: This leads to File Exists Errors. What is the expected behaviour in this case?
     final_output_path.mkdir(parents=True)
     args.output_dir.rename(final_output_path)
 
