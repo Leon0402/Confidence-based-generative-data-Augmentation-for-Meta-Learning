@@ -1,2 +1,15 @@
 /starting_kit/train_settings.png filter=lfs diff=lfs merge=lfs -text
 /imgs/train_settings.png filter=lfs diff=lfs merge=lfs -text
+/eval_output/finetuning/cross-domain/CRS-BRD-INS_2-BTS-PLT_VIL-ACT_40/predictions.pkl filter=lfs diff=lfs merge=lfs -text
+/eval_output/maml/cross-domain/CRS-BRD-INS_2-BTS-PLT_VIL-ACT_40/predictions.pkl filter=lfs diff=lfs merge=lfs -text
+/eval_output/finetuning/cross-domain/PLT_VIL-BCT/predictions.pkl filter=lfs diff=lfs merge=lfs -text
+/eval_output/maml/cross-domain/PLT_VIL-BCT/predictions.pkl filter=lfs diff=lfs merge=lfs -text
+/training_output/finetuning/cross-domain/PLT_VIL-BCT/datasets/train_dataset.pkl filter=lfs diff=lfs merge=lfs -text
+/training_output/finetuning/cross-domain/PLT_VIL-BCT/model/model_state.pickle filter=lfs diff=lfs merge=lfs -text
+/training_output/finetuning/cross-domain/PLT_VIL-BCT/tensorboard/valid/events.out.tfevents.1703015051.workstation.79088.1 filter=lfs diff=lfs merge=lfs -text
+/training_output/maml/cross-domain/PLT_VIL-BCT/datasets/train_dataset.pkl filter=lfs diff=lfs merge=lfs -text
+/training_output/maml/cross-domain/PLT_VIL-BCT/model/model_state.pickle filter=lfs diff=lfs merge=lfs -text
+/training_output/maml/cross-domain/PLT_VIL-BCT/model/weights.pickle filter=lfs diff=lfs merge=lfs -text
+/training_output/maml/cross-domain/PLT_VIL-BCT/tensorboard/valid/events.out.tfevents.1703017000.workstation.83422.1 filter=lfs diff=lfs merge=lfs -text
+/training_output/maml/cross-domain/dataset/datasets/train_dataset.pkl filter=lfs diff=lfs merge=lfs -text
+/training_output/maml/cross-domain/dataset/tensorboard/valid/events.out.tfevents.1703319119.workstation.9055.1 filter=lfs diff=lfs merge=lfs -text

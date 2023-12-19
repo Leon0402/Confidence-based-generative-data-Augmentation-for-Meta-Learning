@@ -27,97 +27,31 @@ AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 import os
 import datetime
 import jinja2
-import argparse
+import pickle
 import shutil
 from sys import exit, version
-from pathlib import Path
 
 from cdmetadl.helpers.scoring_helpers import *
 from cdmetadl.helpers.general_helpers import *
-from cdmetadl.ingestion.image_dataset import create_datasets
-from cdmetadl.ingestion.data_generator import CompetitionDataLoader
 
 # Program version
 VERSION = 1.1
 
 
 def scoring(args) -> None:
-    vprint(f"Scoring program version: {VERSION}", args.verbose)
-    vprint(f"Using random seed: {args.seed}", args.verbose)
-
-    # Define the path to the directory
-    results_dir = args.results_dir.resolve()
-    ref_dir = args.input_data_dir.resolve()
-    output_dir = args.output_dir_scoring.resolve()
-
-    # Show python version and directory structure
-    if args.debug_mode > 1:
-        print(f"\nPython version: {version}")
-        print(f"Using results_dir: {results_dir}")
-        print(f"Using output_dir: {output_dir}")
-        show_dir(".")
-
-    vprint(f"\n{'#'*60}\n{'#'*18} Scoring program starts {'#'*18}\n{'#'*60}\n", args.verbose)
-
-    # Check all the required directories
-    vprint("\nChecking directories...", args.verbose)
-    exist_dir(results_dir)
-    vprint("[+] Directories", args.verbose)
-
-    # Prepare test generator to access test tasks
-    vprint("\nPreparing datasets info...", args.verbose)
-    _, _, test_datasets_info = prepare_datasets_information(ref_dir, 0, args.seed, args.verbose, True)
-    vprint("[+] Datasets info", args.verbose)
-
-    vprint("\nInitializing test generator...", args.verbose)
-    test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 20,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-    test_datasets = create_datasets(test_datasets_info)
-    test_loader = CompetitionDataLoader(datasets=test_datasets,
-                                        episodes_config=test_generator_config,
-                                        seed=args.seed,
-                                        private_info=args.private_information,
-                                        test_generator=True,
-                                        verbose=args.verbose)
-    meta_test_generator = test_loader.generator
-    vprint("[+] Data generator", args.verbose)
-
-    vprint("\nChecking ingestion output...", args.verbose)
-    result_files = os.listdir(results_dir)
-    number_of_tasks = sum(".predict" in file for file in result_files)
-    if number_of_tasks != len(test_datasets) * args.test_tasks_per_dataset:
-        print(f"[-] There are not enough results in {results_dir}")
-        exit(1)
-    vprint("\n[+] Ingestion output", args.verbose)
-
-    # Compute scores
-    vprint("\nComputing scores...", args.verbose)
-    # Compute the score for each task
-    if args.debug_mode < 1:
-        # Read metric and count the number of tasks
-        curr_dir_path = os.path.dirname(os.path.realpath(__file__))
-        score_file = os.path.join(curr_dir_path, "scores.txt")
-        score_name, scoring_function = get_score(score_file)
-        main_score = score_name
-        vprint(f"\tUsing score: {score_name}", args.verbose)
-    else:
-        main_score = "Normalized Accuracy"
-        vprint(f"\tUsing scores: Accuracy, Macro F1 Score, Macro Precision, " + f"Macro Recall", args.verbose)
+    main_score = "Normalized Accuracy"
+    vprint(f"\tUsing scores: Accuracy, Macro F1 Score, Macro Precision, " + f"Macro Recall", args.verbose)
 
     scores = dict()
     scores_per_dataset = dict()
     scores_per_ways = dict()
     scores_per_shots = dict()
     tasks = list()
-    for i, task in enumerate(meta_test_generator(args.test_tasks_per_dataset)):
+    for i in range(number_of_tasks):
         vprint(f"\tTask {i} started...", args.verbose)
+
+        with open(results_dir / f"task_{i + 1}.pkl", 'rb') as f:
+            task = pickle.load(f)
 
         # Extract task information
         y_true = task.query_set[1].numpy()
@@ -130,15 +64,7 @@ def scoring(args) -> None:
         y_pred = read_results_file(f"{task_name}.predict")
         vprint("\t\t[+] Information loaded", args.verbose)
 
-        # Compute and store the scores
-        if args.debug_mode < 1:
-            if score_name == "Normalized Accuracy":
-                task_scores = scoring_function(y_true, y_pred, task_ways)
-            else:
-                task_scores = scoring_function(y_true, y_pred)
-            task_scores = {score_name: task_scores}
-        else:
-            task_scores = compute_all_scores(y_true, y_pred, task_ways)
+        task_scores = compute_all_scores(y_true, y_pred, task_ways)
         keys = list(task_scores.keys())
         vprint("\t\t[+] Score(s) computed", args.verbose)
 
@@ -204,9 +130,10 @@ def scoring(args) -> None:
                 else:
                     score_file.write(f"overall_{scores_names_to_save[i]}: " + f"{overall_score}\n")
                 vprint(f"\tOverall {score_name}: {overall_score:.3f} ± " + f"{overall_ci:.3f}", args.verbose)
-                overall_histogram = create_histogram(scores[score_name], score_name,
-                                                     f"Overall Frequency Histogram ({score_name})",
-                                                     f"{plots_dir}/overall_histogram_{scores_names_to_save[i]}")
+                overall_histogram = create_histogram(
+                    scores[score_name], score_name, f"Overall Frequency Histogram ({score_name})",
+                    f"{plots_dir}/overall_histogram_{scores_names_to_save[i]}"
+                )
                 overall_scores[score_name] = {
                     "mean_score": round(overall_score, 3),
                     "ci": round(overall_ci, 3),
@@ -230,9 +157,10 @@ def scoring(args) -> None:
                     dataset_info["ci"].append(round(conf_int, 3))
                 scores_grouped_by_dataset.append(dataset_info)
             for i, score_name in enumerate(scores_names):
-                datasets_heatmap = create_heatmap(scores_per_dataset, keys, keys, score_name,
-                                                  f"Frequency Heatmap per Dataset ({score_name})",
-                                                  f"{plots_dir}/heatmap_dataset_{scores_names_to_save[i]}")
+                datasets_heatmap = create_heatmap(
+                    scores_per_dataset, keys, keys, score_name, f"Frequency Heatmap per Dataset ({score_name})",
+                    f"{plots_dir}/heatmap_dataset_{scores_names_to_save[i]}"
+                )
                 datasets_heatmaps[score_name] = datasets_heatmap
 
             # Score per number of ways
@@ -251,9 +179,11 @@ def scoring(args) -> None:
                     ways_info["ci"].append(round(conf_int, 3))
                 scores_grouped_by_ways.append(ways_info)
             for i, score_name in enumerate(scores_names):
-                ways_heatmap = create_heatmap(scores_per_ways, keys, [f"{key}-ways" for key in keys], score_name,
-                                              f"Frequency Heatmap per Number of Ways ({score_name})",
-                                              f"{plots_dir}/heatmap_way_{scores_names_to_save[i]}")
+                ways_heatmap = create_heatmap(
+                    scores_per_ways, keys, [f"{key}-ways" for key in keys], score_name,
+                    f"Frequency Heatmap per Number of Ways ({score_name})",
+                    f"{plots_dir}/heatmap_way_{scores_names_to_save[i]}"
+                )
                 ways_heatmaps[score_name] = ways_heatmap
 
             # Score per number of shots
@@ -272,9 +202,11 @@ def scoring(args) -> None:
                     shots_info["ci"].append(round(conf_int, 3))
                 scores_grouped_by_shots.append(shots_info)
             for i, score_name in enumerate(scores_names):
-                shots_heatmap = create_heatmap(scores_per_shots, keys, [f"{key}-shot" for key in keys], score_name,
-                                               f"Frequency Heatmap per Number of Shots ({score_name})",
-                                               f"{plots_dir}/heatmap_shot_{scores_names_to_save[i]}")
+                shots_heatmap = create_heatmap(
+                    scores_per_shots, keys, [f"{key}-shot" for key in keys], score_name,
+                    f"Frequency Heatmap per Number of Shots ({score_name})",
+                    f"{plots_dir}/heatmap_shot_{scores_names_to_save[i]}"
+                )
                 shots_heatmaps[score_name] = shots_heatmap
 
             # Global metadata information
@@ -292,20 +224,21 @@ def scoring(args) -> None:
     # Create HTML report
     vprint(f"\nCreating HTML report...", args.verbose)
     try:
-        subs = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(os.path.dirname(__file__))).get_template("template.html").render(
-                title="Results Report",
-                scores_names=scores_names,
-                overall_scores=overall_scores,
-                tasks_per_dataset=tasks_per_dataset,
-                total_datasets=total_datasets,
-                scores_grouped_by_dataset=scores_grouped_by_dataset,
-                datasets_heatmaps=datasets_heatmaps,
-                scores_grouped_by_ways=scores_grouped_by_ways,
-                ways_heatmaps=ways_heatmaps,
-                scores_grouped_by_shots=scores_grouped_by_shots,
-                shots_heatmaps=shots_heatmaps,
-                tasks=tasks)
+        subs = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__))
+                                  ).get_template("template.html").render(
+                                      title="Results Report",
+                                      scores_names=scores_names,
+                                      overall_scores=overall_scores,
+                                      tasks_per_dataset=tasks_per_dataset,
+                                      total_datasets=total_datasets,
+                                      scores_grouped_by_dataset=scores_grouped_by_dataset,
+                                      datasets_heatmaps=datasets_heatmaps,
+                                      scores_grouped_by_ways=scores_grouped_by_ways,
+                                      ways_heatmaps=ways_heatmaps,
+                                      scores_grouped_by_shots=scores_grouped_by_shots,
+                                      shots_heatmaps=shots_heatmaps,
+                                      tasks=tasks
+                                  )
 
         with open(output_dir / "detailed_results.html", 'w', encoding="utf-8") as f:
             f.write(subs)
@@ -316,68 +249,3 @@ def scoring(args) -> None:
     vprint(f"\n{'#'*60}\n{'#'*10} Scoring program finished successfully " + f"{'#'*11}\n{'#'*60}\n", args.verbose)
 
     print("Your detailed results are available in this file: " + f"{args.output_dir_scoring}/detailed_results.html")
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Scoring')
-    parser.add_argument('--seed',
-                        type=int,
-                        default=93,
-                        help='Any int to be used as random seed for reproducibility. Default: 93.')
-    parser.add_argument(
-        '--verbose',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=True,
-        help=
-        'True: show various progression messages (recommended); False: no progression messages are shown. Default: True.'
-    )
-    parser.add_argument(
-        '--debug_mode',
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help=
-        '0: no debug; 1: compute additional scores (recommended); 2: same as 1 + show the Python version and list the directories. Default: 1.'
-    )
-    parser.add_argument(
-        '--private_information',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=False,
-        help=
-        'True: the name of the datasets is kept private; False: all information is shown (recommended). Default: False.'
-    )
-    parser.add_argument(
-        '--overwrite_previous_results',
-        type=lambda x: (str(x).lower() == 'true'),
-        default=False,
-        help=
-        'True: the previous output directory is overwritten; False: the previous output directory is renamed (recommended). Default: False.'
-    )
-    parser.add_argument(
-        '--test_tasks_per_dataset',
-        type=int,
-        default=100,
-        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.')
-    parser.add_argument(
-        '--input_data_dir',
-        type=Path,
-        default='../../public_data',
-        help=
-        'Default location of the directory containing the meta_train and meta_test data. Default: "../../public_data".')
-    parser.add_argument(
-        '--results_dir',
-        type=Path,
-        default='../../ingestion_output',
-        help='Default location of the output directory for the ingestion program. Default: "../../ingestion_output".')
-    parser.add_argument(
-        '--output_dir_scoring',
-        type=Path,
-        default='../../scoring_output',
-        help='Default location of the output directory for the scoring program. Default: "../../scoring_output".')
-
-    args = parser.parse_args()
-    scoring(args)
-
-
-if __name__ == "__main__":
-    main()
