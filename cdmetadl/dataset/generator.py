@@ -15,7 +15,7 @@ class DataGenerator():
 
 class BatchGenerator(DataGenerator):
 
-    def __init__(self, dataset: MetaImageDataset,  config):
+    def __init__(self, dataset: MetaImageDataset, config: dict):
         super().__init__(dataset, dataset.total_number_of_classes)
         self.config = config
 
