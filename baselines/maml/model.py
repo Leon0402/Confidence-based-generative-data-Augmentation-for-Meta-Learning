@@ -136,8 +136,9 @@ class MyMetaLearner(MetaLearner):
 
                 # Compute loss
                 task_weights = [p.clone() for p in self.weights]
-                out, loss = self.compute_out_and_loss(self.meta_learner, task_weights, X_train, y_train, X_test, y_test,
-                                                      num_ways, True)
+                out, loss = self.compute_out_and_loss(
+                    self.meta_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, True
+                )
 
                 # Propagate loss
                 loss.backward()
@@ -215,8 +216,9 @@ class MyMetaLearner(MetaLearner):
                 p.requires_grad = True
 
             # Evaluate learner
-            out, _ = self.compute_out_and_loss(self.val_learner, task_weights, X_train, y_train, X_test, y_test,
-                                               num_ways, False, True)
+            out, _ = self.compute_out_and_loss(
+                self.val_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, False, True
+            )
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
@@ -246,16 +248,10 @@ class MyMetaLearner(MetaLearner):
             print("Using CPU")
         return device
 
-    def compute_out_and_loss(self,
-                             model: nn.Module,
-                             weights: List[torch.Tensor],
-                             X_train: torch.Tensor,
-                             y_train: torch.Tensor,
-                             X_test: torch.Tensor,
-                             y_test: torch.Tensor,
-                             num_classes: int,
-                             training: bool,
-                             no_loss: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def compute_out_and_loss(
+        self, model: nn.Module, weights: List[torch.Tensor], X_train: torch.Tensor, y_train: torch.Tensor,
+        X_test: torch.Tensor, y_test: torch.Tensor, num_classes: int, training: bool, no_loss: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Compute the output and loss using the specified data.
 
         Args:
@@ -283,8 +279,9 @@ class MyMetaLearner(MetaLearner):
             for _ in range(self.T):
                 # Compute gradients
                 if self.ncc:
-                    grads = get_grads_ncc(model, X_train, y_train, X_test, y_test, num_classes, weights,
-                                          self.second_order, retain_graph)
+                    grads = get_grads_ncc(
+                        model, X_train, y_train, X_test, y_test, num_classes, weights, self.second_order, retain_graph
+                    )
                 else:
                     grads = get_grads(model, X_train, y_train, weights, self.second_order, retain_graph)
 
@@ -322,11 +319,9 @@ class MyMetaLearner(MetaLearner):
 
 class MyLearner(Learner):
 
-    def __init__(self,
-                 model_args: dict = {},
-                 model_state: dict = {},
-                 weights: List[torch.Tensor] = [],
-                 maml_params: dict = {}) -> None:
+    def __init__(
+        self, model_args: dict = {}, model_state: dict = {}, weights: List[torch.Tensor] = [], maml_params: dict = {}
+    ) -> None:
         """ Defines the learner initialization.
         
         Args:
@@ -462,8 +457,9 @@ class MyLearner(Learner):
 
 class MyPredictor(Predictor):
 
-    def __init__(self, model: nn.Module, weights: List[torch.Tensor], dev: torch.device,
-                 prototypes: torch.Tensor) -> None:
+    def __init__(
+        self, model: nn.Module, weights: List[torch.Tensor], dev: torch.device, prototypes: torch.Tensor
+    ) -> None:
         """Defines the Predictor initialization.
 
         Args:

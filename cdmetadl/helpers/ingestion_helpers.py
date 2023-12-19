@@ -3,7 +3,7 @@
 AS A PARTICIPANT, DO NOT MODIFY THIS CODE.
 """
 import torch
-from typing import List, Any, Iterator
+from typing import List
 
 
 def get_torch_gpu_environment() -> List[str]:
@@ -24,26 +24,3 @@ def get_torch_gpu_environment() -> List[str]:
         env_info.append("Number of available GPUs: 0")
 
     return env_info
-
-
-def cycle(steps: int, iterable: Any) -> Iterator[Any]:
-    """ Creates a cycle of the specified number of steps using the specified 
-    iterable.
-
-    Args:
-        steps (int): Steps of the cycle.
-        iterable (Any): Any iterable. In the ingestion program it is used when
-            batch data format is selected for training.
-
-    Yields:
-        Iterator[Any]: The output of the iterable.
-    """
-    c_steps = -1
-    while True:
-        for x in iterable:
-            c_steps += 1
-            if c_steps == steps:
-                break
-            yield x
-        if c_steps == steps:
-            break
