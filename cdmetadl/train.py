@@ -241,7 +241,8 @@ def main():
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
     final_output_path = args.output_dir.parent / "-".join([dataset.name for dataset in test_dataset.datasets])
-    # TODO: This leads to File Exists Errors. What is the expected behaviour in this case?
+
+    # TODO: This leads to File Exists Errors. What is the desired behaviour in this case?
     final_output_path.mkdir(parents=True)
     args.output_dir.rename(final_output_path)
 

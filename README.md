@@ -61,7 +61,7 @@ Open dashboard with:
 python -m cdmetadl.dashboard
 ```
 
-## Automation Scriots 
+## Automation Scripts 
 
 For ease of use the following script can be used to run a model in cross-domain and with-domain setting: 
 
