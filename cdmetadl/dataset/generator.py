@@ -1,6 +1,7 @@
 __all__ = ["DataGenerator", "BatchGenerator", "TaskGenerator"]
 
 import torch
+import torch.utils.data
 
 from .meta_image_dataset import MetaImageDataset
 
@@ -22,7 +23,7 @@ class BatchGenerator(DataGenerator):
     def __call__(self, num_batches: int):
         generated_batches = 0
         while True:
-            for batch in torch.utils.data.DataLoader(self.dataset, self.config["batch_size"]):
+            for batch in torch.utils.data.DataLoader(self.dataset, batch_size=self.config["batch_size"], shuffle=True):
                 if generated_batches == num_batches:
                     return
                 yield batch
