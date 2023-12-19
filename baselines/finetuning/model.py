@@ -155,8 +155,11 @@ class MyMetaLearner(MetaLearner):
                     # Log iteration
                     self.log(batch, out.detach().cpu().numpy(), loss.item())
 
+                # Tensorboard iteration
+                self.tensorboard_update(batch, out.detach().cpu().numpy(), i, loss.item(), True)
+                
                 if (i + 1) % self.val_after == 0:
-                    self.meta_valid(meta_valid_generator)
+                    self.meta_valid(meta_valid_generator, i)
 
         if self.best_state is None:
             self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
@@ -170,7 +173,7 @@ class MyMetaLearner(MetaLearner):
         }
         return MyLearner(self.model_args, self.best_state, learner_params)
 
-    def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
+    def meta_valid(self, meta_valid_generator: Iterable[Any], iteration: int) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
 
@@ -178,6 +181,9 @@ class MyMetaLearner(MetaLearner):
             meta_valid_generator (Iterable[Task]): Function that generates the 
                 validation data. The generated data always come in form of 
                 N-way k-shot tasks.
+
+            iteration (int): Current iteration of the Meta-Training procedure
+                in order to keep track for logging. 
         """
         total_test_images = 0
         correct_predictions = 0
@@ -196,7 +202,7 @@ class MyMetaLearner(MetaLearner):
 
             if self.ncc:
                 # Evaluate learner
-                out, _ = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
+                out, loss = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
             else:
                 # Optimize learner
                 for _ in range(self.T):
@@ -206,12 +212,16 @@ class MyMetaLearner(MetaLearner):
                 # Evaluate learner
                 with torch.no_grad():
                     out = self.val_learner(X_test)
+                    loss = self.val_learner.criterion(out, y_test.to(out.device))
 
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
             self.log(task, out.cpu().numpy(), meta_train=False)
 
+            # Tensorboard iteration
+            self.tensorboard_update(task, out.detach().cpu().numpy(), iteration, loss.item(), False)
+                
             # Keep track of scores
             total_test_images += len(y_test)
             correct_predictions += np.sum(preds == y_test.numpy())

@@ -9,7 +9,7 @@ import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
 
 class TensorboardWriter:
-    """ TODO: Comment this class, TensorbardWriter and Logger share a lot of calculations we should merge these classes later
+    """ TODO: Comment this class, TensorbardWriter and Logger share a lot of code we should merge these classes later
     """
     def __init__(self, writer = SummaryWriter, tensorboard_dir=None) -> None:
         self.writer_train = writer(f"{tensorboard_dir}/train")
@@ -29,14 +29,15 @@ class TensorboardWriter:
         is_task = False
         if isinstance(data, cdmetadl.dataset.Task):
             is_task = True
+            dataset = data.dataset
+            N = data.num_ways
+            k = data.num_shots
+            ground_truth = data.query_set[1].cpu().numpy()
 
-        # Save task information
-        dataset = data.dataset
-        N = data.num_ways
-        k = data.num_shots
-
-        # Extract labels from task
-        ground_truth = data.query_set[1].cpu().numpy()
+        else:
+            N = None
+            ground_truth = data[1].cpu().numpy()
+        
         scores = compute_all_scores(ground_truth, predictions, N, not is_task)
 
         # Log scalar values
