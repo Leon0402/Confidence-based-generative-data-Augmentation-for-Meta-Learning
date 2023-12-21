@@ -8,7 +8,6 @@
 # Data
 *.zip
 public_data/
-training_output*
 
 # logs 
 *logs*
