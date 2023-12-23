@@ -201,9 +201,9 @@ def prepare_data_generators(
         case DataFormat.TASK:
             meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config)
         case DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config)
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config, sample_dataset=True)
 
-    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config, sample_dataset=True)
+    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config)
     return meta_train_generator, meta_val_generator
 
 
