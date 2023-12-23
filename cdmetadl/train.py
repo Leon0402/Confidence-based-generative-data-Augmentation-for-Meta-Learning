@@ -117,7 +117,7 @@ def define_argparser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--use_tensorboard', action=argparse.BooleanOptionalAction, default=True,
-        help='Specify if you want to create logs fo the tensorboard for the current run. Default: False.'
+        help='Specify if you want to create logs fo the tensorboard for the current run. Default: True.'
     )
     return parser
 
