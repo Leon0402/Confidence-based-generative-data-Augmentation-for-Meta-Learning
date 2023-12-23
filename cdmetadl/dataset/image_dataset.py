@@ -83,9 +83,7 @@ class ImageDataset(torch.utils.data.Dataset):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: A tuple containing the image and its label, both as tensors.
         """
-        # TODO: Index out of bound error when last element is selected. Changing it to idx = idx - 1 leads to bad 
-        # performance and is maybe an indicator for wrong labels
-        return self.transform(PIL.Image.open(self.img_paths[idx])), torch.tensor(self.labels[idx])
+        return self.transform(PIL.Image.open(self.img_pathsaaa[idx])), torch.tensor(self.labels[idx])
 
     def generate_task(self, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int) -> Task:
         if max_ways > self.number_of_classes:

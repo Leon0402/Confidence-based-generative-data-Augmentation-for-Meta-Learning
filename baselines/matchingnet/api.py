@@ -95,7 +95,7 @@ class MetaLearner():
     on the algorithm.
     """
 
-    def __init__(self, train_classes, total_classes, logger, tensorboard_writer) -> None:
+    def __init__(self, train_classes, total_classes, logger) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -122,15 +122,12 @@ class MetaLearner():
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
-            tensorboard_writer (TensorboardWriter): Writer that will create
-                the required outputs for the tensorboard.
-                # TODO: Add Arguments
+                    True.       
         """
         self.train_classes = train_classes
         self.total_classes = total_classes
         self.log = logger.log
-        self.tensorboard_update = tensorboard_writer.update
+
 
     def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 

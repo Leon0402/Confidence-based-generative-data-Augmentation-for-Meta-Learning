@@ -115,6 +115,10 @@ def define_argparser() -> argparse.ArgumentParser:
         '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
         help='Overwrites the previous output directory instead of renaming it. Default: False.'
     )
+    parser.add_argument(
+        '--use_tensorboard', action=argparse.BooleanOptionalAction, default=True,
+        help='Specify if you want to create logs fo the tensorboard for the current run. Default: False.'
+    )
     return parser
 
 
@@ -154,12 +158,13 @@ def prepare_directories(args: argparse.Namespace) -> None:
     args.dataset_output_dir = args.output_dir / "datasets"
     args.dataset_output_dir.mkdir()
 
-    args.tensorboard_output_dir = args.output_dir / "tensorboard"
-    args.tensorboard_output_dir.mkdir()
+    if args.use_tensorboard:
+        args.tensorboard_output_dir = args.output_dir / "tensorboard"
+        args.tensorboard_output_dir.mkdir()
 
-    for mode in ["train", "validation"]:
-        tensorbord_mode_dir = args.tensorboard_output_dir / mode
-        tensorbord_mode_dir.mkdir()
+        for mode in ["train", "validation"]:
+            tensorbord_mode_dir = args.tensorboard_output_dir / mode
+            tensorbord_mode_dir.mkdir()
 
 
 def prepare_data_generators(
@@ -208,13 +213,13 @@ def meta_learn(
 ) -> None:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
-    logger = cdmetadl.logger.Logger(args.logger_dir)
-    tensorboard_writer = cdmetadl.logger.TensorboardWriter(tensorboard_dir=args.tensorboard_output_dir)
-
+    if args.use_tensorboard:
+        logger = cdmetadl.logger.Logger(args.logger_dir, args.tensorboard_output_dir)
+    else:
+        logger = cdmetadl.logger.Logger(args.logger_dir, None)
 
     meta_learner = model_module.MyMetaLearner(
-        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger, tensorboard_writer
-    )
+        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger)
     meta_learner.meta_fit(meta_train_generator, meta_val_generator).save(args.output_model_dir)
 
 

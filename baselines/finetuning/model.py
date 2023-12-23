@@ -33,7 +33,7 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, train_classes: int, total_classes: int, logger: Any, tensorboard_writer: Any) -> None:
+    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -60,17 +60,14 @@ class MyMetaLearner(MetaLearner):
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
-            tensorboard_writer (TensorboardWriter): Writer that will create
-                the required outputs for the tensorboard.
-                # TODO: Add Arguments
+                    True.       
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
-        # - self.tensorboard_update (function) See the above description for details
-        super().__init__(train_classes, total_classes, logger, tensorboard_writer)
+
+        super().__init__(train_classes, total_classes, logger)
 
         # General data parameters
         self.should_train = True
@@ -155,9 +152,6 @@ class MyMetaLearner(MetaLearner):
                     # Log iteration
                     self.log(batch, out.detach().cpu().numpy(), loss.item())
 
-                # Tensorboard iteration
-                self.tensorboard_update(batch, out.detach().cpu().numpy(), i, loss.item(), True)
-                
                 if (i + 1) % self.val_after == 0:
                     self.meta_valid(meta_valid_generator, i)
 
@@ -217,11 +211,8 @@ class MyMetaLearner(MetaLearner):
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
-            self.log(task, out.cpu().numpy(), meta_train=False)
+            self.log(task, out.cpu().numpy(), loss, meta_train=False)
 
-            # Tensorboard iteration
-            self.tensorboard_update(task, out.detach().cpu().numpy(), iteration, loss.item(), False)
-                
             # Keep track of scores
             total_test_images += len(y_test)
             correct_predictions += np.sum(preds == y_test.numpy())

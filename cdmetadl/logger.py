@@ -3,47 +3,10 @@ import pathlib
 import csv
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-from typing import Any
+from typing import Any, Union
 
 import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
-
-class TensorboardWriter:
-    """ TODO: Comment this class, TensorbardWriter and Logger share a lot of code we should merge these classes later
-    """
-    def __init__(self, writer = SummaryWriter, tensorboard_dir=None) -> None:
-        self.writer_train = writer(f"{tensorboard_dir}/train")
-        self.writer_valid = writer(f"{tensorboard_dir}/valid")
-
-
-    def update(self, data: Any, predictions: np.ndarray, iteration: int, loss: float = None, meta_train: bool = True) -> None:
-        #TODO: Find a way to convert itations to epochs/tasks
-        if meta_train:
-            writer = self.writer_train
-        else:
-            writer = self.writer_valid
-
-        writer.add_scalar(f"Loss/iteration", loss, iteration + 1)
-
-        # Check the data format
-        is_task = False
-        if isinstance(data, cdmetadl.dataset.Task):
-            is_task = True
-            dataset = data.dataset
-            N = data.num_ways
-            k = data.num_shots
-            ground_truth = data.query_set[1].cpu().numpy()
-
-        else:
-            N = None
-            ground_truth = data[1].cpu().numpy()
-        
-        scores = compute_all_scores(ground_truth, predictions, N, not is_task)
-
-        # Log scalar values
-        for metric, value in scores.items():
-            writer.add_scalar(f"{metric}", value, iteration + 1)
-
 
 class Logger():
     """ Class to define the logger that can be used by the participants during 
@@ -51,7 +14,7 @@ class Logger():
     the ingestion output log of the Competition Site. 
     """
 
-    def __init__(self, logs_dir: pathlib.Path) -> None:
+    def __init__(self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None]) -> None:
         """
         Args:
             logs_dir (pathlib.Path): Directory where the logs should be stored.
@@ -63,6 +26,28 @@ class Logger():
         self.meta_valid_steps = 0
         self.meta_valid_root_path = self.logs_dir / "meta_validation"
         self.print_separator = False
+        self.use_tensorboard = False
+
+        if tensorboard_dir != None:
+            self.writer_train = SummaryWriter(f"{tensorboard_dir}/train")
+            self.writer_valid = SummaryWriter(f"{tensorboard_dir}/valid")
+            self.use_tensorboard = True 
+
+    def _tensorboard_log(self, scores: dict, loss: float = None, meta_train: bool = True) -> None:
+        #TODO: Comment, Find a way to convert itations to epochs/tasks
+        if meta_train:
+            writer = self.writer_train
+            iteration = self.meta_train_iterations 
+        else:
+            writer = self.writer_valid
+            iteration = self.meta_valid_steps 
+
+        writer.add_scalar(f"Loss/iteration", loss, iteration + 1)
+
+        # Log scalar values
+        for metric, value in scores.items():
+            writer.add_scalar(f"{metric}", value, iteration + 1)
+
 
     def log(self, data: Any, predictions: np.ndarray, loss: float = None, meta_train: bool = True) -> None:
         """ Store the task/batch information, predictions, loss and scores of 
@@ -152,6 +137,9 @@ class Logger():
         score_names = list(scores.keys())
         score_values = list(scores.values())
 
+        if self.use_tensorboard:
+            self._tensorboard_log(scores, loss, meta_train)
+        
         if loss is not None:
             score_names.append("Loss")
             score_values.append(loss)
