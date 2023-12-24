@@ -73,9 +73,9 @@ class MyMetaLearner(MetaLearner):
         self.should_train = True
         self.ncc = False
         self.support_size = 12
-        self.train_batches = 2000
+        self.train_batches = 1000
         self.val_tasks = 10
-        self.val_after = 5
+        self.val_after = 10
 
         # General model parameters
         self.dev = self.get_device()

@@ -74,7 +74,7 @@ class Logger():
         for metric, value in scores.items():
             writer.add_scalar(f"{metric}", value, self.tensorboard_logs_total)
 
-    def _tensorboard_log(self, scores: dict, loss: float = None, meta_train: bool = True) -> None:
+    def _tensorboard_log(self, scores: dict, loss: float, meta_train: bool = True) -> None:
         #TODO: Comment, Find a way to convert itations to epochs/tasks
         self._tensorboard_update_data(meta_train, loss, scores)
         
@@ -89,7 +89,7 @@ class Logger():
             self.tensorboard_iter_counter += 1
 
 
-    def log(self, data: Any, predictions: np.ndarray, loss: float = None, meta_train: bool = True) -> None:
+    def log(self, data: Any, predictions: np.ndarray, loss: float, meta_train: bool = True) -> None:
         """ Store the task/batch information, predictions, loss and scores of 
         the current meta-train or meta-validation iteration.
 

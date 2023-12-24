@@ -29,6 +29,9 @@ class DataFormat(Enum):
 
 def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, dict]:
     train_data_format = DataFormat.TASK
+    if config_file.parent.name == "finetuning": 
+        train_data_format = DataFormat.BATCH
+
 
     train_generator_config = {
         "N": 5,
@@ -42,9 +45,9 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
     }
 
     valid_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 5,
+        "N": 5,
+        "min_N": None,
+        "max_N": None,
         "k": None,
         "min_k": 1,
         "max_k": 20,
@@ -52,9 +55,9 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
     }
 
     test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 5,
+        "N": 5,
+        "min_N": None,
+        "max_N": None,
         "k": None,
         "min_k": 1,
         "max_k": 20,
@@ -62,13 +65,7 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
     }
 
     if config_file.exists():
-        user_config = cdmetadl.helpers.general_helpers.load_json(config_file)
-        if "train_data_format" in user_config:
-            train_data_format = DataFormat(user_config["train_data_format"])
-        if "train_config" in user_config:
-            train_generator_config.update(user_config["train_config"])
-        if "valid_config" in user_config:
-            valid_generator_config.update(user_config["valid_config"])
+        raise DeprecationWarning("Config files are not supported anymores, it seems the model still defines ones.")
 
     return train_data_format, train_generator_config, valid_generator_config, test_generator_config
 
@@ -199,9 +196,9 @@ def prepare_data_generators(
 
     match train_data_format:
         case DataFormat.TASK:
-            meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config)
+            meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config, sample_dataset=True)
         case DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config, sample_dataset=True)
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config)
 
     meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config)
     return meta_train_generator, meta_val_generator
