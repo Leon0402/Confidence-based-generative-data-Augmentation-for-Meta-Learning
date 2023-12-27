@@ -1,6 +1,7 @@
 import pathlib
-
+import torch
 import csv
+import io
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from typing import Any, Union
@@ -8,6 +9,8 @@ from typing import Any, Union
 import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
 from collections import defaultdict
+import matplotlib.pyplot as plt
+
 
 class Logger():
     """ Class to define the logger that can be used by the participants during 
@@ -74,17 +77,56 @@ class Logger():
         for metric, value in scores.items():
             writer.add_scalar(f"{metric}", value, self.tensorboard_logs_total)
 
-    def _tensorboard_log(self, scores: dict, loss: float, meta_train: bool = True) -> None:
+    def _tensorboard_write_samples(self, writer, data, predictions, is_task):
+        if is_task:
+            predictions # array of size (100, 5)
+            query_set_data = data.query_set[0].cpu().numpy() # array of shape (100, 3, 128, 128)
+            query_set_labels = data.query_set[1].cpu().numpy() # array of shape (100,)
+
+
+            for i in range(len(predictions)):
+                prediction_i = predictions[i].round(3)
+                query_data_i = query_set_data[i]
+                query_labels_i = query_set_labels[i]
+
+                # Example: Plot the first channel of the query_set_data
+                plt.imshow(query_data_i[0, :, :], cmap='gray')
+                plt.title(f"Prediction: {prediction_i}, Label: {query_labels_i}")
+                plt.axis('off')
+
+                # Save the figure to a BytesIO object
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png')
+                buf.seek(0)
+
+                # Convert the figure to a NumPy array
+                image_np = plt.imread(buf)
+
+                # Convert the NumPy array to a PyTorch tensor
+                image_tensor = torch.from_numpy(image_np).permute(2, 0, 1).float()
+
+                # Add the image to TensorBoard
+                writer.add_image(f'Grid_Plot/{i}', image_tensor, global_step=i)
+
+                # Close the figure to free up resources
+                plt.close()
+
+
+    def _tensorboard_log(self, data: Any, scores: dict, loss: float, meta_train: bool,
+                        is_task: bool, predictions: np.ndarray) -> None:
         #TODO: Comment, Find a way to convert itations to epochs/tasks
         self._tensorboard_update_data(meta_train, loss, scores)
         
-        if self.tensorboard_iter_counter % self.tensorboard_log_frequency == 0 and meta_train:
+        if (self.tensorboard_iter_counter % self.tensorboard_log_frequency) == 0\
+            and meta_train\
+            and self.tensorboard_iter_counter >= self.tensorboard_log_frequency :
             self.tensorboard_logs_total += 1
             loss_train, scores_train = self._tensorboard_avg_last_n_iters(self.losses_train, self.scores_train)
             loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(self.losses_valid, self.scores_valid)
             self._tensorboard_write_log(self.writer_train, loss_train, scores_train)
             self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid)
 
+            self._tensorboard_write_samples(self.writer_valid, data, predictions, is_task)
         if meta_train:
             self.tensorboard_iter_counter += 1
 
@@ -160,6 +202,7 @@ class Logger():
                     writer.writerow(["Dataset", "N", "k"])
                 writer.writerow([dataset, N, k])
 
+
             ground_truth = data.query_set[1].cpu().numpy()
 
         else:
@@ -178,7 +221,7 @@ class Logger():
         score_values = list(scores.values())
 
         if self.use_tensorboard:
-            self._tensorboard_log(scores, loss, meta_train)
+            self._tensorboard_log(data, scores, loss, meta_train, is_task, predictions)
         
         if loss is not None:
             score_names.append("Loss")

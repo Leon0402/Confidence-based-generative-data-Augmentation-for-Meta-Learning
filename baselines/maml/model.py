@@ -72,8 +72,8 @@ class MyMetaLearner(MetaLearner):
         # General data parameters
         self.should_train = True
         self.ncc = False
-        self.train_tasks = 1000
-        self.val_tasks = 10
+        self.train_tasks = 10_000
+        self.val_tasks = 5
         self.val_after = 10
 
         # MAML parameters

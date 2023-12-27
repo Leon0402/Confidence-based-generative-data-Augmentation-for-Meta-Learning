@@ -73,7 +73,7 @@ class MyMetaLearner(MetaLearner):
         self.should_train = True
         self.ncc = False
         self.support_size = 12
-        self.train_batches = 1000
+        self.train_batches = 10000
         self.val_tasks = 10
         self.val_after = 10
 
