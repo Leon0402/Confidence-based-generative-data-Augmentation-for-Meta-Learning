@@ -144,13 +144,13 @@ class MyMetaLearner(MetaLearner):
                         self.optimizer.step()
 
                         # Log iteration
-                        self.log((X_test, y_test), out.detach().cpu().numpy(), loss.item())
+                        self.log((X_test, y_test), out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
                 else:
                     # Optimize metalearner
                     out, loss = optimize_linear(self.meta_learner, self.optimizer, X_train, y_train)
 
                     # Log iteration
-                    self.log(batch, out.detach().cpu().numpy(), loss.item())
+                    self.log(batch, out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
 
                 if (i + 1) % self.val_after == 0:
                     self.meta_valid(meta_valid_generator, i)
@@ -211,7 +211,7 @@ class MyMetaLearner(MetaLearner):
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
-            self.log(task, out.cpu().numpy(), loss, meta_train=False)
+            self.log(task, out.cpu().numpy(), loss, self.val_tasks, self.val_after, meta_train=False)
 
             # Keep track of scores
             total_test_images += len(y_test)

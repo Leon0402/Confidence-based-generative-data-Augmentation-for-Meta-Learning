@@ -4,7 +4,7 @@ import csv
 import io
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-from typing import Any, Union
+from typing import Any, Union, Tuple, Dict
 
 import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
@@ -18,16 +18,15 @@ class Logger():
     the ingestion output log of the Competition Site. 
     """
 
-    def __init__(self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], tensorboard_log_frequency: int = 20) -> None:
+    def __init__(self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], number_of_valid_datasets: int) -> None:
         """
         Args:
             logs_dir (pathlib.Path): Directory where the logs should be stored.
 
-            tensorboard_dir: Union[pathlib.Path, None]: Indicates if and where the data
-                    for the tensorboard should be stored
+            tensorboard_dir Union[pathlib.Path, None]: Indicates if and where the data
+                    for the tensorboard should be stored     
 
-             tensorboard_log_frequency: Frequency of how many training iterations/batches 
-                    should become produces in order to create a new log for the tensorboard
+            number_of_valid_datasets (int): Number of datasets that will be used for meta-validation
         """
         self.logs_dir = logs_dir
         self.meta_train_iterations = 0
@@ -37,14 +36,13 @@ class Logger():
         self.meta_valid_root_path = self.logs_dir / "meta_validation"
         self.print_separator = False
         self.use_tensorboard = False
+        self.number_of_valid_datasets = number_of_valid_datasets
 
         if tensorboard_dir != None:
             self.writer_train = SummaryWriter(f"{tensorboard_dir}/train")
             self.writer_valid = SummaryWriter(f"{tensorboard_dir}/valid")
-            self.use_tensorboard = True 
-            self.tensorboard_log_frequency = tensorboard_log_frequency
-            self.tensorboard_iter_counter = 0
-            self.tensorboard_logs_total = 0
+            self.use_tensorboard = True
+            self.last_meta_train_state = True
             self.losses_train = []
             self.losses_valid = []
             self.scores_train = defaultdict(list)
@@ -62,22 +60,23 @@ class Logger():
         for key in scores:
             scores_dict[key].append(round(scores[key], 5))
             
-    def _tensorboard_avg_last_n_iters(self, losses, scores_dict):
-        loss_avg = np.average(losses[-self.tensorboard_log_frequency:])
+    def _tensorboard_avg_last_n_iters(self, losses: list, scores_dict: dict, n_average: int) -> Tuple[float, Dict[str, float]]:
+        loss_avg = np.average(losses[-n_average:])
         scores_avg = dict()
 
         for key in scores_dict:
-            scores_avg[key] = np.average(scores_dict[key][-self.tensorboard_log_frequency:])
+            scores_avg[key] = np.average(scores_dict[key][-n_average:])
 
         return loss_avg, scores_avg
             
     def _tensorboard_write_log(self, writer, loss, scores):
-        writer.add_scalar(f"Loss/iteration", loss, self.tensorboard_logs_total)
+        writer.add_scalar(f"Loss/iteration", loss, self.meta_train_iterations )
 
         for metric, value in scores.items():
-            writer.add_scalar(f"{metric}", value, self.tensorboard_logs_total)
+            writer.add_scalar(f"{metric}", value, self.meta_train_iterations )
 
     def _tensorboard_write_samples(self, writer, data, predictions, is_task):
+        #TODO: Add a nice view for the samples, this is not it
         if is_task:
             predictions # array of size (100, 5)
             query_set_data = data.query_set[0].cpu().numpy() # array of shape (100, 3, 128, 128)
@@ -113,39 +112,46 @@ class Logger():
 
 
     def _tensorboard_log(self, data: Any, scores: dict, loss: float, meta_train: bool,
-                        is_task: bool, predictions: np.ndarray) -> None:
-        #TODO: Comment, Find a way to convert itations to epochs/tasks
+                        is_task: bool, predictions: np.ndarray, val_tasks: int, val_after: int) -> None:
         self._tensorboard_update_data(meta_train, loss, scores)
         
-        if (self.tensorboard_iter_counter % self.tensorboard_log_frequency) == 0\
-            and meta_train\
-            and self.tensorboard_iter_counter >= self.tensorboard_log_frequency :
-            self.tensorboard_logs_total += 1
-            loss_train, scores_train = self._tensorboard_avg_last_n_iters(self.losses_train, self.scores_train)
-            loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(self.losses_valid, self.scores_valid)
+        if (self.meta_train_iterations % val_after == 0) and \
+            (self.meta_validation_iterations % (val_tasks*self.number_of_valid_datasets) == 0) and\
+            self.meta_train_iterations > 0 and self.meta_validation_iterations > 0:
+            loss_train, scores_train = self._tensorboard_avg_last_n_iters(self.losses_train, self.scores_train, val_after)
+            loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(self.losses_valid, self.scores_valid, val_tasks)
             self._tensorboard_write_log(self.writer_train, loss_train, scores_train)
             self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid)
 
-            self._tensorboard_write_samples(self.writer_valid, data, predictions, is_task)
-        if meta_train:
-            self.tensorboard_iter_counter += 1
+            #self._tensorboard_write_samples(self.writer_valid, data, predictions, is_task)
+        self.last_meta_train_state = meta_train
 
-
-    def log(self, data: Any, predictions: np.ndarray, loss: float, meta_train: bool = True) -> None:
+    def log(self, data: Any, predictions: np.ndarray, loss: float, val_tasks:int, val_after: int, meta_train: bool = True) -> None:
         """ Store the task/batch information, predictions, loss and scores of 
         the current meta-train or meta-validation iteration.
 
         Args:
             data (Any): Data used to compute predictions, it can be a task or a 
                 batch.
+
             predictions (np.ndarray): Predictions associated to each test 
                 example in the specified data. It can be the raw logits matrix 
                 (the logits are the unnormalized final scores of your model), 
                 a probability matrix, or the predicted labels.
+
             loss (float, optional): Loss of the current iteration. Defaults to 
                 None.
+
+            val_tasks (int): The total number of tasks that will be used
+                    during the validation stage.
+
+            val_after (int): The number of training iterations that will be completed
+                    before entering the validation stage.umber of traing iterations that
+                    will be performed between the validation stage.
+            
             meta_train (bool, optional): Boolean flag to control if the current 
                 iteration belongs to meta-training. Defaults to True.
+
         """
         # Check the data format
         is_task = False
@@ -220,9 +226,7 @@ class Logger():
         score_names = list(scores.keys())
         score_values = list(scores.values())
 
-        if self.use_tensorboard:
-            self._tensorboard_log(data, scores, loss, meta_train, is_task, predictions)
-        
+
         if loss is not None:
             score_names.append("Loss")
             score_values.append(loss)
@@ -243,6 +247,9 @@ class Logger():
             else:
                 print(f"{print_text}" + f"\t{scores['Accuracy']:.4f} (Accuracy)")
 
+        if self.use_tensorboard:
+            self._tensorboard_log(data, scores, loss, meta_train, is_task, predictions, val_tasks, val_after)
+        
         with open(performance_file, "a", newline="") as f:
             writer = csv.writer(f)
             if first_log:
