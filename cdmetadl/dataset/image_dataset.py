@@ -6,6 +6,8 @@ import torch.utils.data
 import torchvision.transforms
 import PIL
 
+import cdmetadl.samplers
+
 from .task import Task
 
 
@@ -85,18 +87,18 @@ class ImageDataset(torch.utils.data.Dataset):
         """
         return self.transform(PIL.Image.open(self.img_paths[idx])), torch.tensor(self.labels[idx])
 
-    def generate_task(self, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int) -> Task:
-        if max_ways > self.number_of_classes:
+    def generate_task(self, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int) -> Task:
+        if n_ways.max_value > self.number_of_classes:
             raise ValueError(
-                f"Max ways was set to {max_ways}, but dataset {self.name} only has {self.number_of_classes} classes"
+                f"Max ways was set to {n_ways.max_value}, but dataset {self.name} only has {self.number_of_classes} classes"
             )
-        if max_shots + query_size > self.min_examples_per_class:
+        if k_shots.max_value + query_size > self.min_examples_per_class:
             raise ValueError(
-                f"Max shots was set to {max_shots} and query size to {query_size}, but dataset {self.name} only has {self.min_examples_per_class} examples of its smallest class"
+                f"Max shots was set to {k_shots.max_value} and query size to {query_size}, but dataset {self.name} only has {self.min_examples_per_class} examples of its smallest class"
             )
 
-        n_way = np.random.randint(min_ways, max_ways + 1)
-        k_shot = np.random.randint(min_shots, max_shots + 1)
+        n_way = n_ways.sample()
+        k_shot = k_shots.sample()
 
         selected_classes = np.random.permutation(self.number_of_classes)[:n_way]
         # Indices for support and query set are sampled together to ensure no indix appears twice

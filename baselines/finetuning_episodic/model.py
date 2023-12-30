@@ -60,12 +60,13 @@ class MyMetaLearner(MetaLearner):
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
+
         super().__init__(train_classes, total_classes, logger)
 
         # in order to match the number of seen examples in a meta_fit call with
@@ -77,11 +78,11 @@ class MyMetaLearner(MetaLearner):
 
         # General data parameters
         self.should_train = True
-        self.ncc = True
+        self.ncc = False
         self.batch_size = 16
-        self.train_tasks = 10
+        self.train_tasks = 1000
         self.val_tasks = 10
-        self.val_after = 5
+        self.val_after = 10
 
         # Helpers for convert to global labels
         self.classes_per_dataset = {
@@ -249,7 +250,7 @@ class MyMetaLearner(MetaLearner):
 
             if self.ncc:
                 # Evaluate learner
-                out, _ = self.compute_out_and_loss(self.val_learner, X_train, y_train, X_test, y_test, False, num_ways,
+                out, loss = self.compute_out_and_loss(self.val_learner, X_train, y_train, X_test, y_test, False, num_ways,
                                                    True)
                 preds = torch.argmax(out, dim=1).cpu().numpy()
 
@@ -262,10 +263,11 @@ class MyMetaLearner(MetaLearner):
                 # Evaluate learner
                 with torch.no_grad():
                     out = self.val_learner(X_test)
+                    loss = self.val_learner.criterion(out, y_test.to(out.device))
                     preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
-            self.log(task, out.cpu().numpy(), meta_train=False)
+            self.log(task, out.cpu().numpy(), loss, meta_train=False)
 
             # Keep track of scores
             total_test_images += len(y_test)

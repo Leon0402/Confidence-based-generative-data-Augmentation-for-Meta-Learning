@@ -19,6 +19,8 @@ from helpers_finetuning import *
 
 from api import MetaLearner, Learner, Predictor
 
+import cdmetadl.config
+
 # --------------- MANDATORY ---------------
 SEED = 98
 torch.backends.cudnn.deterministic = True
@@ -33,7 +35,9 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
+    def __init__(
+        self, config: cdmetadl.config.ModelConfig, train_classes: int, total_classes: int, logger: Any
+    ) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -60,21 +64,22 @@ class MyMetaLearner(MetaLearner):
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
+
         super().__init__(train_classes, total_classes, logger)
 
         # General data parameters
         self.should_train = True
         self.ncc = False
         self.support_size = 12
-        self.train_batches = 20
-        self.val_tasks = 10
-        self.val_after = 5
+        self.train_batches = config.number_of_batches
+        self.val_tasks = config.number_of_validation_tasks_per_dataset
+        self.val_after = config.validate_every
 
         # General model parameters
         self.dev = self.get_device()
@@ -152,7 +157,7 @@ class MyMetaLearner(MetaLearner):
                     self.log(batch, out.detach().cpu().numpy(), loss.item())
 
                 if (i + 1) % self.val_after == 0:
-                    self.meta_valid(meta_valid_generator)
+                    self.meta_valid(meta_valid_generator, i)
 
         if self.best_state is None:
             self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
@@ -166,7 +171,7 @@ class MyMetaLearner(MetaLearner):
         }
         return MyLearner(self.model_args, self.best_state, learner_params)
 
-    def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
+    def meta_valid(self, meta_valid_generator: Iterable[Any], iteration: int) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
 
@@ -174,6 +179,9 @@ class MyMetaLearner(MetaLearner):
             meta_valid_generator (Iterable[Task]): Function that generates the 
                 validation data. The generated data always come in form of 
                 N-way k-shot tasks.
+
+            iteration (int): Current iteration of the Meta-Training procedure
+                in order to keep track for logging. 
         """
         total_test_images = 0
         correct_predictions = 0
@@ -192,7 +200,7 @@ class MyMetaLearner(MetaLearner):
 
             if self.ncc:
                 # Evaluate learner
-                out, _ = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
+                out, loss = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
             else:
                 # Optimize learner
                 for _ in range(self.T):
@@ -202,11 +210,12 @@ class MyMetaLearner(MetaLearner):
                 # Evaluate learner
                 with torch.no_grad():
                     out = self.val_learner(X_test)
+                    loss = self.val_learner.criterion(out, y_test.to(out.device))
 
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
-            self.log(task, out.cpu().numpy(), meta_train=False)
+            self.log(task, out.cpu().numpy(), loss, meta_train=False)
 
             # Keep track of scores
             total_test_images += len(y_test)
@@ -222,8 +231,7 @@ class MyMetaLearner(MetaLearner):
         """ Initialize the prototypes for the NCC classifier with batch 
         learning.
         """
-        self.running_prototypes = torch.zeros((self.train_classes, self.meta_learner.in_features),
-                                              device=self.dev,
+        self.running_prototypes = torch.zeros((self.train_classes, self.meta_learner.in_features), device=self.dev,
                                               requires_grad=False)
         self.running_lenght = torch.zeros(self.train_classes, device=self.dev, requires_grad=False)
 
@@ -241,9 +249,7 @@ class MyMetaLearner(MetaLearner):
             print("Using CPU")
         return device
 
-    def update_prototypes(self,
-                          X: torch.Tensor,
-                          y: torch.Tensor,
+    def update_prototypes(self, X: torch.Tensor, y: torch.Tensor,
                           grad: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Update the prototypes following the NCC strategy.
 
@@ -391,7 +397,7 @@ class MyLearner(Learner):
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
 
         self.learner.freeze_layers(n_ways)
-        
+
         if self.ncc:
             with torch.no_grad():
                 prototypes = process_support_set(self.learner, X_train, y_train, n_ways)

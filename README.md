@@ -27,10 +27,17 @@ poetry shell
 
 Alternatively prefix all following commands with `poetry run <command here>`. 
 
+
+Download and verify the datasets:
+```bash
+python ./cdmetadl/helpers/initial_setup.py
+```
+
 Run the code with:
 
 ```bash
 python -m cdmetadl.train \
+    --config_path="configs/train.yml" \
     --model_dir=baselines/finetuning \
     --domain_type="cross-domain" \
     --overwrite_previous_results \
@@ -55,7 +62,7 @@ Open dashboard with:
 python -m cdmetadl.dashboard
 ```
 
-## Automation Scriots 
+## Automation Scripts 
 
 For ease of use the following script can be used to run a model in cross-domain and with-domain setting: 
 

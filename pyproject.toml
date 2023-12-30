@@ -27,6 +27,7 @@ tqdm = "^4.66.1"
 plotly = "^5.18.0"
 dash = "^2.14.2"
 dash-mantine-components = "^0.12.1"
+tensorboard = "^2.15.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

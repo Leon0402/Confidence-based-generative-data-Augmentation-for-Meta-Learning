@@ -109,7 +109,7 @@ class MetaLearner():
                 datasets. If the data format during training is 'batch' this 
                 parameter is exactly the same as train_classes.
             logger (Logger): Logger that you can use during meta-learning 
-                (HIGHLY RECOMMENDED). You can use it after each meta-train or 
+                (HIGHLY nn.RECOMMENDED). You can use it after each meta-train or 
                 meta-validation iteration as follows: 
                     self.log(data, predictions, loss, meta_train)
                 - data (task or batch): It is the data used in the current 
@@ -122,11 +122,12 @@ class MetaLearner():
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         self.train_classes = train_classes
         self.total_classes = total_classes
         self.log = logger.log
+
 
     def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 

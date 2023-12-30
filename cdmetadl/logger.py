@@ -2,11 +2,12 @@ import pathlib
 
 import csv
 import numpy as np
-from typing import Any
+from torch.utils.tensorboard import SummaryWriter
+from typing import Any, Union
 
 import cdmetadl.dataset
 from cdmetadl.helpers.scoring_helpers import compute_all_scores
-
+from collections import defaultdict
 
 class Logger():
     """ Class to define the logger that can be used by the participants during 
@@ -14,10 +15,16 @@ class Logger():
     the ingestion output log of the Competition Site. 
     """
 
-    def __init__(self, logs_dir: pathlib.Path) -> None:
+    def __init__(self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], tensorboard_log_frequency: int = 20) -> None:
         """
         Args:
             logs_dir (pathlib.Path): Directory where the logs should be stored.
+
+            tensorboard_dir: Union[pathlib.Path, None]: Indicates if and where the data
+                    for the tensorboard should be stored
+
+             tensorboard_log_frequency: Frequency of how many training iterations/batches 
+                    should become produces in order to create a new log for the tensorboard
         """
         self.logs_dir = logs_dir
         self.meta_train_iterations = 0
@@ -26,8 +33,63 @@ class Logger():
         self.meta_valid_steps = 0
         self.meta_valid_root_path = self.logs_dir / "meta_validation"
         self.print_separator = False
+        self.use_tensorboard = False
 
-    def log(self, data: Any, predictions: np.ndarray, loss: float = None, meta_train: bool = True) -> None:
+        if tensorboard_dir != None:
+            self.writer_train = SummaryWriter(f"{tensorboard_dir}/train")
+            self.writer_valid = SummaryWriter(f"{tensorboard_dir}/valid")
+            self.use_tensorboard = True 
+            self.tensorboard_log_frequency = tensorboard_log_frequency
+            self.tensorboard_iter_counter = 0
+            self.tensorboard_logs_total = 0
+            self.losses_train = []
+            self.losses_valid = []
+            self.scores_train = defaultdict(list)
+            self.scores_valid = defaultdict(list)
+
+
+    def _tensorboard_update_data(self, meta_train: bool, loss: float, scores: dict) -> None:
+        if meta_train:
+            self.losses_train.append(round(float(loss), 5))
+            scores_dict = self.scores_train
+        else:
+            self.losses_valid.append(round(float(loss), 5))
+            scores_dict = self.scores_valid
+        
+        for key in scores:
+            scores_dict[key].append(round(scores[key], 5))
+            
+    def _tensorboard_avg_last_n_iters(self, losses, scores_dict):
+        loss_avg = np.average(losses[-self.tensorboard_log_frequency:])
+        scores_avg = dict()
+
+        for key in scores_dict:
+            scores_avg[key] = np.average(scores_dict[key][-self.tensorboard_log_frequency:])
+
+        return loss_avg, scores_avg
+            
+    def _tensorboard_write_log(self, writer, loss, scores):
+        writer.add_scalar(f"Loss/iteration", loss, self.tensorboard_logs_total)
+
+        for metric, value in scores.items():
+            writer.add_scalar(f"{metric}", value, self.tensorboard_logs_total)
+
+    def _tensorboard_log(self, scores: dict, loss: float, meta_train: bool = True) -> None:
+        #TODO: Comment, Find a way to convert itations to epochs/tasks
+        self._tensorboard_update_data(meta_train, loss, scores)
+        
+        if self.tensorboard_iter_counter % self.tensorboard_log_frequency == 0 and meta_train:
+            self.tensorboard_logs_total += 1
+            loss_train, scores_train = self._tensorboard_avg_last_n_iters(self.losses_train, self.scores_train)
+            loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(self.losses_valid, self.scores_valid)
+            self._tensorboard_write_log(self.writer_train, loss_train, scores_train)
+            self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid)
+
+        if meta_train:
+            self.tensorboard_iter_counter += 1
+
+
+    def log(self, data: Any, predictions: np.ndarray, loss: float, meta_train: bool = True) -> None:
         """ Store the task/batch information, predictions, loss and scores of 
         the current meta-train or meta-validation iteration.
 
@@ -115,6 +177,9 @@ class Logger():
         score_names = list(scores.keys())
         score_values = list(scores.values())
 
+        if self.use_tensorboard:
+            self._tensorboard_log(scores, loss, meta_train)
+        
         if loss is not None:
             score_names.append("Loss")
             score_values.append(loss)
