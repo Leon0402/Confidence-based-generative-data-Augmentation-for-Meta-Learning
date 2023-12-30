@@ -29,10 +29,10 @@ class Logger():
             number_of_valid_datasets (int): Number of datasets that will be used for meta-validation
         """
         self.logs_dir = logs_dir
-        self.meta_train_iterations = 0
+        self.meta_train_iteration = 0
         self.meta_train_logs_path = self.logs_dir / "meta_train"
-        self.meta_validation_iterations = 0
-        self.meta_valid_steps = 0
+        self.meta_validation_iteration = 0
+        self.meta_valid_step = 0
         self.meta_valid_root_path = self.logs_dir / "meta_validation"
         self.print_separator = False
         self.use_tensorboard = False
@@ -70,60 +70,84 @@ class Logger():
         return loss_avg, scores_avg
             
     def _tensorboard_write_log(self, writer, loss, scores):
-        writer.add_scalar(f"Loss/iteration", loss, self.meta_train_iterations )
+        writer.add_scalar(f"Loss/step", loss, self.meta_train_iteration )
 
         for metric, value in scores.items():
-            writer.add_scalar(f"{metric}", value, self.meta_train_iterations )
+            writer.add_scalar(f"Metrics/{metric}", value, self.meta_train_iteration )
 
     def _tensorboard_write_samples(self, writer, data, predictions, is_task):
-        #TODO: Add a nice view for the samples, this is not it
         if is_task:
-            predictions # array of size (100, 5)
+            class_predictions = predictions.argmax(axis=1)
             query_set_data = data.query_set[0].cpu().numpy() # array of shape (100, 3, 128, 128)
             query_set_labels = data.query_set[1].cpu().numpy() # array of shape (100,)
 
+            support_set_data = data.support_set[0].cpu().numpy() #array of shape (95, 3, 128, 128)
+            support_set_labels = data.support_set[1].cpu().numpy() # array of shape (95, )
 
-            for i in range(len(predictions)):
-                prediction_i = predictions[i].round(3)
-                query_data_i = query_set_data[i]
-                query_labels_i = query_set_labels[i]
+            # Set up the figure
+            fig_predictions, axs_predictions = plt.subplots(4, 4, figsize=(10, 10))
+            prediction_sample = np.random.choice(range(len(query_set_labels)), 16, replace=False)
 
-                # Example: Plot the first channel of the query_set_data
-                plt.imshow(query_data_i[0, :, :], cmap='gray')
-                plt.title(f"Prediction: {prediction_i}, Label: {query_labels_i}")
-                plt.axis('off')
+            # Adjust layout to make it neat
+            plt.tight_layout()
+            fig_predictions.suptitle("Query-Set and Predictions")
 
-                # Save the figure to a BytesIO object
-                buf = io.BytesIO()
-                plt.savefig(buf, format='png')
-                buf.seek(0)
+            for x in range(4):
+                for y in range(4):            
+                    sampled_idx = prediction_sample[x*4 + y]
+                    axs_predictions[x, y].imshow(np.transpose(query_set_data[sampled_idx], (1, 2, 0)), cmap="gray")
+                    axs_predictions[x, y].set_title(f"Label: {query_set_labels[sampled_idx]}\n Predicted Label: {class_predictions[sampled_idx]}")
+                    axs_predictions[x, y].axis('off') 
 
-                # Convert the figure to a NumPy array
-                image_np = plt.imread(buf)
+            # Adjust layout to make it neat
+            plt.tight_layout()
 
-                # Convert the NumPy array to a PyTorch tensor
-                image_tensor = torch.from_numpy(image_np).permute(2, 0, 1).float()
 
-                # Add the image to TensorBoard
-                writer.add_image(f'Grid_Plot/{i}', image_tensor, global_step=i)
+            # Set up the figure
+            fig_support, axs_support = plt.subplots(5, data.num_ways, figsize=(data.num_ways*2, 5*3))
+            ways_counter_dict = defaultdict(lambda: 0)
+            
+            fig_support.suptitle("Support-Set")
+            for i, label in enumerate(support_set_labels):
+                if ways_counter_dict[label] == 0:
+                    axs_support[ways_counter_dict[label], label].set_title(f"Class: {support_set_labels[i]}")
 
-                # Close the figure to free up resources
-                plt.close()
+                if ways_counter_dict[label] < 5:
+                    axs_support[ways_counter_dict[label], label].imshow(np.transpose(support_set_data[i], (1, 2, 0)), cmap="gray")
+                    axs_support[ways_counter_dict[label], label].axis('off')
+                ways_counter_dict[label] += 1
 
+
+            writer.add_image(f"Dataset/Predictions", self._img_to_tensor(fig_predictions), self.meta_train_iteration)
+            writer.add_image(f"Dataset/Support Set", self._img_to_tensor(fig_support),  self.meta_train_iteration)
+
+    def _img_to_tensor(self, fig): 
+        # Save the figure to a BytesIO object
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+
+        # Convert the figure to a NumPy array
+        image_np = plt.imread(buf)
+
+        # Convert the NumPy array to a PyTorch tensor
+        image_tensor = torch.from_numpy(image_np).permute(2, 0, 1).float()
+
+        return image_tensor
 
     def _tensorboard_log(self, data: Any, scores: dict, loss: float, meta_train: bool,
                         is_task: bool, predictions: np.ndarray, val_tasks: int, val_after: int) -> None:
         self._tensorboard_update_data(meta_train, loss, scores)
         
-        if (self.meta_train_iterations % val_after == 0) and \
-            (self.meta_validation_iterations % (val_tasks*self.number_of_valid_datasets) == 0) and\
-            self.meta_train_iterations > 0 and self.meta_validation_iterations > 0:
+        if (self.meta_train_iteration % val_after == 0) and \
+            (self.meta_validation_iteration % (val_tasks*self.number_of_valid_datasets) == 0) and\
+            self.meta_train_iteration > 0 and self.meta_validation_iteration > 0:
             loss_train, scores_train = self._tensorboard_avg_last_n_iters(self.losses_train, self.scores_train, val_after)
             loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(self.losses_valid, self.scores_valid, val_tasks)
             self._tensorboard_write_log(self.writer_train, loss_train, scores_train)
             self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid)
 
-            #self._tensorboard_write_samples(self.writer_valid, data, predictions, is_task)
+            self._tensorboard_write_samples(self.writer_valid, data, predictions, is_task)
         self.last_meta_train_state = meta_train
 
     def log(self, data: Any, predictions: np.ndarray, loss: float, val_tasks:int, val_after: int, meta_train: bool = True) -> None:
@@ -161,40 +185,40 @@ class Logger():
         first_log = False
         if meta_train:
             # Create log dirs
-            if self.meta_train_iterations == 0:
+            if self.meta_train_iteration == 0:
                 first_log = True
                 self._create_logs_dirs(self.meta_train_logs_path)
 
             # Print separator after finishing meta-valid step
             if self.print_separator:
-                self.meta_validation_iterations = 0
+                self.meta_validation_iteration = 0
                 self.print_separator = False
                 print(f"{'#'*79}\n")
 
             # Prepare paths to files
-            self.meta_train_iterations += 1
+            self.meta_train_iteration += 1
             ground_truth_path = f"{self.meta_train_logs_path}/ground_truth"
             predictions_path = f"{self.meta_train_logs_path}/predictions"
             task_file = f"{self.meta_train_logs_path}/tasks.csv"
             performance_file = f"{self.meta_train_logs_path}/performance.csv"
-            curr_iter = f"iteration_{self.meta_train_iterations}.out"
-            print_text = f"Meta-train iteration {self.meta_train_iterations}:"
+            curr_iter = f"iteration_{self.meta_train_iteration}.out"
+            print_text = f"Meta-train iteration {self.meta_train_iteration}:"
 
         else:
             # Create log dirs
-            if self.meta_validation_iterations == 0:
+            if self.meta_validation_iteration == 0:
                 first_log = True
-                self.meta_valid_steps += 1
-                self.meta_valid_logs_path = self.meta_valid_root_path / f"step_{self.meta_valid_steps}"
+                self.meta_valid_step += 1
+                self.meta_valid_logs_path = self.meta_valid_root_path / f"step_{self.meta_valid_step}"
                 self.meta_valid_logs_path.mkdir(parents=True)
-                print(f"\n{'#'*30} Meta-valid step {self.meta_valid_steps} " + f"{'#'*30}")
+                print(f"\n{'#'*30} Meta-valid step {self.meta_valid_step} " + f"{'#'*30}")
                 self.print_separator = True
 
-            self.meta_validation_iterations += 1
+            self.meta_validation_iteration += 1
             task_file = f"{self.meta_valid_logs_path}/tasks.csv"
             performance_file = f"{self.meta_valid_logs_path}/performance.csv"
             print_text = "Meta-valid iteration " \
-                + f"{self.meta_validation_iterations}:"
+                + f"{self.meta_validation_iteration}:"
 
         if is_task:
             # Save task information
