@@ -20,6 +20,8 @@ from helpers_maml import *
 
 from api import MetaLearner, Learner, Predictor
 
+import cdmetadl.config
+
 # --------------- MANDATORY ---------------
 SEED = 187
 torch.backends.cudnn.deterministic = True
@@ -34,7 +36,9 @@ if torch.cuda.is_available():
 
 class MyMetaLearner(MetaLearner):
 
-    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
+    def __init__(
+        self, config: cdmetadl.config.ModelConfig, train_classes: int, total_classes: int, logger: Any
+    ) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -72,9 +76,9 @@ class MyMetaLearner(MetaLearner):
         # General data parameters
         self.should_train = True
         self.ncc = False
-        self.train_tasks = 1000
-        self.val_tasks = 10
-        self.val_after = 10
+        self.train_tasks = config.number_of_validation_tasks_per_dataset
+        self.val_tasks = config.number_of_validation_tasks_per_dataset
+        self.val_after = config.validate_every
 
         # MAML parameters
         self.base_lr = 0.01

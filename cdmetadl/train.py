@@ -9,6 +9,7 @@ from enum import Enum
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 import cdmetadl.logger
+import cdmetadl.config
 
 
 class DomainType(Enum):
@@ -17,57 +18,6 @@ class DomainType(Enum):
 
     def __str__(self):
         return self.value
-
-
-class DataFormat(Enum):
-    BATCH = "batch"
-    TASK = "task"
-
-    def __str__(self):
-        return self.value
-
-
-def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, dict]:
-    train_data_format = DataFormat.TASK
-    if config_file.parent.name == "finetuning": 
-        train_data_format = DataFormat.BATCH
-
-
-    train_generator_config = {
-        "N": 5,
-        "min_N": None,
-        "max_N": None,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20,
-        "batch_size": 16
-    }
-
-    valid_generator_config = {
-        "N": 5,
-        "min_N": None,
-        "max_N": None,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
-    test_generator_config = {
-        "N": 5,
-        "min_N": None,
-        "max_N": None,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
-    if config_file.exists():
-        raise DeprecationWarning("Config files are not supported anymores, it seems the model still defines ones.")
-
-    return train_data_format, train_generator_config, valid_generator_config, test_generator_config
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -80,6 +30,7 @@ def define_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the solution to use.'
     )
+    parser.add_argument('--config_path', type=pathlib.Path, required=True, help='Path to config to use.')
     parser.add_argument(
         '--datasets', nargs='*', help=
         'Specify the datasets that will be used for. Default: Uses all datasets in the cross domain setup or one random selected dataset in the within domain setup.'
@@ -131,6 +82,8 @@ def process_args(args: argparse.Namespace) -> None:
 
     if args.domain_type == 'within-domain' and len(args.datasets) > 1:
         raise ValueError("More than one dataset specified for within-domain scenario")
+
+    args.dataset_config, args.model_config = cdmetadl.config.read_config(args.config_path)
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
@@ -190,17 +143,13 @@ def prepare_data_generators(
     with open(args.dataset_output_dir / 'test_dataset.pkl', 'wb') as f:
         pickle.dump(test_dataset, f)
 
-    train_data_format, train_generator_config, valid_generator_config, _ = read_generator_configs(
-        args.model_dir / "config.json"
-    )
+    match args.dataset_config.train_mode:
+        case cdmetadl.config.DataFormat.TASK:
+            meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, args.dataset_config)
+        case cdmetadl.config.DataFormat.BATCH:
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, args.dataset_config)
 
-    match train_data_format:
-        case DataFormat.TASK:
-            meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config, sample_dataset=True)
-        case DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config)
-
-    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config)
+    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, args.dataset_config)
     return meta_train_generator, meta_val_generator
 
 
@@ -216,7 +165,8 @@ def meta_learn(
         logger = cdmetadl.logger.Logger(args.logger_dir, None)
 
     meta_learner = model_module.MyMetaLearner(
-        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger)
+        args.model_config, meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
+    )
     meta_learner.meta_fit(meta_train_generator, meta_val_generator).save(args.output_model_dir)
 
 
