@@ -76,10 +76,10 @@ class Logger():
             writer.add_scalar(f"Metrics/{metric}", value, self.meta_train_iteration)
 
     def _tensorboard_create_figure(
-        self, data: np.array, labels: np.array, num_ways: int, sample_size: int, predictions=None
+        self, title: str, data: np.array, labels: np.array, num_ways: int, sample_size: int, predictions=None
     ):
-        fig_support, axs_support = plt.subplots(sample_size, num_ways, squeeze=False, layout="constrained")
-        fig_support.suptitle("Support-Set")
+        fig_support, axs_support = plt.subplots(sample_size, num_ways, figsize=(num_ways*2, sample_size), squeeze=False, layout="constrained")
+        fig_support.suptitle(title)
 
         label_to_indices = {label: np.flatnonzero(labels == label) for label in np.unique(labels)}
         for label, indices in label_to_indices.items():
@@ -90,24 +90,25 @@ class Logger():
 
                 if predictions is not None:
                     probs = np.exp(predictions[idx]) / np.sum(np.exp(predictions[idx]))
+                    sorted_indexes = np.argsort(probs)[::-1][:5]
                     pred_text = "\n".join([
-                        f"{pred_label}: {pred_prob:.2f}%" for pred_label, pred_prob in enumerate(np.sort(probs)[::-1])
+                        f"{idx}: {int(probs[idx]*100)}%" for idx in sorted_indexes
                     ])
-                    # TODO: Display of text is not pretty yet
+
                     axs_support[i, label].text(
-                        0.5, -0.1, pred_text, transform=axs_support[i, label].transAxes, ha='center', va='top',
-                        fontsize='x-small'
+                        1.05, 1, pred_text, transform=axs_support[i, label].transAxes, ha='left', va='top',
+                        fontsize='medium', rotation='horizontal'
                     )
 
     def _tensorboard_write_samples(self, writer: SummaryWriter, data: cdmetadl.dataset.Task, predictions):
         self._tensorboard_create_figure(
-            data=data.support_set[0].cpu().numpy(), labels=data.support_set[1].cpu().numpy(), num_ways=data.num_ways,
+            title="Support-Set", data=data.support_set[0].cpu().numpy(), labels=data.support_set[1].cpu().numpy(), num_ways=data.num_ways,
             sample_size=min(data.num_shots, 5)
         )
         writer.add_figure(f"Dataset/Support Set", plt.gcf(), self.meta_train_iteration)
 
         self._tensorboard_create_figure(
-            data=data.query_set[0].cpu().numpy(), labels=data.query_set[1].cpu().numpy(), num_ways=data.num_ways,
+            title="Query-Set", data=data.query_set[0].cpu().numpy(), labels=data.query_set[1].cpu().numpy(), num_ways=data.num_ways,
             sample_size=min(data.query_size, 5), predictions=predictions
         )
         writer.add_figure(f"Dataset/Query Set ", plt.gcf(), self.meta_train_iteration)
