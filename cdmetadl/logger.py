@@ -18,7 +18,9 @@ class Logger():
     the ingestion output log of the Competition Site. 
     """
 
-    def __init__(self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], number_of_valid_datasets: int) -> None:
+    def __init__(
+        self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], number_of_valid_datasets: int
+    ) -> None:
         """
         Args:
             logs_dir (pathlib.Path): Directory where the logs should be stored.
@@ -35,19 +37,16 @@ class Logger():
         self.meta_valid_step = 0
         self.meta_valid_root_path = self.logs_dir / "meta_validation"
         self.print_separator = False
-        self.use_tensorboard = False
         self.number_of_valid_datasets = number_of_valid_datasets
 
-        if tensorboard_dir != None:
+        self.use_tensorboard = tensorboard_dir != None
+        if self.use_tensorboard:
             self.writer_train = SummaryWriter(f"{tensorboard_dir}/train")
             self.writer_valid = SummaryWriter(f"{tensorboard_dir}/valid")
-            self.use_tensorboard = True
-            self.last_meta_train_state = True
             self.losses_train = []
             self.losses_valid = []
             self.scores_train = defaultdict(list)
             self.scores_valid = defaultdict(list)
-
 
     def _tensorboard_update_data(self, meta_train: bool, loss: float, scores: dict) -> None:
         if meta_train:
@@ -56,11 +55,12 @@ class Logger():
         else:
             self.losses_valid.append(round(float(loss), 5))
             scores_dict = self.scores_valid
-        
+
         for key in scores:
             scores_dict[key].append(round(scores[key], 5))
-            
-    def _tensorboard_avg_last_n_iters(self, losses: list, scores_dict: dict, n_average: int) -> Tuple[float, Dict[str, float]]:
+
+    def _tensorboard_avg_last_n_iters(self, losses: list, scores_dict: dict,
+                                      n_average: int) -> Tuple[float, Dict[str, float]]:
         loss_avg = np.average(losses[-n_average:])
         scores_avg = dict()
 
@@ -68,89 +68,74 @@ class Logger():
             scores_avg[key] = np.average(scores_dict[key][-n_average:])
 
         return loss_avg, scores_avg
-            
+
     def _tensorboard_write_log(self, writer, loss, scores):
-        writer.add_scalar(f"Loss/step", loss, self.meta_train_iteration )
+        writer.add_scalar(f"Loss/step", loss, self.meta_train_iteration)
 
         for metric, value in scores.items():
-            writer.add_scalar(f"Metrics/{metric}", value, self.meta_train_iteration )
+            writer.add_scalar(f"Metrics/{metric}", value, self.meta_train_iteration)
 
-    def _tensorboard_write_samples(self, writer, data, predictions, is_task):
-        if is_task:
-            class_predictions = predictions.argmax(axis=1)
-            query_set_data = data.query_set[0].cpu().numpy() # array of shape (100, 3, 128, 128)
-            query_set_labels = data.query_set[1].cpu().numpy() # array of shape (100,)
+    def _tensorboard_create_figure(
+        self, data: np.array, labels: np.array, num_ways: int, sample_size: int, predictions=None
+    ):
+        fig_support, axs_support = plt.subplots(sample_size, num_ways, squeeze=False, layout="constrained")
+        fig_support.suptitle("Support-Set")
 
-            support_set_data = data.support_set[0].cpu().numpy() #array of shape (95, 3, 128, 128)
-            support_set_labels = data.support_set[1].cpu().numpy() # array of shape (95, )
+        label_to_indices = {label: np.flatnonzero(labels == label) for label in np.unique(labels)}
+        for label, indices in label_to_indices.items():
+            axs_support[0, label].set_title(f"Class: {label}")
+            for i, idx in enumerate(np.random.choice(indices, sample_size, replace=False)):
+                axs_support[i, label].imshow(np.transpose(data[idx], (1, 2, 0)), cmap="gray")
+                axs_support[i, label].axis('off')
 
-            # Set up the figure
-            fig_predictions, axs_predictions = plt.subplots(4, 4, figsize=(10, 10))
-            prediction_sample = np.random.choice(range(len(query_set_labels)), 16, replace=False)
+                if predictions is not None:
+                    probs = np.exp(predictions[idx]) / np.sum(np.exp(predictions[idx]))
+                    pred_text = "\n".join([
+                        f"{pred_label}: {pred_prob:.2f}%" for pred_label, pred_prob in enumerate(np.sort(probs)[::-1])
+                    ])
+                    # TODO: Display of text is not pretty yet
+                    axs_support[i, label].text(
+                        0.5, -0.1, pred_text, transform=axs_support[i, label].transAxes, ha='center', va='top',
+                        fontsize='x-small'
+                    )
 
-            # Adjust layout to make it neat
-            plt.tight_layout()
-            fig_predictions.suptitle("Query-Set and Predictions")
+    def _tensorboard_write_samples(self, writer: SummaryWriter, data: cdmetadl.dataset.Task, predictions):
+        self._tensorboard_create_figure(
+            data=data.support_set[0].cpu().numpy(), labels=data.support_set[1].cpu().numpy(), num_ways=data.num_ways,
+            sample_size=min(data.num_shots, 5)
+        )
+        writer.add_figure(f"Dataset/Support Set", plt.gcf(), self.meta_train_iteration)
 
-            for x in range(4):
-                for y in range(4):            
-                    sampled_idx = prediction_sample[x*4 + y]
-                    axs_predictions[x, y].imshow(np.transpose(query_set_data[sampled_idx], (1, 2, 0)), cmap="gray")
-                    axs_predictions[x, y].set_title(f"Label: {query_set_labels[sampled_idx]}\n Predicted Label: {class_predictions[sampled_idx]}")
-                    axs_predictions[x, y].axis('off') 
+        self._tensorboard_create_figure(
+            data=data.query_set[0].cpu().numpy(), labels=data.query_set[1].cpu().numpy(), num_ways=data.num_ways,
+            sample_size=min(data.query_size, 5), predictions=predictions
+        )
+        writer.add_figure(f"Dataset/Query Set ", plt.gcf(), self.meta_train_iteration)
 
-            # Adjust layout to make it neat
-            plt.tight_layout()
-
-
-            # Set up the figure
-            fig_support, axs_support = plt.subplots(5, data.num_ways, figsize=(data.num_ways*2, 5*3))
-            ways_counter_dict = defaultdict(lambda: 0)
-            
-            fig_support.suptitle("Support-Set")
-            for i, label in enumerate(support_set_labels):
-                if ways_counter_dict[label] == 0:
-                    axs_support[ways_counter_dict[label], label].set_title(f"Class: {support_set_labels[i]}")
-
-                if ways_counter_dict[label] < 5:
-                    axs_support[ways_counter_dict[label], label].imshow(np.transpose(support_set_data[i], (1, 2, 0)), cmap="gray")
-                    axs_support[ways_counter_dict[label], label].axis('off')
-                ways_counter_dict[label] += 1
-
-
-            writer.add_image(f"Dataset/Predictions", self._img_to_tensor(fig_predictions), self.meta_train_iteration)
-            writer.add_image(f"Dataset/Support Set", self._img_to_tensor(fig_support),  self.meta_train_iteration)
-
-    def _img_to_tensor(self, fig): 
-        # Save the figure to a BytesIO object
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
-
-        # Convert the figure to a NumPy array
-        image_np = plt.imread(buf)
-
-        # Convert the NumPy array to a PyTorch tensor
-        image_tensor = torch.from_numpy(image_np).permute(2, 0, 1).float()
-
-        return image_tensor
-
-    def _tensorboard_log(self, data: Any, scores: dict, loss: float, meta_train: bool,
-                        is_task: bool, predictions: np.ndarray, val_tasks: int, val_after: int) -> None:
+    def _tensorboard_log(
+        self, data: Any, scores: dict, loss: float, meta_train: bool, is_task: bool, predictions: np.ndarray,
+        val_tasks: int, val_after: int
+    ) -> None:
         self._tensorboard_update_data(meta_train, loss, scores)
-        
-        if (self.meta_train_iteration % val_after == 0) and \
-            (self.meta_validation_iteration % (val_tasks*self.number_of_valid_datasets) == 0) and\
-            self.meta_train_iteration > 0 and self.meta_validation_iteration > 0:
-            loss_train, scores_train = self._tensorboard_avg_last_n_iters(self.losses_train, self.scores_train, val_after)
-            loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(self.losses_valid, self.scores_valid, val_tasks)
+
+        training_epoch_done = self.meta_train_iteration % val_after == 0
+        validation_epoch_done = self.meta_validation_iteration % (val_tasks * self.number_of_valid_datasets) == 0
+        if training_epoch_done and validation_epoch_done:
+            loss_train, scores_train = self._tensorboard_avg_last_n_iters(
+                self.losses_train, self.scores_train, val_after
+            )
             self._tensorboard_write_log(self.writer_train, loss_train, scores_train)
+
+            loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(
+                self.losses_valid, self.scores_valid, val_tasks
+            )
             self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid)
 
-            self._tensorboard_write_samples(self.writer_valid, data, predictions, is_task)
-        self.last_meta_train_state = meta_train
+            self._tensorboard_write_samples(self.writer_valid, data, predictions)
 
-    def log(self, data: Any, predictions: np.ndarray, loss: float, val_tasks:int, val_after: int, meta_train: bool = True) -> None:
+    def log(
+        self, data: Any, predictions: np.ndarray, loss: float, val_tasks: int, val_after: int, meta_train: bool = True
+    ) -> None:
         """ Store the task/batch information, predictions, loss and scores of 
         the current meta-train or meta-validation iteration.
 
@@ -232,7 +217,6 @@ class Logger():
                     writer.writerow(["Dataset", "N", "k"])
                 writer.writerow([dataset, N, k])
 
-
             ground_truth = data.query_set[1].cpu().numpy()
 
         else:
@@ -249,7 +233,6 @@ class Logger():
         scores = compute_all_scores(ground_truth, predictions, N, not is_task)
         score_names = list(scores.keys())
         score_values = list(scores.values())
-
 
         if loss is not None:
             score_names.append("Loss")
@@ -273,7 +256,7 @@ class Logger():
 
         if self.use_tensorboard:
             self._tensorboard_log(data, scores, loss, meta_train, is_task, predictions, val_tasks, val_after)
-        
+
         with open(performance_file, "a", newline="") as f:
             writer = csv.writer(f)
             if first_log:

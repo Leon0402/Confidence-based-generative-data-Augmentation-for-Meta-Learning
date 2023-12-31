@@ -112,6 +112,7 @@ class ImageDataset(torch.utils.data.Dataset):
         return Task(
             num_ways=n_way,
             num_shots=k_shot,
+            query_size=query_size,
             support_set=(
                 support_images, torch.tensor(np.arange(n_way).repeat(k_shot)),
                 torch.tensor(selected_classes.repeat(k_shot))
