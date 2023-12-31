@@ -20,6 +20,7 @@ from helpers_maml import *
 
 import cdmetadl.api
 import cdmetadl.config
+import cdmetadl.dataset
 
 # --------------- MANDATORY ---------------
 SEED = 187
@@ -89,7 +90,13 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         # General model parameters
         self.dev = self.get_device()
         self.opt_fn = torch.optim.Adam
-        self.model_args = {"num_classes": self.train_classes, "dev": self.dev, "num_blocks": 18, "pretrained": False}
+        self.model_args = {
+            "num_classes": self.train_classes,
+            "dev": self.dev,
+            "num_blocks": 18,
+            "pretrained": False,
+            "dropout_prob": config.dropout_probability
+        }
 
         # Meta-learner
         self.lr = 0.001
@@ -108,7 +115,7 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         self.val_learner = ResNet(**self.model_args).to(self.dev)
 
     def meta_fit(
-        self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]
+        self, meta_train_generator: cdmetadl.dataset.TaskGenerator, meta_valid_generator: cdmetadl.dataset.TaskGenerator
     ) -> cdmetadl.api.Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
@@ -116,16 +123,11 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         few-shot learning tasks.
         
         Args:
-            meta_train_generator (Iterable[Any]): Function that generates the 
-                training data. The generated can be a N-way k-shot task or a 
-                batch of images with labels.
-            meta_valid_generator (Iterable[Task]): Function that generates the 
-                validation data. The generated data always come in form of 
-                N-way k-shot tasks.
-                
+            meta_train_generator (cdmetadl.dataset.BatchGenerator): Generator for training data in task format
+            meta_valid_generator (cdmetadl.dataset.TaskGenerator): Generator for validation data in task format
+
         Returns:
-            Learner: Resulting learner ready to be trained and evaluated on new
-                unseen tasks.
+            Learner: Resulting learner ready to be trained and evaluated on new unseen tasks.
         """
         if self.should_train:
             self.optimizer.zero_grad()
@@ -133,16 +135,15 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
                 self.meta_learner.train()
 
                 # Prepare data
-                num_ways = task.num_ways
-                X_train, y_train, _ = task.support_set
-                X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
-                X_test, y_test, _ = task.query_set
-                X_test, y_test = X_test.to(self.dev), y_test.to(self.dev)
+                X_train = task.support_set.images.to(self.dev)
+                y_train = task.support_set.labels.to(self.dev)
+                X_test = task.query_set.images.to(self.dev)
+                y_test = task.query_set.labels.to(self.dev)
 
                 # Compute loss
                 task_weights = [p.clone() for p in self.weights]
                 out, loss = self.compute_out_and_loss(
-                    self.meta_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, True
+                    self.meta_learner, task_weights, X_train, y_train, X_test, y_test, task.number_of_ways, True
                 )
 
                 # Propagate loss
@@ -188,14 +189,12 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         }
         return MyLearner(self.model_args, self.meta_learner.state_dict(), self.best_state, maml_params)
 
-    def meta_valid(self, meta_valid_generator: Iterable[Any], iteration: int) -> None:
+    def meta_valid(self, meta_valid_generator: cdmetadl.dataset.TaskGenerator, iteration: int) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
 
         Args:
-            meta_valid_generator (Iterable[Task]): Function that generates the 
-                validation data. The generated data always come in form of 
-                N-way k-shot tasks.
+            meta_valid_generator (cdmetadl.dataset.TaskGenerator): Generator for validation data in task format.
             iteration (int): Current iteration of the Meta-Training procedure
                 in order to keep track for logging. 
         """
@@ -203,16 +202,15 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         correct_predictions = 0
         for task in meta_valid_generator(self.val_tasks):
             # Prepare data
-            num_ways = task.num_ways
-            X_train, y_train, _ = task.support_set
-            X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
-            X_test, y_test, _ = task.query_set
-            X_test = X_test.to(self.dev)
+            X_train = task.support_set.images.to(self.dev)
+            y_train = task.support_set.labels.to(self.dev)
+            X_test = task.query_set.images.to(self.dev)
+            y_test = task.query_set.labels.to(self.dev)
 
             # Adapt learner
             self.val_learner.load_params(self.meta_learner.state_dict())
             self.val_learner.eval()
-            self.val_learner.modify_out_layer(num_ways)
+            self.val_learner.modify_out_layer(task.number_of_ways)
 
             # Prepare weights
             task_weights = [p.clone() for p in self.weights[:-2]]
@@ -223,7 +221,7 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
 
             # Evaluate learner
             out, loss = self.compute_out_and_loss(
-                self.val_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, False, False
+                self.val_learner, task_weights, X_train, y_train, X_test, y_test, task.number_of_ways, False, False
             )
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
@@ -231,7 +229,7 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
             self.log(task, out.cpu().numpy(), loss, self.val_tasks, self.val_after, meta_train=False)
             # Keep track of scores
             total_test_images += len(y_test)
-            correct_predictions += np.sum(preds == y_test.numpy())
+            correct_predictions += np.sum(preds == y_test.cpu().numpy())
 
         # Check if the accuracy is better and store the new best state
         val_acc = correct_predictions / total_test_images
@@ -345,30 +343,21 @@ class MyLearner(cdmetadl.api.Learner):
         self.weights = weights
         self.maml_params = maml_params
 
-    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> cdmetadl.api.Predictor:
+    def fit(self, support_set: cdmetadl.dataset.SetData) -> cdmetadl.api.Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
-            support_set (Tuple[Tensor, Tensor, Tensor, int, int]): Support set 
-                of a task. The data arrive in the following format (X_train, 
-                y_train, original_y_train, n_ways, k_shots). X_train is the 
-                tensor of labeled images of shape [n_ways*k_shots x 3 x 128 x 
-                128], y_train is the tensor of encoded labels (Long) for each 
-                image in X_train with shape of [n_ways*k_shots], 
-                original_y_train is the tensor of original labels (Long) for 
-                each image in X_train with shape of [n_ways*k_shots], n_ways is
-                the number of classes and k_shots the number of examples per 
-                class.
+            support_set (cdmetadl.dataset.SetData): Support set used for finetuning the learner.
                         
         Returns:
             Predictor: The resulting predictor ready to predict unlabelled 
                 query image examples from new unseen tasks.
         """
-        X_train, y_train, _, n_ways, _ = support_set
-        X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
+        X_train = support_set.images.to(self.dev)
+        y_train = support_set.labels.to(self.dev)
 
         # Adapt learner
-        self.learner.modify_out_layer(n_ways)
+        self.learner.modify_out_layer(support_set.number_of_ways)
 
         # Prepare weights
         task_weights = [p.clone() for p in self.weights[:-2]]
@@ -379,7 +368,9 @@ class MyLearner(cdmetadl.api.Learner):
 
         if self.ncc:
             with torch.no_grad():
-                prototypes = process_support_set(self.learner, task_weights, X_train, y_train, n_ways)
+                prototypes = process_support_set(
+                    self.learner, task_weights, X_train, y_train, support_set.number_of_ways
+                )
 
         else:
             prototypes = None
@@ -485,7 +476,7 @@ class MyPredictor(cdmetadl.api.Predictor):
         
         Args:
             query_set (Tensor): Tensor of unlabelled image examples of shape 
-                [n_ways*query_size x 3 x 128 x 128].
+                [batch_size x 3 x 128 x 128].
         
         Returns:
             np.ndarray: It can be:

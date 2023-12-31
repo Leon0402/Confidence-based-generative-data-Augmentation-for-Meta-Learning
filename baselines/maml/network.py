@@ -13,8 +13,11 @@ from typing import List
 
 class ResidualBlock(nn.Module):
 
-    def __init__(self, in_channels: int, out_channels: int, stride: int, padding: int, dev: torch.device) -> None:
-        """ Define the initializaion of a residual block of a ResNet.
+    def __init__(
+        self, in_channels: int, out_channels: int, stride: int, padding: int, dev: torch.device,
+        dropout_prob: float = 0.0
+    ) -> None:
+        """ Define the initialization of a residual block of a ResNet.
 
         Args:
             in_channels (int): Number of input channels.
@@ -22,6 +25,7 @@ class ResidualBlock(nn.Module):
             stride (int): Stride for the convolutions.
             padding (int): Padding for the convolutions.
             dev (torch.device): Device where the data is located.
+            dropout_prob (float): Dropout probability for dropout layers.
         """
         super().__init__()
         self.in_channels = in_channels
@@ -29,33 +33,28 @@ class ResidualBlock(nn.Module):
         self.stride = stride
         self.padding = padding
         self.dev = dev
+        self.dropout_prob = dropout_prob
 
-        self.conv1 = nn.Conv2d(in_channels=in_channels,
-                               out_channels=out_channels,
-                               kernel_size=3,
-                               stride=stride,
-                               padding=padding,
-                               bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=stride, padding=padding,
+            bias=False
+        )
         self.bn1 = nn.BatchNorm2d(num_features=out_channels, momentum=1)
         self.relu = nn.ReLU()
-        self.conv2 = nn.Conv2d(in_channels=out_channels,
-                               out_channels=out_channels,
-                               kernel_size=3,
-                               stride=1,
-                               padding=padding,
-                               bias=False)
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=padding, bias=False
+        )
         self.bn2 = nn.BatchNorm2d(num_features=out_channels, momentum=1)
+        self.dropout = nn.Dropout2d(p=dropout_prob)
         self.skip = stride > 1
         if self.skip:
-            self.conv3 = nn.Conv2d(in_channels=in_channels,
-                                   out_channels=out_channels,
-                                   kernel_size=1,
-                                   stride=stride,
-                                   bias=False)
+            self.conv3 = nn.Conv2d(
+                in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=stride, bias=False
+            )
             self.bn3 = nn.BatchNorm2d(num_features=out_channels, momentum=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """ Forwards the input data through the block.
+        """ Forward the input data through the block.
 
         Args:
             x (torch.Tensor): Input data.
@@ -68,6 +67,7 @@ class ResidualBlock(nn.Module):
         z = self.relu(z)
         z = self.conv2(z)
         z = self.bn2(z)
+        z = self.dropout(z)
 
         y = x
         if self.skip:
@@ -76,7 +76,7 @@ class ResidualBlock(nn.Module):
         return self.relu(y + z)
 
     def forward_weights(self, x: torch.Tensor, weights: List[torch.Tensor]) -> torch.Tensor:
-        """ Forwards the input data through the block using the specified 
+        """ Forward the input data through the block using the specified 
         weights.
 
         Args:
@@ -88,50 +88,44 @@ class ResidualBlock(nn.Module):
         """
         z = F.conv2d(input=x, weight=weights[0], bias=None, stride=self.stride, padding=self.padding)
 
-        z = F.batch_norm(z,
-                         torch.zeros(self.bn1.running_mean.size()).to(self.dev),
-                         torch.ones(self.bn1.running_var.size()).to(self.dev),
-                         weights[1],
-                         weights[2],
-                         momentum=1,
-                         training=True)
+        z = F.batch_norm(
+            z,
+            torch.zeros(self.bn1.running_mean.size()).to(self.dev),
+            torch.ones(self.bn1.running_var.size()).to(self.dev), weights[1], weights[2], momentum=1, training=True
+        )
 
         z = F.relu(z)
-
         z = F.conv2d(input=z, weight=weights[3], bias=None, stride=1, padding=self.padding)
 
-        z = F.batch_norm(z,
-                         torch.zeros(self.bn2.running_mean.size()).to(self.dev),
-                         torch.ones(self.bn2.running_var.size()).to(self.dev),
-                         weights[4],
-                         weights[5],
-                         momentum=1,
-                         training=True)
+        z = F.batch_norm(
+            z,
+            torch.zeros(self.bn2.running_mean.size()).to(self.dev),
+            torch.ones(self.bn2.running_var.size()).to(self.dev), weights[4], weights[5], momentum=1, training=True
+        )
+
+        z = self.dropout(z)
 
         y = x
         if self.skip:
             y = F.conv2d(input=y, weight=weights[6], bias=None, stride=self.stride)
 
-            y = F.batch_norm(input=y,
-                             running_mean=torch.zeros(self.bn3.running_mean.size()).to(self.dev),
-                             running_var=torch.ones(self.bn3.running_var.size()).to(self.dev),
-                             weight=weights[7],
-                             bias=weights[8],
-                             momentum=1,
-                             training=True)
+            y = F.batch_norm(
+                input=y, running_mean=torch.zeros(self.bn3.running_mean.size()).to(self.dev),
+                running_var=torch.ones(self.bn3.running_var.size()).to(self.dev), weight=weights[7], bias=weights[8],
+                momentum=1, training=True
+            )
+
+            y = self.dropout(y)
 
         return F.relu(y + z)
 
 
 class ResNet(nn.Module):
 
-    def __init__(self,
-                 num_classes: int,
-                 dev: torch.device,
-                 pretrained: bool = False,
-                 num_blocks: int = 18,
-                 criterion: nn.modules.loss = nn.CrossEntropyLoss(),
-                 img_size: int = 128) -> None:
+    def __init__(
+        self, num_classes: int, dev: torch.device, pretrained: bool = False, num_blocks: int = 18,
+        criterion: nn.modules.loss = nn.CrossEntropyLoss(), img_size: int = 128, dropout_prob: float = 0.0
+    ) -> None:
         """ Define the initializaion of the ResNet.
 
         Args:
@@ -200,8 +194,10 @@ class ResNet(nn.Module):
                     padding = math.ceil(max(3 - (inpsize % stride), 0) / 2)
 
                 d.update({
-                    f"res_block{c}":
-                    ResidualBlock(in_channels=in_channels, out_channels=filter, stride=stride, padding=padding, dev=dev)
+                    f"res_block{c}": ResidualBlock(
+                        in_channels=in_channels, out_channels=filter, stride=stride, padding=padding, dev=dev,
+                        dropout_prob=dropout_prob
+                    )
                 })
                 c += 1
         self.model = nn.ModuleDict({"features": nn.Sequential(d)})
@@ -268,13 +264,11 @@ class ResNet(nn.Module):
         """
         z = F.conv2d(input=x, weight=weights[0], bias=None, stride=2, padding=3)
 
-        z = F.batch_norm(z,
-                         torch.zeros(self.bn.running_mean.size()).to(self.dev),
-                         torch.ones(self.bn.running_var.size()).to(self.dev),
-                         weights[1],
-                         weights[2],
-                         momentum=1,
-                         training=True)
+        z = F.batch_norm(
+            z,
+            torch.zeros(self.bn.running_mean.size()).to(self.dev),
+            torch.ones(self.bn.running_var.size()).to(self.dev), weights[1], weights[2], momentum=1, training=True
+        )
 
         z = F.relu(z)
         z = F.max_pool2d(z, kernel_size=3, stride=2, padding=1)

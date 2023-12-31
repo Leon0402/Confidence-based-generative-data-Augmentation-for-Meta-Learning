@@ -65,7 +65,7 @@ generator_config = {
     "required": ["n_ways", "k_shots", "query_size"]
 }
 
-dataset_schema = {
+train_dataset_schema = {
     "type": "object",
     "properties": {
         "split": {
@@ -74,7 +74,6 @@ dataset_schema = {
         },
         "train": generator_config,
         "validation": generator_config,
-        "test": generator_config
     },
     "required": ["split", "train", "test"]
 }
@@ -93,6 +92,9 @@ model_schema = {
         },
         "validate_every": {
             "type": "integer"
+        },
+        "dropout_probability": {
+            "type": "number"
         }
     },
     "required": [
@@ -100,12 +102,29 @@ model_schema = {
     ]
 }
 
-config_schema = {
+train_config_schema = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "properties": {
-        "datset": dataset_schema,
+        "datset": train_dataset_schema,
         "model_schema": model_schema
     },
     "required": ["dataset", "model"]
+}
+
+eval_dataset_schema = {
+    "type": "object",
+    "properties": {
+        "test": generator_config,
+    },
+    "required": ["test"]
+}
+
+eval_config_schema = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "dataset": eval_dataset_schema
+    },
+    "required": []
 }

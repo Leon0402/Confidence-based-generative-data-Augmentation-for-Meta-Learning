@@ -1,45 +1,95 @@
-__all__ = ["Task"]
+__all__ = ["Task", "SetData"]
 
 from dataclasses import dataclass
+from functools import cached_property
 
 import torch
 import numpy as np
 
 
+@dataclass(frozen=True)
+class SetData:
+    """
+    Image tensor of shape [number_of_ways x number_of_ways[way], 3, 128, 128].
+    """
+    images: torch.Tensor
+    """
+    Labels Tensor of shape [number_of_ways x numer_of_shots[way]].
+    """
+    labels: torch.Tensor
+    """
+    Number of ways (classes).
+    """
+    number_of_ways: int
+    """
+    Number of shots per class.
+    """
+    number_of_shots: np.ndarray[int] | int
+    """
+    Original class names used in the task.
+    """
+    class_names: list[str]
+
+    @cached_property
+    def images_by_class(self) -> torch.Tensor:
+        """
+        Unsequeezes first dimension of images into two, thus the shape is [number_of_ways, number_of_shots, 3, 128, 128],
+        """
+        if type(self.number_of_shots) is not int:
+            raise ValueError(f"Cannot unseqeeze as number of shots per class varies")
+
+        return self.images.reshape(self.number_of_ways, self.number_of_shots, 3, 128, 128)
+
+    @cached_property
+    def labels_by_class(self) -> torch.Tensor:
+        """
+        Unsequeezes first dimension of labels into two, thus the shape is [number_of_ways, number_of_shots],
+        """
+        if type(self.number_of_shots) is not int:
+            raise ValueError(f"Cannot unseqeeze as number of shots per class varies")
+
+        return self.labels.reshape(self.number_of_ways, self.number_of_shots)
+
+    @cached_property
+    def max_number_of_shots(self) -> int:
+        if type(self.number_of_shots) is int:
+            return self.number_of_shots
+        return int(max(self.number_of_shots))
+
+    @cached_property
+    def min_number_of_shots(self) -> int:
+        if type(self.number_of_shots) is int:
+            return self.number_of_shots
+        return int(min(self.number_of_shots))
+
+    @cached_property
+    def number_of_shots_per_class(self) -> np.ndarray[int]:
+        if type(self.number_of_shots) is int:
+            return np.full(shape=self.number_of_ways, fill_value=self.number_of_shots)  #
+        return self.number_of_shots
+
+
 @dataclass
 class Task:
-    """ Class to define few-shot learning tasks.
-
-    Args:
-            num_ways (int): Number of ways (classes) in the current task. 
-            num_shots (int): Number of shots (images per class) for the support 
-                set.
-            query_size(int): Number of images per class for the query set.
-            support_set (SET_DATA): Support set for the current task. The 
-                format of the set is (torch.Tensor, torch.Tensor, torch.Tensor)
-                where the first tensor corresponds to the images with a shape 
-                of [num_ways*num_shots x 3 x 128 x 128]. The second tensor 
-                corresponds to the labels with a shape of [num_ways*num_shots].
-                The last tensor corresponds to the original labels with a shape 
-                of [num_ways*num_shots].
-            query_set (SET_DATA): Query set for the current task. The format
-                of the set is (torch.Tensor, torch.Tensor, torch.Tensor), where 
-                the first tensor corresponds to the images with a shape of 
-                [num_ways*query_size x 3 x 128 x 128]. The second tensor 
-                corresponds to the labels with a shape of [num_ways*query_size]
-                and the last tensor corresponds to the original labels with a 
-                shape of [num_ways*num_shots]. The query_size can vary 
-                depending on the configuration of the data loader.
-            original_class_idx (np.ndarray): Array with the original class 
-                indexes used in the current task, its shape is [num_ways, ].
-            dataset (str, optional): Name of the dataset used to create the 
-                current task. Defaults to None.
-                
     """
-    num_ways: int
-    num_shots: int
-    query_size: int
-    support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    original_class_idx: np.ndarray
-    dataset: str = None
+    Dataset name this task belongs to.
+    """
+    dataset_name: str
+    """
+    Support set used for training / finetuning of the model.
+    """
+    support_set: SetData
+    """
+    Query set used for prediction.
+    """
+    query_set: SetData
+
+    # TODO: Probably should be inferred from support / query set
+    """
+    Number of ways.
+    """
+    number_of_ways: int
+    """
+    Original class names used in the task.
+    """
+    class_names: list[str]

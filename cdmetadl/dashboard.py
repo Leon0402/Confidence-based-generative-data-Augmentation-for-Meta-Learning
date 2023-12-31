@@ -19,7 +19,7 @@ short_names = {"cross-domain": "CD", "within-domain": "WD", "domain-independent"
 def read_df(path: pathlib.Path) -> pd.DataFrame:
     df = pd.read_pickle(path)
     path_parts = path.relative_to(args.eval_output_path).parts
-    df.insert(0, 'Model', f"{path_parts[0]} ({short_names[path_parts[1]]})")
+    df.insert(0, 'Model', f"{path_parts[1]} ({short_names[path_parts[2]]})")
     return df
 
 

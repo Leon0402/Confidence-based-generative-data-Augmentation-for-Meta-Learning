@@ -1,17 +1,19 @@
 #!/bin/bash
 DATASETS_DIR=""
 MODEL_DIR=""
+CONFIG_PATH=""
 
 # Parse named arguments
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --datasets_dir) DATASETS_DIR="$2"; shift 2;;
         --model_dir) MODEL_DIR="$2"; shift 2;;
+        --config_path) CONFIG_PATH="$2"; shift 2;;
         *) echo "Unknown parameter passed: $1"; exit 1;;
     esac
 done
 
-# Check if DATASETS_DIR and MODEL_DIR were provided
+# Check if arguments were provided
 if [ -z "$DATASETS_DIR" ]; then
     echo "No datasets directory provided. Use --datasets_dir to specify the directory."
     exit 1
@@ -22,10 +24,15 @@ if [ -z "$MODEL_DIR" ]; then
     exit 1
 fi
 
+if [ -z "$CONFIG_PATH" ]; then
+    echo "No config path provided. Use --config_path to specify the directory."
+    exit 1
+fi
+
 echo "Running model $MODEL_DIR in domain-independent mode" 
 
 python -m cdmetadl.train \
-    --config_path="configs/full.yml" \
+    --config_path="$CONFIG_PATH" \
     --model_dir="$MODEL_DIR" \
     --output_dir="./output/full/training" \
     --domain_type="domain-independent" \
@@ -35,7 +42,7 @@ python -m cdmetadl.train \
 echo "Running model $MODEL_DIR in cross-domain mode" 
 
 python -m cdmetadl.train \
-    --config_path="configs/full.yml" \
+    --config_path="$CONFIG_PATH" \
     --model_dir="$MODEL_DIR" \
     --output_dir="./output/full/training" \
     --domain_type="cross-domain" \
@@ -50,7 +57,7 @@ do
     echo "Running model with dataset: $DATASET_NAME"
 
     python -m cdmetadl.train \
-        --config_path="configs/full.yml" \
+        --config_path="$CONFIG_PATH" \
         --model_dir="$MODEL_DIR" \
         --output_dir="./output/full/training" \
         --datasets="$DATASET_NAME" \

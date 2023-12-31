@@ -1,4 +1,4 @@
-__all__ = ["DataFormat", "DatasetConfig", "ModelConfig", "read_config"]
+__all__ = ["DataFormat", "DatasetConfig", "ModelConfig", "read_train_config", "read_eval_config"]
 
 from dataclasses import dataclass
 from enum import Enum
@@ -9,7 +9,7 @@ import jsonschema
 
 import cdmetadl.samplers
 
-from .schema import config_schema
+from .schema import train_config_schema, eval_config_schema
 
 
 class DataFormat(str, Enum):
@@ -39,8 +39,10 @@ class DatasetConfig:
                 return cdmetadl.samplers.ChoiceSampler(sampler_config['choice'])
 
         return DatasetConfig(
-            batch_size=json_config.get('batch_size', None), n_ways=parse_sampler(json_config['n_ways']),
-            k_shots=parse_sampler(json_config['k_shots']), query_size=json_config['query_size']
+            batch_size=json_config.get('batch_size', None),
+            n_ways=parse_sampler(json_config['n_ways']),
+            k_shots=parse_sampler(json_config['k_shots']),
+            query_size=json_config['query_size'],
         )
 
 
@@ -50,6 +52,7 @@ class ModelConfig:
     number_of_training_tasks: int
     number_of_validation_tasks_per_dataset: int
     validate_every: int
+    dropout_probability: float
 
     @staticmethod
     def from_json(json_config: dict) -> "ModelConfig":
@@ -57,12 +60,20 @@ class ModelConfig:
             number_of_batches=json_config['number_of_batches'],
             number_of_training_tasks=json_config['number_of_training_tasks'],
             number_of_validation_tasks_per_dataset=json_config['number_of_validation_tasks_per_dataset'],
-            validate_every=json_config['validate_every']
+            validate_every=json_config['validate_every'],
+            dropout_probability=json_config["dropout_probability"],
         )
 
 
-def read_config(path: pathlib.Path) -> dict:
+def read_train_config(path: pathlib.Path) -> dict:
     with open(path, 'r') as file:
         config = yaml.safe_load(file)
-    jsonschema.validate(instance=config, schema=config_schema)
+    jsonschema.validate(instance=config, schema=train_config_schema)
+    return config
+
+
+def read_eval_config(path: pathlib.Path) -> dict:
+    with open(path, 'r') as file:
+        config = yaml.safe_load(file)
+    jsonschema.validate(instance=config, schema=eval_config_schema)
     return config

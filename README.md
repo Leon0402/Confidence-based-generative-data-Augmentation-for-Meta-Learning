@@ -37,7 +37,7 @@ Run the code with:
 
 ```bash
 python -m cdmetadl.train \
-    --config_path="configs/train.yml" \
+    --config_path="configs/train/experiment.yml" \
     --model_dir=baselines/finetuning \
     --domain_type="cross-domain" \
     --overwrite_previous_results \
@@ -55,8 +55,8 @@ Evaluation can be run with:
 
 ```bash
 python -m cdmetadl.eval \
-    --training_output_dir="output/tmp/training/finetuning/cross-domain" \
-    --test_tasks_per_dataset=10 \
+    --training_output_dir="output/tmp/training/experiment/finetuning/cross-domain" \
+    --config_path="configs/eval/experiment.yml" \
     --overwrite_previous_results \
     --verbose 
 ```
@@ -64,7 +64,7 @@ python -m cdmetadl.eval \
 Open dashboard with: 
 
 ```bash
-python -m cdmetadl.dashboard --eval-output-path "./output/full/eval"
+python -m cdmetadl.dashboard --eval-output-path "./output/tmp/eval"
 ```
 
 ## Automation Scripts 

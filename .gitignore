@@ -8,7 +8,7 @@
 # Data
 *.zip
 public_data/
-output/tmp
+output
 
 # logs 
 *logs*
@@ -21,4 +21,9 @@ output/tmp
 
 .venv
 .keys
+
+*.pth
+*.pt
+
+valid
 

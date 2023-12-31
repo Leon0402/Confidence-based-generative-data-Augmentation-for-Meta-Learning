@@ -7,6 +7,9 @@ import yaml
 from tqdm import tqdm
 import pandas as pd
 
+import cdmetadl.api
+import cdmetadl.augmentation
+import cdmetadl.confidence
 import cdmetadl.config
 import cdmetadl.dataset
 import cdmetadl.samplers
@@ -21,16 +24,17 @@ def define_argparser() -> argparse.ArgumentParser:
         help='Show various progression messages. Default: True.'
     )
     parser.add_argument('--seed', type=int, default=42, help='Seed to make results reproducible. Default: 42.')
+    parser.add_argument('--config_path', type=pathlib.Path, required=True, help='Path to config to use.')
     parser.add_argument(
         '--training_output_dir', type=pathlib.Path, required=True, help='Path to the output directory for training'
     )
     parser.add_argument(
-        '--output_dir', type=pathlib.Path, default='./output/tmp/eval',
-        help='Path to the output directory for evaluation. Default: "./output/tmp/eval".'
+        '--data_dir', type=pathlib.Path, default=None,
+        help='Default location of the directory containing the meta_train and meta_test data. Default: None.'
     )
     parser.add_argument(
-        '--test_tasks_per_dataset', type=int, default=100,
-        help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
+        '--output_dir', type=pathlib.Path, default='./output/tmp/eval',
+        help='Path to the output directory for evaluation. Default: "./output/tmp/eval".'
     )
     parser.add_argument(
         '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
@@ -42,11 +46,15 @@ def define_argparser() -> argparse.ArgumentParser:
 def process_args(args: argparse.Namespace) -> None:
     args.training_output_dir = args.training_output_dir.resolve()
     args.output_dir = args.output_dir.resolve()
+    if args.data_dir is not None:
+        args.data_dir = args.data_dir.resolve()
+
+    args.config = cdmetadl.config.read_eval_config(args.config_path)
 
     with open(args.training_output_dir / "config.yaml", "r") as f:
-        args.config = yaml.safe_load(f)
-    args.model_dir = pathlib.Path(args.config["model"]["path"]).resolve()
-    args.config["model"]["number_of_test_tasks_per_dataset"] = args.test_tasks_per_dataset
+        args.training_config = yaml.safe_load(f)
+
+    args.model_dir = pathlib.Path(args.training_config["model"]["path"]).resolve()
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
@@ -69,28 +77,80 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
     with open(args.training_output_dir / "datasets/test_dataset.pkl", 'rb') as f:
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
+    # Hacky fix to make datasets portable
+    if args.data_dir is not None:
+        for dataset in test_dataset.datasets:
+            dataset.img_paths = [args.data_dir / path.relative_to(path.parents[-4]) for path in dataset.img_paths]
+
     test_generator_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["test"])
     return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)
 
 
+def initalize_confidence_estimator(args: argparse.Namespace) -> cdmetadl.confidence.ConfidenceEstimator:
+    confidence_estimator_config = args.config["evaluation"]["confidence_estimators"]
+    match confidence_estimator_config["use"]:
+        case "ConstantConfidenceProvider":
+            return cdmetadl.confidence.ConstantConfidenceProvider(
+                *confidence_estimator_config["ConstantConfidenceProvider"]
+            )
+        case "MCDropoutConfidenceEstimator":
+            return cdmetadl.confidence.MCDropoutConfidenceEstimator(
+                *confidence_estimator_config["MCDropoutConfidenceEstimator"]
+            )
+        case "PseudoConfidenceEstimator":
+            return cdmetadl.confidence.PseudoConfidenceEstimator(
+                *confidence_estimator_config["PseudoConfidenceEstimator"]
+            )
+        case _:
+            raise ValueError(
+                f'Confidence estimator {args.config["evaluation"]["confidence_estimators"]} specified in config does not exists.'
+            )
+
+
+def initalize_data_augmentor(args: argparse.Namespace) -> cdmetadl.augmentation.Augmentation:
+    data_augmentor_config = args.config["evaluation"]["augmentors"]
+    match data_augmentor_config["use"]:
+        case None:
+            return None
+        case "PseudoAugmentation":
+            return cdmetadl.augmentation.PseudoAugmentation(*data_augmentor_config["PseudoAugmentation"])
+        case "StandardAugmentation":
+            return cdmetadl.augmentation.StandardAugmentation(*data_augmentor_config["StandardAugmentation"])
+        case "GenerativeAugmentation":
+            return cdmetadl.augmentation.GenerativeAugmentation(*data_augmentor_config["GenerativeAugmentation"])
+        case _:
+            raise ValueError(
+                f'Data augmentor {args.config["evaluation"]["augmentors"]} specified in config does not exists.'
+            )
+
+
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
+    learner: cdmetadl.api.Learner = model_module.MyLearner()
+
+    confidence_estimator = initalize_confidence_estimator(args)
+    augmentor = initalize_data_augmentor(args)
+    tasks_per_dataset = args.config["evaluation"]["tasks_per_dataset"]
 
     predictions = []
-    total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
-    for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
-        support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
-
-        learner = model_module.MyLearner()
+    total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * tasks_per_dataset
+    for task in tqdm(meta_test_generator(tasks_per_dataset), total=total_number_of_tasks):
         learner.load(args.training_output_dir / "model")
-        predictor = learner.fit(support_set)
+
+        task.support_set, confidence_scores = confidence_estimator.estimate(learner, task.support_set)
+
+        if augmentor is not None:
+            task.support_set = augmentor.augment(task.support_set, conf_scores=confidence_scores)
+
+        predictor = learner.fit(task.support_set)
 
         predictions.append({
-            "Dataset": task.dataset,
-            "Number of Ways": task.num_ways,
-            "Number of Shots": task.num_shots,
-            "Predictions": predictor.predict(task.query_set[0]),
-            "Ground Truth": task.query_set[1].numpy(),
+            "Dataset": task.dataset_name,
+            "Number of Ways": task.number_of_ways,
+            # TODO: Save all number of shots rather than min?
+            "Number of Shots": task.support_set.min_number_of_shots,
+            "Predictions": predictor.predict(task.query_set.images),
+            "Ground Truth": task.query_set.labels.numpy(),
         })
 
     with open(args.output_dir / f"predictions.pkl", 'wb') as f:
@@ -131,6 +191,8 @@ def main():
 
     with open(args.output_dir / "config.yaml", "w") as f:
         yaml.safe_dump(args.config, f)
+    with open(args.output_dir / "training_config.yaml", "w") as f:
+        yaml.safe_dump(args.training_config, f)
 
     cdmetadl.helpers.general_helpers.vprint("\nMeta-testing your learner...", args.verbose)
     predictions = meta_test(args, meta_test_generator)

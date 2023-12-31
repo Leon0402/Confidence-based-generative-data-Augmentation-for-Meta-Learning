@@ -1,9 +1,11 @@
-__all__ = ["split_by_names", "random_meta_split", "random_class_split"]
+__all__ = ["split_by_names", "random_meta_split", "random_class_split", "set_split"]
 
 import numpy as np
+import torch
 
 from .meta_image_dataset import MetaImageDataset
 from .image_dataset import ImageDataset
+from .task import SetData
 
 
 def split_by_names(meta_dataset: MetaImageDataset, names: list[list[str]]) -> list[MetaImageDataset]:
@@ -48,3 +50,26 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
             )
 
     return [MetaImageDataset(datasets) for datasets in filtered_datasets_by_split.values()]
+
+
+def set_split(data_set: SetData, number_of_splits: int) -> list[SetData]:
+    if number_of_splits > data_set.number_of_shots:
+        raise ValueError(
+            f"Number of splits {number_of_splits} cannot be greater than number of shots {data_set.number_of_shots}"
+        )
+
+    images = data_set.images_by_class.swapaxes(0, 1)
+    labels = data_set.labels_by_class.swapaxes(0, 1)
+
+    base_size, remainder = divmod(data_set.number_of_shots, number_of_splits)
+    split_sizes = [base_size] * number_of_splits
+    for i in range(remainder):
+        split_sizes[i] += 1
+
+    return [
+        SetData(
+            images=images_split.swapaxes(0, 1).flatten(end_dim=1), labels=labels_split.swapaxes(0,
+                                                                                                1).flatten(end_dim=1),
+            number_of_ways=data_set.number_of_ways, number_of_shots=len(labels_split), class_names=data_set.class_names
+        ) for images_split, labels_split in zip(torch.split(images, split_sizes), torch.split(labels, split_sizes))
+    ]

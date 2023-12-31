@@ -8,7 +8,7 @@ import PIL
 
 import cdmetadl.samplers
 
-from .task import Task
+from .task import SetData, Task
 
 
 class ImageDataset(torch.utils.data.Dataset):
@@ -23,11 +23,11 @@ class ImageDataset(torch.utils.data.Dataset):
         transform (torchvision.transforms.Compose): Transformation to apply to each image.
     """
 
-    def __init__(self, name: str, dataset_info: dict, img_size: int = 128, included_classes: set[str] = None):
+    def __init__(self, name: str, dataset_info: tuple, img_size: int = 128, included_classes: set[str] = None):
         """
         Args:
             name (str): Name of the dataset
-            dataset_info (dict): Contains the following keys:
+            dataset_info (tuple): Contains the following entries:
                              - 'label_column': Column name for labels in metadata CSV.
                              - 'file_column': Column name for file names in metadata CSV.
                              - 'imgage_path': Path to the directory containing images.
@@ -48,6 +48,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.number_of_classes = len(self.label_names)
 
         self.text_to_numerical_label = {label: idx for idx, label in enumerate(self.label_names)}
+        self.numerical_label_to_text = {number: text for text, number in self.text_to_numerical_label.items()}
         self.labels = np.array([
             self.text_to_numerical_label[label] for label in metadata[label_column] if label in self.label_names
         ])
@@ -87,7 +88,9 @@ class ImageDataset(torch.utils.data.Dataset):
         """
         return self.transform(PIL.Image.open(self.img_paths[idx])), torch.tensor(self.labels[idx])
 
-    def generate_task(self, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int) -> Task:
+    def generate_task(
+        self, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int
+    ) -> Task:
         if n_ways.max_value > self.number_of_classes:
             raise ValueError(
                 f"Max ways was set to {n_ways.max_value}, but dataset {self.name} only has {self.number_of_classes} classes"
@@ -106,17 +109,25 @@ class ImageDataset(torch.utils.data.Dataset):
             np.random.choice(self.idx_per_label[cls], k_shot + query_size, replace=False) for cls in selected_classes
         ]
 
-        support_images = torch.stack([
-            self[idx][0] for indices in sampled_indices_per_class for idx in indices[:k_shot]
-        ])
-        query_images = torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]])
+        support_set = SetData(
+            images=torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[:k_shot]]),
+            labels=torch.tensor(np.arange(n_way).repeat(k_shot)),
+            number_of_ways=n_way,
+            number_of_shots=k_shot,
+            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+        )
+        query_set = SetData(
+            images=torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]]),
+            labels=torch.tensor(np.arange(n_way).repeat(query_size)),
+            number_of_ways=n_way,
+            number_of_shots=k_shot,
+            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+        )
 
         return Task(
-            num_ways=n_way, num_shots=k_shot, query_size=query_size, support_set=(
-                support_images, torch.tensor(np.arange(n_way).repeat(k_shot)),
-                torch.tensor(selected_classes.repeat(k_shot))
-            ), query_set=(
-                query_images, torch.tensor(np.arange(n_way).repeat(query_size)),
-                torch.tensor(selected_classes.repeat(query_size))
-            ), original_class_idx=selected_classes, dataset=self.name
+            dataset_name=self.name,
+            support_set=support_set,
+            query_set=query_set,
+            number_of_ways=n_way,
+            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
         )

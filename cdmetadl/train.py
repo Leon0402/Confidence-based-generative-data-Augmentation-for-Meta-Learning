@@ -84,7 +84,7 @@ def process_args(args: argparse.Namespace) -> None:
     if args.domain_type == DomainType.WITHIN_DOMAIN and len(args.datasets) > 1:
         raise ValueError("More than one dataset specified for within-domain scenario")
 
-    args.config = cdmetadl.config.read_config(args.config_path)
+    args.config = cdmetadl.config.read_train_config(args.config_path)
     # Overwrite config values from given arguments
     args.config["model"]["path"] = str(args.model_dir.relative_to(pathlib.Path.cwd()))
 
@@ -93,7 +93,7 @@ def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.data_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
-    args.output_dir /= f"{args.model_dir.name}/{args.domain_type}"
+    args.output_dir /= f"{args.config_path.stem}/{args.model_dir.name}/{args.domain_type}"
     if args.domain_type == DomainType.WITHIN_DOMAIN:
         args.output_dir /= "".join(args.datasets)
 
@@ -215,3 +215,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+3

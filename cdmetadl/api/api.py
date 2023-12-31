@@ -1,10 +1,10 @@
 __all__ = ["MetaLearner", "Learner", "Predictor"]
-
 """API for models
 """
 import numpy as np
 
 import cdmetadl.config
+import cdmetadl.dataset
 
 
 class Predictor():
@@ -17,13 +17,12 @@ class Predictor():
         """
         pass
 
-    def predict(self, query_set) -> np.ndarray:
+    def predict(self, query_set: cdmetadl.dataset.SetData) -> np.ndarray:
         """ Given a query_set, predicts the probabilities associated to the 
         provided images or the labels to the provided images.
         
         Args:
-            query_set (Tensor): Tensor of unlabelled image examples of shape 
-                [n_ways*query_size x 3 x 128 x 128].
+            query_set (cdmetadl.dataset.SetData): Query set without labels for prediction.
         
         Returns:
             np.ndarray: It can be:
@@ -48,20 +47,11 @@ class Learner():
         """
         pass
 
-    def fit(self, support_set) -> Predictor:
+    def fit(self, support_set: cdmetadl.dataset.SetData) -> Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
-            support_set (Tuple[Tensor, Tensor, Tensor, int, int]): Support set 
-                of a task. The data arrive in the following format (X_train, 
-                y_train, original_y_train, n_ways, k_shots). X_train is the 
-                tensor of labeled images of shape [n_ways*k_shots x 3 x 128 x 
-                128], y_train is the tensor of encoded labels (Long) for each 
-                image in X_train with shape of [n_ways*k_shots], 
-                original_y_train is the tensor of original labels (Long) for 
-                each image in X_train with shape of [n_ways*k_shots], n_ways is
-                the number of classes and k_shots the number of examples per 
-                class.
+            support_set (cdmetadl.dataset.SetData): Support set used for finetuning the learner.
                         
         Returns:
             Predictor: The resulting predictor ready to predict unlabelled 
@@ -95,14 +85,14 @@ class MetaLearner():
     It is an abstract class so one has to overide the core methods depending 
     on the algorithm.
     """
-
     """
     Which data formats the meta learner expects 
     """
     data_format = cdmetadl.config.DataFormat.TASK
 
-    def __init__(self, train_classes, total_classes, logger, mode = cdmetadl.config.DataFormat.TASK) -> None:
-        """ Defines the meta-learning algorithm's parameters. For example, one 
+    def __init__(self, train_classes, total_classes, logger, mode=cdmetadl.config.DataFormat.TASK) -> None:
+        """ 
+        Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
         Args:
@@ -114,9 +104,8 @@ class MetaLearner():
             total_classes (int): Total number of classes across all training 
                 datasets. If the data format during training is 'batch' this 
                 parameter is exactly the same as train_classes.
-            logger (Logger): Logger that you can use during meta-learning 
-                (HIGHLY nn.RECOMMENDED). You can use it after each meta-train or 
-                meta-validation iteration as follows: 
+            logger (Logger): Logger that you can use during meta-learning (HIGHLY RECOMMENDED). 
+                You can use it after each meta-train or meta-validation iteration as follows: 
                     self.log(data, predictions, loss, meta_train)
                 - data (task or batch): It is the data used in the current 
                     iteration.
@@ -134,52 +123,18 @@ class MetaLearner():
         self.total_classes = total_classes
         self.log = logger.log
 
-
-    def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
-        """ Uses the generators to tune the meta-learner's parameters. The 
-        meta-training generator generates either few-shot learning tasks or 
-        batches of images, while the meta-valid generator always generates 
-        few-shot learning tasks.
+    def meta_fit(
+        self, meta_train_generator: cdmetadl.dataset.DataGenerator, meta_valid_generator: cdmetadl.dataset.TaskGenerator
+    ) -> Learner:
+        """ 
+        Uses the generators to tune the meta-learner's parameters. The meta-training generator generates either few-shot 
+        learning tasks or batches of images, while the meta-valid generator always generates few-shot learning tasks.
         
         Args:
-            meta_train_generator (Iterable[Any]): Function that generates the 
-                training data. The generated can be a N-way k-shot task or a 
-                batch of images with labels.
-            meta_valid_generator (Iterable[Task]): Function that generates the 
-                validation data. The generated data always come in form of 
-                N-way k-shot tasks.
+            meta_train_generator (cdmetadl.dataset.DataGenerator):  Generator for train data in batch or task format
+            meta_valid_generator (cdmetadl.dataset.TaskGenerator): Generator for validation data in task format
                 
         Returns:
-            Learner: Resulting learner ready to be trained and evaluated on new
-                unseen tasks.
-                
-        Note: 
-        Each N-way k-shot task is an object with the following attributes: 
-            num_ways (int): Number of ways (classes) in the current task. 
-            num_shots (int): Number of shots (images per class) for the support 
-                set.
-            support_set (Tuple[torch.Tensor, torch.Tensor, torch.Tensor]): 
-                Support set for the current task. The first tensor corresponds 
-                to the images with a shape of [num_ways*num_shots x 3 x 128 x 
-                128]. The second tensor corresponds to the labels with a shape 
-                of [num_ways*num_shots].The last tensor corresponds to the 
-                original labels with a shape of [num_ways*num_shots].
-            query_set (Tuple[torch.Tensor, torch.Tensor, torch.Tensor]): Query 
-                set for the current task. The first tensor corresponds to the 
-                images with a shape of [num_ways*query_size x 3 x 128 x 128]. 
-                The second tensor corresponds to the labels with a shape of 
-                [num_ways*query_size] and the last tensor corresponds to the 
-                original labels with a shape of [num_ways*num_shots]. The 
-                query_size can vary depending on the configuration of the data 
-                loader.
-            original_class_idx (np.ndarray): Array with the original class 
-                indexes used in the current task, its shape is [num_ways, ].
-            dataset (str): Name of the dataset used to create the current task. 
-                 
-        On the other hand each batch is composed of images and labels in the 
-        following format: List[torch.Tensor, torch.Tensor]. The first tensor 
-        corresponds to the images with a shape of [batch_size x 3 x 128 x 128] 
-        while the second array corresponds to the labels with a shape of 
-        [batch_size].
+            Learner: Resulting learner ready to be trained and evaluated on new unseen tasks.
         """
         raise NotImplementedError(("You should implement the meta_fit method " + f"for the MetaLearner class."))
