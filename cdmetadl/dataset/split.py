@@ -51,4 +51,7 @@ def pseudo_aug_split(meta_dataset: MetaImageDataset, lengths: list[float], seed:
     # make 2 MetaImageDatasets, split every ImageDataset roughly by "lenghts" and combine them. 
     # keep same classes in both sets, samples are selected at random(static by length for now)
     for dataset in meta_dataset.datasets: 
-        
+        print("dataset.dataset_info", dataset.dataset_info)
+        # change metadata and file column
+        for class_label in dataset.dataset_info
+
