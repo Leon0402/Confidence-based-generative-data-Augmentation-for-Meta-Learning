@@ -40,3 +40,15 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
             )
 
     return [MetaImageDataset(datasets) for datasets in filtered_datasets_by_split.values()]
+
+
+def pseudo_aug_split(meta_dataset: MetaImageDataset, lengths: list[float], seed:int = None) -> list[MetaImageDataset]: 
+    if not np.isclose(sum(lengths), 1.0):
+        raise ValueError("Sum of lengths must be approximately 1")
+    aug_sets = list(ImageDataset)    
+    test_sets = list(ImageDataset)
+
+    # make 2 MetaImageDatasets, split every ImageDataset roughly by "lenghts" and combine them. 
+    # keep same classes in both sets, samples are selected at random(static by length for now)
+    for dataset in meta_dataset.datasets: 
+        

@@ -123,3 +123,13 @@ class ImageDataset(torch.utils.data.Dataset):
             original_class_idx=selected_classes,
             dataset=self.name
         )
+
+    def augment_task(self, task:Task, class_idxs: dict) -> Augmented_Task:
+        """ Returns task augmented with current dataset which is a synthetic DS.
+
+    Args:
+            task (Task): Task that will be augmented. 
+            class_idxs (dics): Indexes of classes in the DS that should be augmented as keys, scale how many extra samples to be generated value. 
+    Returns: 
+            augmented_task which is an augmentation of the original task extended by the extra samples and variables shots for each class. 
+    """
