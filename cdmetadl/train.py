@@ -163,6 +163,7 @@ def prepare_data_generators(
         cdmetadl.dataset.ImageDataset(name, info) for name, info in datasets_info.items()
     ])
 
+    # check if pesudo_augmentation, then split test again here
     splitting = [args.train_split, args.validation_split, args.test_split]
     match args.domain_type:
         case DomainType.CROSS_DOMAIN:

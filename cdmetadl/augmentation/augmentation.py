@@ -1,10 +1,7 @@
 #from .meta_image_dataset import MetaImageDataset
 
 # import logger, task
-
-
-
-
+TODO: fix imports
 
 class Augmentation():
     
@@ -45,3 +42,24 @@ class GenerativeAug(Augmentation):
     def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
         super().__init__(task, confidence_threshold, aug_factor, conf_scores)
        
+
+
+
+def augmentTask(task: Task, extension_set: Image_Dataset, confidence_threshold: float, aug_factor: int, conf_scores: list[float]): 
+    """ 
+    Called in meta-testing loop, receives informaiton form the confidence estimation, current task to augment and by how much, dataset to augment with (prepared ahead)
+    and constructs dict extracting class information from confidence scores and threshold. 
+    Calls augment_task on dataset. 
+    Returns augmented task with variable number of shots. 
+
+    Args:
+            task (Task): Task that will be augmented. 
+            extension_set: (ImageDataset) Synthetic dataset (in case of GAN of conv. DA or split of test set in case of pseudo DA) task gets augmented with. 
+            confidence_threshold: (float) Threshold below which classes should be augmented. 
+            aug_factor: (int) Value indicating by how many samples task should be augmented, relative to the samples it already contains per shot. 
+            conf_scores: (list[float]): Confidence scores for all classes in task as calculated in eval.py in confidence estimation step. 
+    Returns: 
+            task(Task): calls augmentTask in ImageData for dataset and returns augmented task. 
+                
+    """
+    
