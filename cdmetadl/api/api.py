@@ -128,7 +128,6 @@ class MetaLearner():
         self.total_classes = total_classes
         self.log = logger.log
 
-
     def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 

@@ -29,6 +29,7 @@ class BatchGenerator(DataGenerator):
                 yield batch
                 generated_batches += 1
 
+
 class TaskGenerator(DataGenerator):
 
     def __init__(self, dataset: MetaImageDataset, config: dict, sample_dataset: bool = False):
@@ -52,4 +53,3 @@ class TaskGenerator(DataGenerator):
             yield from self.dataset.generate_tasks_for_each_dataset(
                 num_tasks, self.min_N, self.max_N, self.min_k, self.max_k, self.query_size
             )
-

@@ -29,9 +29,8 @@ class DataFormat(Enum):
 
 def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, dict]:
     train_data_format = DataFormat.TASK
-    if config_file.parent.name == "finetuning": 
+    if config_file.parent.name == "finetuning":
         train_data_format = DataFormat.BATCH
-
 
     train_generator_config = {
         "N": 5,
@@ -196,7 +195,9 @@ def prepare_data_generators(
 
     match train_data_format:
         case DataFormat.TASK:
-            meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config, sample_dataset=True)
+            meta_train_generator = cdmetadl.dataset.TaskGenerator(
+                train_dataset, train_generator_config, sample_dataset=True
+            )
         case DataFormat.BATCH:
             meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config)
 
@@ -211,12 +212,15 @@ def meta_learn(
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     if args.use_tensorboard:
-        logger = cdmetadl.logger.Logger(args.logger_dir, args.tensorboard_output_dir, meta_val_generator.dataset.number_of_datasets)
+        logger = cdmetadl.logger.Logger(
+            args.logger_dir, args.tensorboard_output_dir, meta_val_generator.dataset.number_of_datasets
+        )
     else:
         logger = cdmetadl.logger.Logger(args.logger_dir, None, meta_val_generator.dataset.number_of_datasets)
 
     meta_learner = model_module.MyMetaLearner(
-        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger)
+        meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
+    )
     meta_learner.meta_fit(meta_train_generator, meta_val_generator).save(args.output_model_dir)
 
 
