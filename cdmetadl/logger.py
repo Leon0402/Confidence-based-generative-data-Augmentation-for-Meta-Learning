@@ -11,34 +11,14 @@ from cdmetadl.helpers.scoring_helpers import compute_all_scores
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
+class TensorboardLogger():
 
-class Logger():
-    """ Class to define the logger that can be used by the participants during 
-    meta-learning to store detailed logs and get printed messages available in 
-    the ingestion output log of the Competition Site. 
-    """
-
-    def __init__(
-        self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], number_of_valid_datasets: int
-    ) -> None:
+    def __init__(self, tensorboard_dir):
         """
         Args:
-            logs_dir (pathlib.Path): Directory where the logs should be stored.
-
             tensorboard_dir Union[pathlib.Path, None]: Indicates if and where the data
                     for the tensorboard should be stored     
-
-            number_of_valid_datasets (int): Number of datasets that will be used for meta-validation
         """
-        self.logs_dir = logs_dir
-        self.meta_train_iteration = 0
-        self.meta_train_logs_path = self.logs_dir / "meta_train"
-        self.meta_validation_iteration = 0
-        self.meta_valid_step = 0
-        self.meta_valid_root_path = self.logs_dir / "meta_validation"
-        self.print_separator = False
-        self.number_of_valid_datasets = number_of_valid_datasets
-
         self.use_tensorboard = tensorboard_dir != None
         if self.use_tensorboard:
             self.writer_train = SummaryWriter(f"{tensorboard_dir}/train")
@@ -68,12 +48,12 @@ class Logger():
             scores_avg[key] = np.average(scores_dict[key][-n_average:])
 
         return loss_avg, scores_avg
-
-    def _tensorboard_write_log(self, writer, loss, scores):
-        writer.add_scalar(f"Loss/step", loss, self.meta_train_iteration)
+    
+    def _tensorboard_write_log(self, writer, loss, scores, meta_train_iteration):
+        writer.add_scalar(f"Loss/step", loss, meta_train_iteration)
 
         for metric, value in scores.items():
-            writer.add_scalar(f"Metrics/{metric}", value, self.meta_train_iteration)
+            writer.add_scalar(f"Metrics/{metric}", value, meta_train_iteration)
 
     def _tensorboard_create_figure(
         self, title: str, data: np.array, labels: np.array, num_ways: int, sample_size: int, predictions=None
@@ -100,39 +80,69 @@ class Logger():
                         fontsize='medium', rotation='horizontal'
                     )
 
-    def _tensorboard_write_samples(self, writer: SummaryWriter, data: cdmetadl.dataset.Task, predictions):
+    def _tensorboard_write_samples(self, writer: SummaryWriter, data: cdmetadl.dataset.Task, predictions, meta_train_iteration: int):
         self._tensorboard_create_figure(
             title="Support-Set", data=data.support_set[0].cpu().numpy(), labels=data.support_set[1].cpu().numpy(), num_ways=data.num_ways,
             sample_size=min(data.num_shots, 5)
         )
-        writer.add_figure(f"Dataset/Support Set", plt.gcf(), self.meta_train_iteration)
+        writer.add_figure(f"Dataset/Support Set", plt.gcf(), meta_train_iteration)
 
         self._tensorboard_create_figure(
             title="Query-Set", data=data.query_set[0].cpu().numpy(), labels=data.query_set[1].cpu().numpy(), num_ways=data.num_ways,
             sample_size=min(data.query_size, 5), predictions=predictions
         )
-        writer.add_figure(f"Dataset/Query Set ", plt.gcf(), self.meta_train_iteration)
+        writer.add_figure(f"Dataset/Query Set ", plt.gcf(), meta_train_iteration)
 
-    def _tensorboard_log(
+    def tensorboard_log(
         self, data: Any, scores: dict, loss: float, meta_train: bool, is_task: bool, predictions: np.ndarray,
-        val_tasks: int, val_after: int
+        val_tasks: int, val_after: int, meta_train_iteration: int, meta_validation_iteration: int, number_of_valid_datasets: int
     ) -> None:
-        self._tensorboard_update_data(meta_train, loss, scores)
+        
+        if self.use_tensorboard:
+            self._tensorboard_update_data(meta_train, loss, scores)
 
-        training_epoch_done = self.meta_train_iteration % val_after == 0
-        validation_epoch_done = self.meta_validation_iteration % (val_tasks * self.number_of_valid_datasets) == 0
-        if training_epoch_done and validation_epoch_done:
-            loss_train, scores_train = self._tensorboard_avg_last_n_iters(
-                self.losses_train, self.scores_train, val_after
-            )
-            self._tensorboard_write_log(self.writer_train, loss_train, scores_train)
+            training_epoch_done = meta_train_iteration % val_after == 0 and meta_train_iteration > 0
+            validation_epoch_done = meta_validation_iteration % (val_tasks * number_of_valid_datasets) == 0 and meta_validation_iteration > 0
+            if training_epoch_done and validation_epoch_done:
+                loss_train, scores_train = self._tensorboard_avg_last_n_iters(
+                    self.losses_train, self.scores_train, val_after
+                )
+                self._tensorboard_write_log(self.writer_train, loss_train, scores_train, meta_train_iteration)
 
-            loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(
-                self.losses_valid, self.scores_valid, val_tasks
-            )
-            self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid)
+                loss_valid, scores_valid = self._tensorboard_avg_last_n_iters(
+                    self.losses_valid, self.scores_valid, val_tasks
+                )
+                self._tensorboard_write_log(self.writer_valid, loss_valid, scores_valid, meta_train_iteration)
 
-            self._tensorboard_write_samples(self.writer_valid, data, predictions)
+                self._tensorboard_write_samples(self.writer_valid, data, predictions, meta_train_iteration)
+
+class Logger():
+    """ Class to define the logger that can be used by the participants during 
+    meta-learning to store detailed logs and get printed messages available in 
+    the ingestion output log of the Competition Site. 
+    """
+
+    def __init__(
+        self, logs_dir: pathlib.Path, tensorboard_dir: Union[pathlib.Path, None], number_of_valid_datasets: int
+    ) -> None:
+        """
+        Args:
+            logs_dir (pathlib.Path): Directory where the logs should be stored.
+
+            tensorboard_dir Union[pathlib.Path, None]: Indicates if and where the data
+                    for the tensorboard should be stored     
+
+            number_of_valid_datasets (int): Number of datasets that will be used for meta-validation
+        """
+        self.logs_dir = logs_dir
+        self.meta_train_iteration = 0
+        self.meta_train_logs_path = self.logs_dir / "meta_train"
+        self.meta_validation_iteration = 0
+        self.meta_valid_step = 0
+        self.meta_valid_root_path = self.logs_dir / "meta_validation"
+        self.print_separator = False
+        self.number_of_valid_datasets = number_of_valid_datasets
+        self.tensorboard_logger = TensorboardLogger(tensorboard_dir)
 
     def log(
         self, data: Any, predictions: np.ndarray, loss: float, val_tasks: int, val_after: int, meta_train: bool = True
@@ -255,8 +265,7 @@ class Logger():
             else:
                 print(f"{print_text}" + f"\t{scores['Accuracy']:.4f} (Accuracy)")
 
-        if self.use_tensorboard:
-            self._tensorboard_log(data, scores, loss, meta_train, is_task, predictions, val_tasks, val_after)
+        self.tensorboard_logger.tensorboard_log(data, scores, loss, meta_train, is_task, predictions, val_tasks, val_after, self.meta_train_iteration, self.meta_validation_iteration, self.number_of_valid_datasets)
 
         with open(performance_file, "a", newline="") as f:
             writer = csv.writer(f)
