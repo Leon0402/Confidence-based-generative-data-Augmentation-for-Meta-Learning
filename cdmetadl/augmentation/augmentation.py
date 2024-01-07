@@ -1,24 +1,17 @@
-#from .meta_image_dataset import MetaImageDataset
+import torch
 
-# import logger, task
-TODO: fix imports
+import cdmetadl.dataset
+import cdmetadl.helpers.general_helpers
 
 class Augmentation():
     
-    def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
-        self.dataset = dataset
-        self.confidence_threshold = confidence_threshold
-        self.aug_factor = aug_factor
+    def __init__(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], threshold: float, scale: int):
+        self.support_set = support_set
+        self.conf_support_set = conf_support_set
         self.conf_scores = conf_scores
+        self.threshold = threshold
+        self.scale = scale
        
-       
-
-class StandardAug(Augmentation):
-
-    def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
-        super().__init__(task, confidence_threshold, aug_factor, conf_scores)
-
-
 
 
 class PseudoAug(Augmentation):
@@ -29,19 +22,30 @@ class PseudoAug(Augmentation):
 # confidence_threshold: float indicating below which confidence value to do augmentation
 # returns modified augmentated_task(which inherits from task) with added images sampled from image_dataset the task is from (maybe pass this information)
 # could contain dubplicates in one test augmented_task due to sampling randomness
+    
+    def getDatasetAugmented(): 
+        for idx, score in enumerate(self.conf_scores): 
+            if score < self.threshold:        
+            # randomly sample: scale * 1/score * nr_shots from this class/way from conf_support_set
+            # add to support_set and return augmented dataset  
+
+
+
+class StandardAug(Augmentation):
 
     def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
         super().__init__(task, confidence_threshold, aug_factor, conf_scores)
-    
-    def get_augmented_DS(): 
-        for idx, score in enumerate(self.conf_scores): 
-            if score < self.confidence_threshold:        
+
 
 
 class GenerativeAug(Augmentation):
     def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
         super().__init__(task, confidence_threshold, aug_factor, conf_scores)
        
+
+
+
+
 
 
 
