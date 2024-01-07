@@ -12,7 +12,7 @@ import cdmetadl.samplers
 from .schema import config_schema
 
 
-class DataFormat(Enum):
+class DataFormat(str, Enum):
     BATCH = "batch"
     TASK = "task"
 

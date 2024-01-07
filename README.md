@@ -55,9 +55,9 @@ Evaluation can be run with:
 
 ```bash
 python -m cdmetadl.eval \
-    --model_dir=baselines/finetuning \
-    --training_output_dir="training_output/finetuning/cross-domain/SPT-CRS" \
+    --training_output_dir="output/tmp/training/finetuning/cross-domain" \
     --test_tasks_per_dataset=10 \
+    --overwrite_previous_results \
     --verbose 
 ```
 

@@ -22,6 +22,8 @@ if [ -z "$MODEL_DIR" ]; then
     exit 1
 fi
 
+# Delete previous output
+rm -r "./output/full/train"
 
 echo "Running model $MODEL_DIR in within-domain mode"
 
@@ -31,19 +33,20 @@ do
     echo "Running model with dataset: $DATASET_NAME"
 
     python -m cdmetadl.train \
+        --config_path="configs/train.yml" \
         --model_dir="$MODEL_DIR" \
+        --output_dir="./output/full/training" \
         --domain_type="within-domain" \
-        --datasets="$DATASET_NAME" \
         --data_dir="$DATASETS_DIR" \
-        --overwrite_previous_results \
-        --verbose
+        --verbose 
 done
 
 echo "Running model $MODEL_DIR in cross-domain mode" 
 
 python -m cdmetadl.train \
+    --config_path="configs/train.yml" \
     --model_dir="$MODEL_DIR" \
+    --output_dir="./output/full/training" \
     --domain_type="cross-domain" \
     --data_dir="$DATASETS_DIR" \
-    --overwrite_previous_results \
     --verbose

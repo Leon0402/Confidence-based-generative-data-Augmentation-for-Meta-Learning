@@ -1,5 +1,5 @@
 import argparse
-import datetime
+import yaml
 import pathlib
 import random
 import pickle
@@ -13,8 +13,8 @@ import cdmetadl.config
 
 
 class DomainType(Enum):
-    CROSS_DOMAIN = "cross-domain"
     WITHIN_DOMAIN = "within-domain"
+    CROSS_DOMAIN = "cross-domain"
 
     def __str__(self):
         return self.value
@@ -28,7 +28,7 @@ def define_argparser() -> argparse.ArgumentParser:
         help='Show various progression messages. Default: True.'
     )
     parser.add_argument(
-        '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the solution to use.'
+        '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the model to use.'
     )
     parser.add_argument('--config_path', type=pathlib.Path, required=True, help='Path to config to use.')
     parser.add_argument(
@@ -56,8 +56,8 @@ def define_argparser() -> argparse.ArgumentParser:
         "Proportion of dataset used for testing. Train, validation and test split should sum up to one. Default: 0.2."
     )
     parser.add_argument(
-        '--output_dir', type=pathlib.Path, default='./training_output',
-        help='Path to the output directory for training. Default: "./training_output".'
+        '--output_dir', type=pathlib.Path, default='./output/tmp/training',
+        help='Path to the output directory for training. Default: "./output/tmp/training".'
     )
     parser.add_argument(
         '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
@@ -80,7 +80,7 @@ def process_args(args: argparse.Namespace) -> None:
         if args.domain_type == DomainType.WITHIN_DOMAIN:
             args.datasets = [random.choice(args.datasets)]
 
-    if args.domain_type == 'within-domain' and len(args.datasets) > 1:
+    if args.domain_type == DomainType.WITHIN_DOMAIN and len(args.datasets) > 1:
         raise ValueError("More than one dataset specified for within-domain scenario")
 
     args.dataset_config, args.model_config = cdmetadl.config.read_config(args.config_path)
@@ -90,13 +90,16 @@ def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.data_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
-    args.output_dir /= f"{args.model_dir.name}/{args.domain_type}/dataset"
+    args.output_dir /= f"{args.model_dir.name}/{args.domain_type}"
+    if args.domain_type == DomainType.WITHIN_DOMAIN:
+        args.output_dir /= "".join(args.datasets)
 
     if args.output_dir.exists() and args.overwrite_previous_results:
         shutil.rmtree(args.output_dir)
     elif args.output_dir.exists():
-        timestamp = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
-        args.output_dir.rename(args.output_dir.parent / f"{args.output_dir.name}_{timestamp}")
+        raise ValueError(
+            f"Output directory {args.output_dir} exists and overwrite previous results option is not provided"
+        )
     args.output_dir.mkdir(parents=True)
 
     args.logger_dir = args.output_dir / "logs"
@@ -142,6 +145,18 @@ def prepare_data_generators(
         pickle.dump(val_dataset, f)
     with open(args.dataset_output_dir / 'test_dataset.pkl', 'wb') as f:
         pickle.dump(test_dataset, f)
+
+    with open(args.config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    config["dataset"]["split"] = {}
+    config["dataset"]["split"]["train"] = ",".join([dataset.name for dataset in train_dataset.datasets])
+    config["dataset"]["split"]["validation"] = ",".join([dataset.name for dataset in val_dataset.datasets])
+    config["dataset"]["split"]["test"] = ",".join([dataset.name for dataset in test_dataset.datasets])
+    config["model"]["path"] = str(args.model_dir.relative_to(pathlib.Path.cwd()))
+
+    with open(args.output_dir / "config.yaml", "w") as f:
+        yaml.safe_dump(config, f)
 
     match args.dataset_config.train_mode:
         case cdmetadl.config.DataFormat.TASK:
@@ -193,16 +208,6 @@ def main():
     cdmetadl.helpers.general_helpers.vprint("\nMeta-train your meta-learner...", args.verbose)
     meta_learn(args, meta_train_generator, meta_val_generator)
     cdmetadl.helpers.general_helpers.vprint("[+] Meta-learner meta-trained", args.verbose)
-
-    # Rename file based on test dataset. TODO: Little bit hacky
-    with open(args.dataset_output_dir / 'test_dataset.pkl', 'rb') as f:
-        test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
-
-    final_output_path = args.output_dir.parent / "-".join([dataset.name for dataset in test_dataset.datasets])
-
-    # TODO: This leads to File Exists Errors. What is the desired behaviour in this case?
-    final_output_path.mkdir(parents=True)
-    args.output_dir.rename(final_output_path)
 
 
 if __name__ == "__main__":
