@@ -115,6 +115,10 @@ def define_argparser() -> argparse.ArgumentParser:
         '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
         help='Overwrites the previous output directory instead of renaming it. Default: False.'
     )
+    parser.add_argument(
+        '--pseudo_DA', action=argparse.BooleanOptionalAction, default=False,
+        help='Uses pseudo data augmentation. Default: False.'
+    )
     return parser
 
 
@@ -163,7 +167,7 @@ def prepare_data_generators(
         cdmetadl.dataset.ImageDataset(name, info) for name, info in datasets_info.items()
     ])
 
-    # check if pesudo_augmentation, then split test again here
+    
     splitting = [args.train_split, args.validation_split, args.test_split]
     match args.domain_type:
         case DomainType.CROSS_DOMAIN:

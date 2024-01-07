@@ -3,12 +3,15 @@ import pickle
 import pathlib
 
 from tqdm import tqdm
+import torch
 import pandas as pd
 
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 import cdmetadl.dataset.split
+import cdmetadl.confidence_estimator
+import cdmetadl.augmentation
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -72,19 +75,6 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
     return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)   
 
 
-# should be in its own file
-def get_task_confidence_scores(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], ) -> dict: 
-    # for pseudo augmentation
-    # returns dict with confidence scores for each class found in this task, calculated as 0 if prediciton is false or a mean of the softmaxes over all shots if prediction is true
-    conf_scores = dict()
-    predictor = learner.fit(support_set)
-    predictions = predictor.predict(query_set[0])
-    # need softmax and label of predicted item
-    print("predictions: ", predictions)
-
-
-    return conf_scores
-
 
 
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator, augmentation: False) -> list[dict]:
@@ -95,18 +85,22 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
         # get confidence score (call helper perform prediction step)
         # sample more images from DS here (call augmentation.py)
-        
+        print("getting confidence estimation")
         support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
 
         learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
-
-        support_set, conf_support_set, backup_support_set = rand_conf_split(support_set, list(0.3, 0.7))
-
-        query_set, conf_query_set = rand_conf_split(query_set, list(0.5, 0.5))
-        conf_scores = get_task_confidence_scores(support_split, query_split, learner)
+        
+        print("splitting sets:")
+        support_set, conf_support_set, backup_support_set, query_set, conf_query_set = rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots)
+        
+        conf_scores = ref_set_confidence_scores(conf_support_set, conf_query_set, learner)
         print("conf_scores: ", conf_scores)
+
         # augment step here
+        augmentation = PseudoAug(task.support_set, conf_support_set, conf_scores, threshold, scale)
+        support_set = augmentation.getDatasetAugmented()
+
 
         # rewrite this
         predictor = learner.fit(support_set)
