@@ -19,7 +19,8 @@ def read_df(path: pathlib.Path) -> pd.DataFrame:
 full_df = pd.concat([read_df(filepath) for filepath in pathlib.Path("./eval_output").glob('**/evaluation.pkl')])
 
 # Keep only datasets present in all models
-keep_groups = full_df.groupby("Dataset")["Model"].nunique() == 4
+nb_models_used = full_df.groupby("Dataset")["Model"].nunique()
+keep_groups = nb_models_used == nb_models_used.max()
 full_df = full_df[full_df['Dataset'].isin(keep_groups[keep_groups].index)]
 
 dfs = {model: full_df[full_df["Model"] == model] for model in full_df["Model"].unique()}
@@ -136,11 +137,10 @@ app.layout = dmc.Container([
 ], fluid=True)
 
 
-@app.callback(
-    [dash.Output('average_table', 'data'), dash.Output('average_table', 'style_data_conditional')],
-    [dash.Input('metric-selector', 'value'),
-     dash.Input('model-selector', 'value')]
-)
+@app.callback([dash.Output('average_table', 'data'),
+               dash.Output('average_table', 'style_data_conditional')],
+              [dash.Input('metric-selector', 'value'),
+               dash.Input('model-selector', 'value')])
 def average_table(metrics, models):
     df = get_data(models)
 

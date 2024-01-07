@@ -61,10 +61,10 @@ class MetaImageDataset(torch.utils.data.Dataset):
         Returns:
             tuple[int, int]: A tuple containing the index of the dataset and the index within the dataset.
         """
-        dataset_idx = bisect.bisect_left(self.dataset_end_index, idx)
-        previous_dataset_start_index = self.dataset_end_index[dataset_idx - 1] if dataset_idx != 0 else 0
-        local_idx = idx - previous_dataset_start_index
-        return dataset_idx, local_idx
+        dataset_idx = bisect.bisect_left(self.dataset_end_index, idx + 1)
+        if dataset_idx == 0:
+            return 0, idx
+        return dataset_idx, idx - self.dataset_end_index[dataset_idx - 1]
 
     def generate_tasks(
         self, num_tasks: int, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int

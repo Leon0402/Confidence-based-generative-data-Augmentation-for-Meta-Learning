@@ -29,6 +29,8 @@ class DataFormat(Enum):
 
 def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, dict]:
     train_data_format = DataFormat.TASK
+    if config_file.parent.name == "finetuning":
+        train_data_format = DataFormat.BATCH
 
     train_generator_config = {
         "N": 5,
@@ -42,9 +44,9 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
     }
 
     valid_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 5,
+        "N": 5,
+        "min_N": None,
+        "max_N": None,
         "k": None,
         "min_k": 1,
         "max_k": 20,
@@ -52,9 +54,9 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
     }
 
     test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 5,
+        "N": 5,
+        "min_N": None,
+        "max_N": None,
         "k": None,
         "min_k": 1,
         "max_k": 20,
@@ -62,13 +64,7 @@ def read_generator_configs(config_file: pathlib.Path) -> tuple[str, dict, dict, 
     }
 
     if config_file.exists():
-        user_config = cdmetadl.helpers.general_helpers.load_json(config_file)
-        if "train_data_format" in user_config:
-            train_data_format = DataFormat(user_config["train_data_format"])
-        if "train_config" in user_config:
-            train_generator_config.update(user_config["train_config"])
-        if "valid_config" in user_config:
-            valid_generator_config.update(user_config["valid_config"])
+        raise DeprecationWarning("Config files are not supported anymores, it seems the model still defines ones.")
 
     return train_data_format, train_generator_config, valid_generator_config, test_generator_config
 
@@ -115,6 +111,10 @@ def define_argparser() -> argparse.ArgumentParser:
         '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
         help='Overwrites the previous output directory instead of renaming it. Default: False.'
     )
+    parser.add_argument(
+        '--use_tensorboard', action=argparse.BooleanOptionalAction, default=True,
+        help='Specify if you want to create logs fo the tensorboard for the current run. Default: True.'
+    )
     return parser
 
 
@@ -154,6 +154,14 @@ def prepare_directories(args: argparse.Namespace) -> None:
     args.dataset_output_dir = args.output_dir / "datasets"
     args.dataset_output_dir.mkdir()
 
+    if args.use_tensorboard:
+        args.tensorboard_output_dir = args.output_dir / "tensorboard"
+        args.tensorboard_output_dir.mkdir()
+
+        for mode in ["train", "validation"]:
+            tensorbord_mode_dir = args.tensorboard_output_dir / mode
+            tensorbord_mode_dir.mkdir()
+
 
 def prepare_data_generators(
     args: argparse.Namespace
@@ -187,11 +195,13 @@ def prepare_data_generators(
 
     match train_data_format:
         case DataFormat.TASK:
-            meta_train_generator = cdmetadl.dataset.TaskGenerator(train_dataset, train_generator_config)
+            meta_train_generator = cdmetadl.dataset.TaskGenerator(
+                train_dataset, train_generator_config, sample_dataset=True
+            )
         case DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset)
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_generator_config)
 
-    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config, sample_dataset=True)
+    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_generator_config)
     return meta_train_generator, meta_val_generator
 
 
@@ -201,7 +211,13 @@ def meta_learn(
 ) -> None:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
-    logger = cdmetadl.logger.Logger(args.logger_dir)
+    if args.use_tensorboard:
+        logger = cdmetadl.logger.Logger(
+            args.logger_dir, args.tensorboard_output_dir, meta_val_generator.dataset.number_of_datasets
+        )
+    else:
+        logger = cdmetadl.logger.Logger(args.logger_dir, None, meta_val_generator.dataset.number_of_datasets)
+
     meta_learner = model_module.MyMetaLearner(
         meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
     )
@@ -226,7 +242,7 @@ def main():
     meta_train_generator, meta_val_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
 
-    cdmetadl.helpers.general_helpers.vprint("\nMeta-training your meta-learner...", args.verbose)
+    cdmetadl.helpers.general_helpers.vprint("\nMeta-train your meta-learner...", args.verbose)
     meta_learn(args, meta_train_generator, meta_val_generator)
     cdmetadl.helpers.general_helpers.vprint("[+] Meta-learner meta-trained", args.verbose)
 
@@ -235,6 +251,8 @@ def main():
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
     final_output_path = args.output_dir.parent / "-".join([dataset.name for dataset in test_dataset.datasets])
+
+    # TODO: This leads to File Exists Errors. What is the desired behaviour in this case?
     final_output_path.mkdir(parents=True)
     args.output_dir.rename(final_output_path)
 
