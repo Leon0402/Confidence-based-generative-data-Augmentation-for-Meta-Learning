@@ -21,7 +21,7 @@ from helpers_maml import *
 from api import MetaLearner, Learner, Predictor
 
 # --------------- MANDATORY ---------------
-SEED = 98
+SEED = 187
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 random.seed(SEED)
@@ -61,20 +61,20 @@ class MyMetaLearner(MetaLearner):
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
-        super().__init__(train_classes, total_classes, logger)
 
+        super().__init__(train_classes, total_classes, logger)
         # General data parameters
         self.should_train = True
         self.ncc = False
-        self.train_tasks = 20
-        self.val_tasks = 10
-        self.val_after = 5
+        self.train_tasks = 10_000
+        self.val_tasks = 5
+        self.val_after = 10
 
         # MAML parameters
         self.base_lr = 0.01
@@ -167,10 +167,9 @@ class MyMetaLearner(MetaLearner):
                     self.optimizer.zero_grad()
 
                 # Log iteration
-                self.log(task, out.detach().cpu().numpy(), loss.item())
-
+                self.log(task, out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
                 if (i + 1) % self.val_after == 0:
-                    self.meta_valid(meta_valid_generator)
+                    self.meta_valid(meta_valid_generator, i)
 
         if self.best_state is None:
             self.best_state = [p.clone().detach() for p in self.weights]
@@ -184,7 +183,7 @@ class MyMetaLearner(MetaLearner):
         }
         return MyLearner(self.model_args, self.meta_learner.state_dict(), self.best_state, maml_params)
 
-    def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
+    def meta_valid(self, meta_valid_generator: Iterable[Any], iteration: int) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
 
@@ -192,6 +191,8 @@ class MyMetaLearner(MetaLearner):
             meta_valid_generator (Iterable[Task]): Function that generates the 
                 validation data. The generated data always come in form of 
                 N-way k-shot tasks.
+            iteration (int): Current iteration of the Meta-Training procedure
+                in order to keep track for logging. 
         """
         total_test_images = 0
         correct_predictions = 0
@@ -216,14 +217,13 @@ class MyMetaLearner(MetaLearner):
                 p.requires_grad = True
 
             # Evaluate learner
-            out, _ = self.compute_out_and_loss(
-                self.val_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, False, True
+            out, loss = self.compute_out_and_loss(
+                self.val_learner, task_weights, X_train, y_train, X_test, y_test, num_ways, False, False
             )
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
-            self.log(task, out.cpu().numpy(), meta_train=False)
-
+            self.log(task, out.cpu().numpy(), loss, self.val_tasks, self.val_after, meta_train=False)
             # Keep track of scores
             total_test_images += len(y_test)
             correct_predictions += np.sum(preds == y_test.numpy())
@@ -306,7 +306,7 @@ class MyMetaLearner(MetaLearner):
                 loss = None
             else:
                 reg = num_classes * len(y_test) if self.ncc else 1
-                loss = model.criterion(out, y_test) / reg
+                loss = model.criterion(out, y_test.to(out.device)) / reg
 
         return out, loss
 
