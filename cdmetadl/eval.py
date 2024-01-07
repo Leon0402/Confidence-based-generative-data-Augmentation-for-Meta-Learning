@@ -8,6 +8,7 @@ import pandas as pd
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
+import cdmetadl.dataset.split
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -30,6 +31,10 @@ def define_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--test_tasks_per_dataset', type=int, default=100,
         help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
+    )
+    parser.add_argument(
+        '--pseudo_DA', action=argparse.BooleanOptionalAction, default=False,
+        help='Uses pseudo data augmentation. Default: False.'
     )
 
     return parser
@@ -64,19 +69,46 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
         "query_images_per_class": 20
     }
 
-    return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)
+    return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)   
 
 
-def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
+# should be in its own file
+def get_task_confidence_scores(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], ) -> dict: 
+    # for pseudo augmentation
+    # returns dict with confidence scores for each class found in this task, calculated as 0 if prediciton is false or a mean of the softmaxes over all shots if prediction is true
+    conf_scores = dict()
+    predictor = learner.fit(support_set)
+    predictions = predictor.predict(query_set[0])
+    # need softmax and label of predicted item
+    print("predictions: ", predictions)
+
+
+    return conf_scores
+
+
+
+def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator, augmentation: False) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
     for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
+        # get confidence score (call helper perform prediction step)
+        # sample more images from DS here (call augmentation.py)
+        
         support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
 
         learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
+
+        support_set, conf_support_set, backup_support_set = rand_conf_split(support_set, list(0.3, 0.7))
+
+        query_set, conf_query_set = rand_conf_split(query_set, list(0.5, 0.5))
+        conf_scores = get_task_confidence_scores(support_split, query_split, learner)
+        print("conf_scores: ", conf_scores)
+        # augment step here
+
+        # rewrite this
         predictor = learner.fit(support_set)
 
         predictions.append({
@@ -123,8 +155,14 @@ def main():
     meta_test_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
 
+    # check for data augmentation, confidence estimation step, augment tasks (e.g with test set)
+    if args.pseudo_DA: 
+        print("using confidence estimation, DA")
+
+
+
     cdmetadl.helpers.general_helpers.vprint("\nMeta-testing your learner...", args.verbose)
-    predictions = meta_test(args, meta_test_generator)
+    predictions = meta_test(args, meta_test_generator, args.pseudo_DA)
     cdmetadl.helpers.general_helpers.vprint("[+] Learner meta-tested", args.verbose)
 
     cdmetadl.helpers.general_helpers.vprint("\nEvaluate learner...", args.verbose)
