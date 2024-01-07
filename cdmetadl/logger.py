@@ -219,8 +219,7 @@ class Logger():
                 (the logits are the unnormalized final scores of your model), 
                 a probability matrix, or the predicted labels.
 
-            loss (float, optional): Loss of the current iteration. Defaults to 
-                None.
+            loss (float): Loss of the current iteration.
 
             val_tasks (int): The total number of tasks that will be used
                     during the validation stage.
@@ -233,10 +232,7 @@ class Logger():
                 iteration belongs to meta-training. Defaults to True.
 
         """
-        # Check the data format
-        is_task = False
-        if isinstance(data, cdmetadl.dataset.Task):
-            is_task = True
+        is_task = isinstance(data, cdmetadl.dataset.Task)
 
         first_log = False
         if meta_train:
@@ -258,7 +254,7 @@ class Logger():
             task_file = f"{self.meta_train_logs_path}/tasks.csv"
             performance_file = f"{self.meta_train_logs_path}/performance.csv"
             curr_iter = f"iteration_{self.meta_train_iteration}.out"
-            print_text = f"Meta-train iteration {self.meta_train_iteration}:"
+            print_text = f"Meta-train iteration {self.meta_train_iteration:>4d}:"
 
         else:
             # Create log dirs
@@ -273,8 +269,7 @@ class Logger():
             self.meta_validation_iteration += 1
             task_file = f"{self.meta_valid_logs_path}/tasks.csv"
             performance_file = f"{self.meta_valid_logs_path}/performance.csv"
-            print_text = "Meta-valid iteration " \
-                + f"{self.meta_validation_iteration}:"
+            print_text = f"Meta-valid iteration {self.meta_validation_iteration:>4d}:"
 
         if is_task:
             # Save task information
@@ -302,28 +297,13 @@ class Logger():
 
         # Compute and save performance
         scores = cdmetadl.helpers.scoring_helpers.compute_all_scores(ground_truth, predictions, N, not is_task)
-        score_names = list(scores.keys())
-        score_values = list(scores.values())
 
-        if loss is not None:
-            score_names.append("Loss")
-            score_values.append(loss)
-            if is_task:
-                print(
-                    f"{print_text}" + f"\t{scores['Normalized Accuracy']:.4f} (Normalized " + "Accuracy)" +
-                    f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t{loss:.4f} (Loss)" +
-                    f"\t[{N}-way {k}-shot task from {dataset}]"
-                )
-            else:
-                print(f"{print_text}" + f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t{loss:.4f} (Loss)")
+        if is_task:
+            print(
+                f"{print_text}\t{scores['Normalized Accuracy']:.4f} (Normalized Accuracy)\t{scores['Accuracy']:.4f} (Accuracy)\t{loss:.4f} (Loss)\t[{N}-way {k}-shot task from {dataset}]"
+            )
         else:
-            if is_task:
-                print(
-                    f"{print_text}" + f"\t{scores['Normalized Accuracy']:.4f} (Normalized " + "Accuracy)" +
-                    f"\t{scores['Accuracy']:.4f} (Accuracy)" + f"\t[{N}-way {k}-shot task from {dataset}]"
-                )
-            else:
-                print(f"{print_text}" + f"\t{scores['Accuracy']:.4f} (Accuracy)")
+            print(f"{print_text}\t{scores['Accuracy']:.4f} (Accuracy)\t{loss:.4f} (Loss)")
 
         if self.tensorboard_logger is not None:
             self.tensorboard_logger.log(
@@ -331,11 +311,12 @@ class Logger():
                 self.meta_validation_iteration, self.number_of_valid_datasets
             )
 
+        scores["loss"] = loss
         with open(performance_file, "a", newline="") as f:
             writer = csv.writer(f)
             if first_log:
-                writer.writerow(score_names)
-            writer.writerow(score_values)
+                writer.writerow(list(scores.keys()))
+            writer.writerow(list(scores.values()))
 
     def _create_logs_dirs(self, dir: pathlib.Path) -> None:
         """ Create all the necessary directories for storing the logs at 
