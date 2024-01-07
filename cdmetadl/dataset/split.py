@@ -42,16 +42,42 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
     return [MetaImageDataset(datasets) for datasets in filtered_datasets_by_split.values()]
 
 
-def pseudo_aug_split(meta_dataset: MetaImageDataset, lengths: list[float], seed:int = None) -> list[MetaImageDataset]: 
+def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], query_set: support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], lengths: list[float], num_ways: int, num_shots: int, seed: int = None) -> list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]: 
     if not np.isclose(sum(lengths), 1.0):
         raise ValueError("Sum of lengths must be approximately 1")
-    aug_sets = list(ImageDataset)    
-    test_sets = list(ImageDataset)
 
-    # make 2 MetaImageDatasets, split every ImageDataset roughly by "lenghts" and combine them. 
-    # keep same classes in both sets, samples are selected at random(static by length for now)
-    for dataset in meta_dataset.datasets: 
-        print("dataset.dataset_info", dataset.dataset_info)
-        # change metadata and file column
-        for class_label in dataset.dataset_info
+    if support_set[3].shape[1] < len(lengths): 
+        raise ValueError("Not enough shots for split, should be at least", len(lengths))    
 
+    print("shape support: ", support_set.shape)
+    # reshape support and test set so that ways, shots can be accessed
+    rearranged_support = [support_set[0].reshape(num_ways, num_shots, 3, 128, 128), support_set[1].reshape(num_ways, num_shots), support_set[2].reshape(num_ways, num_shots)]
+    # matrix dim: 3 x num_ways, num_shots 
+    rearranged_query = [query_set[0].reshape(num_ways, num_shots, 3, 128, 128), query_set[1].reshape(num_ways, num_shots)]
+    print("shape rearranged support: ", rearranged_support.shape)
+    print("rearranged_support", rearranged_support)
+    nr_splits = len(lengths)
+
+    # generate list of n_way*n_shot indices, shuffle them
+    # n x way x 2xshot/2
+    # split into 2 subarrays
+    indices_per_way = [
+            np.array_split(np.random.shuffle(np.arange(num_shots)), 2) for cls in num_ways
+        ]
+
+    print("indices_per_way", indices_per_way)
+    # replace this with calculation from "nr_splits"
+    cut_idxs = [np.floor(num_shots/2), num_shots]
+    print("cut_idxs", cut_idxs)
+
+    split_support = [[[[rearranged_support[i][j][idx] for idx in indices[s]] for j, indices in enumerate(indices_per_way)] for i in range(len(rearranged_support))] for s in range(nr_splits)]
+    # matrix with dim: 2x3xnum_ways x num_shots
+    print("split_support", split_support.shape)
+    
+    split_query = [[[[rearranged_query[i][j][idx] for idx in indices[s]] for j, indices in enumerate(indices_per_way)] for i in range(len(rearranged_query))] for s in range(nr_splits)]
+    # matrix with dim: 2x2xnum_waysxnum_shots
+
+    arranged_split_support = [el.reshape(num_ways, el.shape[2]) for el in split_support]
+    arranged_split_test = [el.reshape(num_ways, el.shape[2]) for el in split_query]
+
+    return arranged_split_support, arranged_split_test 
