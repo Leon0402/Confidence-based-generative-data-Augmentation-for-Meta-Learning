@@ -112,16 +112,11 @@ class ImageDataset(torch.utils.data.Dataset):
         query_images = torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]])
 
         return Task(
-            num_ways=n_way,
-            num_shots=k_shot,
-            support_set=(
+            num_ways=n_way, num_shots=k_shot, query_size=query_size, support_set=(
                 support_images, torch.tensor(np.arange(n_way).repeat(k_shot)),
                 torch.tensor(selected_classes.repeat(k_shot))
-            ),
-            query_set=(
+            ), query_set=(
                 query_images, torch.tensor(np.arange(n_way).repeat(query_size)),
                 torch.tensor(selected_classes.repeat(query_size))
-            ),
-            original_class_idx=selected_classes,
-            dataset=self.name
+            ), original_class_idx=selected_classes, dataset=self.name
         )

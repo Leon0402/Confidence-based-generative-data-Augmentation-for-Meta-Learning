@@ -44,7 +44,12 @@ python -m cdmetadl.train \
     --verbose 
 ```
 
-Arguments can be adjusted as needed. Run `python -m cdmetadl.train --help` to get the documentation of the command line arguments.
+Arguments can be adjusted as needed. Run `python -m cdmetadl.train --help` to get the documentation of the command line arguments. Logs will be written to the command line ouput as well as to tensorboard. 
+To start tensorboard run: 
+
+```bash
+tensorboard --logdir .
+```
 
 Evaluation can be run with: 
 

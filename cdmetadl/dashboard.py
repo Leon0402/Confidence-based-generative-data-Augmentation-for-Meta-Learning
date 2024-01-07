@@ -137,11 +137,10 @@ app.layout = dmc.Container([
 ], fluid=True)
 
 
-@app.callback(
-    [dash.Output('average_table', 'data'), dash.Output('average_table', 'style_data_conditional')],
-    [dash.Input('metric-selector', 'value'),
-     dash.Input('model-selector', 'value')]
-)
+@app.callback([dash.Output('average_table', 'data'),
+               dash.Output('average_table', 'style_data_conditional')],
+              [dash.Input('metric-selector', 'value'),
+               dash.Input('model-selector', 'value')])
 def average_table(metrics, models):
     df = get_data(models)
 

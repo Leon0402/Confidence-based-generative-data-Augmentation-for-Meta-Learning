@@ -47,8 +47,9 @@ def download_public_data():
     if "public_data" not in current_files:
         if "public_data.zip" not in current_files:
             print("Start of download, please wait")
-            res = requests.get(url="https://codalab.lisn.upsaclay.fr/my/" +
-                               "datasets/download/3613416d-a8d7-4bdb-be4b-7106719053f1")
+            res = requests.get(
+                url="https://codalab.lisn.upsaclay.fr/my/" + "datasets/download/3613416d-a8d7-4bdb-be4b-7106719053f1"
+            )
             open("public_data.zip", "wb").write(res.content)
             print("Download completed")
         print("Unzipping Public Data, please wait")
@@ -61,7 +62,8 @@ def verify_public_data():
     current_files = os.listdir()
     if "public_data" not in current_files:
         raise Exception(
-            "\nERROR: public_data/ folder not found, please follow the process described in section 2.1 Public Data.\n")
+            "\nERROR: public_data/ folder not found, please follow the process described in section 2.1 Public Data.\n"
+        )
     if len(os.listdir("public_data")) != 11:
         raise Exception(
             "\nERROR: public_data/ folder does not have all the necessary files, please follow the process described in section 2.1 Public Data.\n"
