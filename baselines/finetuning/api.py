@@ -122,11 +122,12 @@ class MetaLearner():
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         self.train_classes = train_classes
         self.total_classes = total_classes
         self.log = logger.log
+
 
     def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
