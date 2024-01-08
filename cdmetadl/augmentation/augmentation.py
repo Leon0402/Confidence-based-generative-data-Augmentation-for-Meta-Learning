@@ -5,7 +5,7 @@ import cdmetadl.helpers.general_helpers
 
 class Augmentation():
     
-    def __init__(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], threshold: float, scale: int):
+    def __init__(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], threshold: float, scale: int):
         self.support_set = support_set
         self.conf_support_set = conf_support_set
         self.conf_scores = conf_scores
@@ -22,12 +22,35 @@ class PseudoAug(Augmentation):
 # confidence_threshold: float indicating below which confidence value to do augmentation
 # returns modified augmentated_task(which inherits from task) with added images sampled from image_dataset the task is from (maybe pass this information)
 # could contain dubplicates in one test augmented_task due to sampling randomness
+
+    def __init__(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], threshold: float, scale: int, num_shots: int, num_ways: int):
+        super().__init__(support_set, conf_scores, threshold, scale)
+        self.conf_support_set = conf_support_set
+
+        rearranged_conf_support = [conf_support_set[0].reshape(num_ways, num_shots, 3, 128, 128), conf_support_set[1].reshape(num_ways, num_shots), conf_support_set[2].reshape(num_ways, num_shots)]
+
     
     def getDatasetAugmented(): 
+        shots = list()
+        samples_idxs = list()
+
         for idx, score in enumerate(self.conf_scores): 
+            # calculat amounts of samples to samples for this class
             if score < self.threshold:        
-            # randomly sample: scale * 1/score * nr_shots from this class/way from conf_support_set
-            # add to support_set and return augmented dataset  
+                # randomly sample: scale * 1/score * nr_shots from this class/way from conf_support_set
+                nr_samples = 1/score * nr_shots * scale
+                shots.append(nr_samples + num_shot)
+                # add to support_set and return augmented dataset  
+                sample_idxs.append(np.random.choice(0, nr_samples))
+                
+        support_images = torch.stack([
+                rearranged_conf_support[idx][i] for i in way_idxs for j, way_idxs in enumerate(sample_idxs)
+        ])
+
+        # labe here would be index of class/way
+        augmented_support_set = (support_set[0].cat(support_images), torch.tensor(np.arange(n_way).repeat(shots)), torch.tensor(selected_classes.repeat(shots)))
+        return augmented_support_set, shots
+
 
 
 
@@ -43,27 +66,4 @@ class GenerativeAug(Augmentation):
         super().__init__(task, confidence_threshold, aug_factor, conf_scores)
        
 
-
-
-
-
-
-
-def augmentTask(task: Task, extension_set: Image_Dataset, confidence_threshold: float, aug_factor: int, conf_scores: list[float]): 
-    """ 
-    Called in meta-testing loop, receives informaiton form the confidence estimation, current task to augment and by how much, dataset to augment with (prepared ahead)
-    and constructs dict extracting class information from confidence scores and threshold. 
-    Calls augment_task on dataset. 
-    Returns augmented task with variable number of shots. 
-
-    Args:
-            task (Task): Task that will be augmented. 
-            extension_set: (ImageDataset) Synthetic dataset (in case of GAN of conv. DA or split of test set in case of pseudo DA) task gets augmented with. 
-            confidence_threshold: (float) Threshold below which classes should be augmented. 
-            aug_factor: (int) Value indicating by how many samples task should be augmented, relative to the samples it already contains per shot. 
-            conf_scores: (list[float]): Confidence scores for all classes in task as calculated in eval.py in confidence estimation step. 
-    Returns: 
-            task(Task): calls augmentTask in ImageData for dataset and returns augmented task. 
-                
-    """
     
