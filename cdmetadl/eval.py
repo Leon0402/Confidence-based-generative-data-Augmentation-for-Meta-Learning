@@ -99,7 +99,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         # augment step here
         augmentation = PseudoAug(task.support_set, conf_support_set, conf_scores, threshold, scale)
-        support_set = augmentation.getDatasetAugmented()
+        support_set, nr_shots = augmentation.getDatasetAugmented()
 
 
         # rewrite this

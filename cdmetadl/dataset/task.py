@@ -14,12 +14,6 @@ class Task:
             num_ways (int): Number of ways (classes) in the current task. 
             num_shots (int): Number of shots (images per class) for the support 
                 set.
-            variable_shots: (boolean): Boolean indicating whether shots are 
-                variable in this task, needed for augmented tasks where this is the 
-                case. Defaults to False. 
-            num_shots_variable: (list[int]): In case of variable shots, this contains
-                the number of shots per class. 
-                TODO: add default here.
             support_set (SET_DATA): Support set for the current task. The 
                 format of the set is (torch.Tensor, torch.Tensor, torch.Tensor)
                 where the first tensor corresponds to the images with a shape 
@@ -43,8 +37,6 @@ class Task:
     """
     num_ways: int
     num_shots: int
-    variable_shots = False
-    num_shots_variable: list[int]
     support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     original_class_idx: np.ndarray
