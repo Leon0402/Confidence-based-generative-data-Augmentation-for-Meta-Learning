@@ -43,6 +43,7 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
     return [MetaImageDataset(datasets) for datasets in filtered_datasets_by_split.values()]
 
 
+# TODO: bug fix here
 def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], lengths: list[float], num_ways: int, num_shots: int, seed: int = None): 
     if not np.isclose(sum(lengths), 1.0):
         raise ValueError("Sum of lengths must be approximately 1")
