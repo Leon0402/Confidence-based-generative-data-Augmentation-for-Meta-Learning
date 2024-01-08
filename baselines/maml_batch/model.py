@@ -61,12 +61,13 @@ class MyMetaLearner(MetaLearner):
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
+
         super().__init__(train_classes, total_classes, logger)
 
         # General data parameters

@@ -60,21 +60,22 @@ class MyMetaLearner(MetaLearner):
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.
+                    True.       
         """
         # Note: the super().__init__() will set the following attributes:
         # - self.train_classes (int)
         # - self.total_classes (int)
         # - self.log (function) See the above description for details
+
         super().__init__(train_classes, total_classes, logger)
 
         # General data parameters
         self.should_train = True
         self.ncc = False
         self.support_size = 12
-        self.train_batches = 20
+        self.train_batches = 10000
         self.val_tasks = 10
-        self.val_after = 5
+        self.val_after = 10
 
         # General model parameters
         self.dev = self.get_device()
@@ -143,16 +144,16 @@ class MyMetaLearner(MetaLearner):
                         self.optimizer.step()
 
                         # Log iteration
-                        self.log((X_test, y_test), out.detach().cpu().numpy(), loss.item())
+                        self.log((X_test, y_test), out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
                 else:
                     # Optimize metalearner
                     out, loss = optimize_linear(self.meta_learner, self.optimizer, X_train, y_train)
 
                     # Log iteration
-                    self.log(batch, out.detach().cpu().numpy(), loss.item())
+                    self.log(batch, out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
 
                 if (i + 1) % self.val_after == 0:
-                    self.meta_valid(meta_valid_generator)
+                    self.meta_valid(meta_valid_generator, i)
 
         if self.best_state is None:
             self.best_state = {k: v.clone() for k, v in self.meta_learner.state_dict().items()}
@@ -166,7 +167,7 @@ class MyMetaLearner(MetaLearner):
         }
         return MyLearner(self.model_args, self.best_state, learner_params)
 
-    def meta_valid(self, meta_valid_generator: Iterable[Any]) -> None:
+    def meta_valid(self, meta_valid_generator: Iterable[Any], iteration: int) -> None:
         """ Evaluate the current meta-learner with the meta-validation split 
         to select the best model.
 
@@ -174,6 +175,9 @@ class MyMetaLearner(MetaLearner):
             meta_valid_generator (Iterable[Task]): Function that generates the 
                 validation data. The generated data always come in form of 
                 N-way k-shot tasks.
+
+            iteration (int): Current iteration of the Meta-Training procedure
+                in order to keep track for logging. 
         """
         total_test_images = 0
         correct_predictions = 0
@@ -192,7 +196,7 @@ class MyMetaLearner(MetaLearner):
 
             if self.ncc:
                 # Evaluate learner
-                out, _ = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
+                out, loss = self.optimize_ncc(X_train, y_train, X_test, y_test, False, num_ways)
             else:
                 # Optimize learner
                 for _ in range(self.T):
@@ -202,11 +206,12 @@ class MyMetaLearner(MetaLearner):
                 # Evaluate learner
                 with torch.no_grad():
                     out = self.val_learner(X_test)
+                    loss = self.val_learner.criterion(out, y_test.to(out.device))
 
             preds = torch.argmax(out, dim=1).cpu().numpy()
 
             # Log iteration
-            self.log(task, out.cpu().numpy(), meta_train=False)
+            self.log(task, out.cpu().numpy(), loss, self.val_tasks, self.val_after, meta_train=False)
 
             # Keep track of scores
             total_test_images += len(y_test)

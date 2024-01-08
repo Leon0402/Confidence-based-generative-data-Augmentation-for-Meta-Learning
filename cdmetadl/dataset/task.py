@@ -14,6 +14,7 @@ class Task:
             num_ways (int): Number of ways (classes) in the current task. 
             num_shots (int): Number of shots (images per class) for the support 
                 set.
+            query_size(int): Number of images per class for the query set.
             support_set (SET_DATA): Support set for the current task. The 
                 format of the set is (torch.Tensor, torch.Tensor, torch.Tensor)
                 where the first tensor corresponds to the images with a shape 
@@ -37,6 +38,7 @@ class Task:
     """
     num_ways: int
     num_shots: int
+    query_size: int
     support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     original_class_idx: np.ndarray
