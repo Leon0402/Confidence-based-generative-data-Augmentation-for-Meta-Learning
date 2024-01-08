@@ -17,8 +17,7 @@ from typing import Iterable, Any, Tuple
 from network import ResNet
 from helpers_finetuning import *
 
-from api import MetaLearner, Learner, Predictor
-
+import cdmetadl.api 
 import cdmetadl.config
 
 # --------------- MANDATORY ---------------
@@ -33,7 +32,8 @@ if torch.cuda.is_available():
 # -----------------------------------------
 
 
-class MyMetaLearner(MetaLearner):
+class MyMetaLearner(cdmetadl.api.MetaLearner):
+    data_format = cdmetadl.config.DataFormat.BATCH
 
     def __init__(
         self, config: cdmetadl.config.ModelConfig, train_classes: int, total_classes: int, logger: Any
@@ -107,7 +107,7 @@ class MyMetaLearner(MetaLearner):
         self.val_learner.load_state_dict(self.meta_learner.state_dict())
         self.val_learner.eval()
 
-    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> Learner:
+    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> cdmetadl.api.Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -357,7 +357,7 @@ class MyMetaLearner(MetaLearner):
         yield None
 
 
-class MyLearner(Learner):
+class MyLearner(cdmetadl.api.Learner):
 
     def __init__(self, model_args: dict = {}, model_state: dict = {}, learner_params: dict = {}) -> None:
         """ Defines the learner initialization.
@@ -375,7 +375,7 @@ class MyLearner(Learner):
         self.model_state = model_state
         self.learner_params = learner_params
 
-    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> Predictor:
+    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> cdmetadl.api.Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
@@ -470,7 +470,7 @@ class MyLearner(Learner):
             raise Exception(f"'{learner_params_file}' not found")
 
 
-class MyPredictor(Predictor):
+class MyPredictor(cdmetadl.api.Predictor):
 
     def __init__(self, model: nn.Module, dev: torch.device, prototypes: torch.Tensor) -> None:
         """ Defines the Predictor initialization.

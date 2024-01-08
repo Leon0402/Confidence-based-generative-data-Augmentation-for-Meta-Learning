@@ -22,7 +22,6 @@ class DataFormat(str, Enum):
 
 @dataclass
 class DatasetConfig:
-    train_mode: DataFormat
     batch_size: int
     n_ways: cdmetadl.samplers.Sampler
     k_shots: cdmetadl.samplers.Sampler
@@ -40,7 +39,7 @@ class DatasetConfig:
                 return cdmetadl.samplers.ChoiceSampler(sampler_config['choice'])
 
         return DatasetConfig(
-            train_mode=DataFormat.BATCH, batch_size=json_config['batch_size'],
+            batch_size=json_config['batch_size'],
             n_ways=parse_sampler(json_config['n_ways']), k_shots=parse_sampler(json_config['k_shots']),
             query_size=json_config['query_size']
         )

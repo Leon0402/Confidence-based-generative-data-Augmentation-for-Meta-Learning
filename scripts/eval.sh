@@ -14,9 +14,6 @@ if [ -z "$MODEL_NAME" ]; then
     exit 1
 fi
 
-# Delete previous output
-rm -r "./output/full/eval"
-
 echo "Running model $MODEL_NAME in within-domain mode"
 
 for TRAINING_OUTPUT_DIR in "./output/full/training/$MODEL_NAME/within-domain"/*

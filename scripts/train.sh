@@ -22,9 +22,6 @@ if [ -z "$MODEL_DIR" ]; then
     exit 1
 fi
 
-# Delete previous output
-rm -r "./output/full/train"
-
 echo "Running model $MODEL_DIR in within-domain mode"
 
 for DATASET_PATH in "$DATASETS_DIR"/*
@@ -36,6 +33,7 @@ do
         --config_path="configs/train.yml" \
         --model_dir="$MODEL_DIR" \
         --output_dir="./output/full/training" \
+        --datasets="$DATASET_NAME" \
         --domain_type="within-domain" \
         --data_dir="$DATASETS_DIR" \
         --verbose 

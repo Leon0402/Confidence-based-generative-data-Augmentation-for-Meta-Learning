@@ -158,7 +158,8 @@ def prepare_data_generators(
     with open(args.output_dir / "config.yaml", "w") as f:
         yaml.safe_dump(config, f)
 
-    match args.dataset_config.train_mode:
+    model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
+    match model_module.MyMetaLearner.data_format:
         case cdmetadl.config.DataFormat.TASK:
             meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, args.dataset_config)
         case cdmetadl.config.DataFormat.BATCH:
@@ -174,12 +175,9 @@ def meta_learn(
 ) -> None:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
-    if args.use_tensorboard:
-        logger = cdmetadl.logger.Logger(
-            args.logger_dir, args.tensorboard_output_dir, meta_val_generator.dataset.number_of_datasets
-        )
-    else:
-        logger = cdmetadl.logger.Logger(args.logger_dir, None, meta_val_generator.dataset.number_of_datasets)
+    logger = cdmetadl.logger.Logger(
+        args.logger_dir, args.tensorboard_output_dir if args.use_tensorboard else None, meta_val_generator.dataset.number_of_datasets
+    )
 
     meta_learner = model_module.MyMetaLearner(
         args.model_config, meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
