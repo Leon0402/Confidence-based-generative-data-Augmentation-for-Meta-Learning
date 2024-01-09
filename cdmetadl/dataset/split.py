@@ -1,8 +1,9 @@
-__all__ = ["random_meta_split", "random_class_split"]
+__all__ = ["random_meta_split", "random_class_split", "rand_conf_split"]
 
 from collections import defaultdict
 import numpy as np
 import torch
+import random
 
 from .meta_image_dataset import MetaImageDataset
 from .image_dataset import ImageDataset
@@ -43,49 +44,37 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
     return [MetaImageDataset(datasets) for datasets in filtered_datasets_by_split.values()]
 
 
+
+
+
+
 # TODO: bug fix here
-def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], lengths: list[float], num_ways: int, num_shots: int, seed: int = None): 
-    if not np.isclose(sum(lengths), 1.0):
-        raise ValueError("Sum of lengths must be approximately 1")
+def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], num_ways: int, num_shots: int, nr_splits_support: int = 3, seed: int = None): 
 
-    if support_set[3].shape[1] < len(lengths): 
-        raise ValueError("Not enough shots for split, should be at least", len(lengths))    
+    # reshape input array so that 
+    rearranged_support = [np.transpose(support_set[0]).reshape(num_shots, num_ways, 3, 128, 128), np.transpose(support_set[1].reshape(num_ways, num_shots)), np.transpose(support_set[2].reshape(num_ways, num_shots))]
 
-    print("shape support: ", support_set.shape)
+    query_size = int(query_set[0].shape[0] / num_ways)
+
+    rearranged_query = [np.transpose(query_set[0]).reshape(query_size, num_ways, 3, 128, 128), np.transpose(query_set[1]).reshape(query_size, num_ways)]
     
-    # reshape support and test set so that ways, shots can be accessed
-    rearranged_support = [support_set[0].reshape(num_shots, num_ways, 3, 128, 128), support_set[1].reshape(num_shots, num_ways), support_set[2].reshape(num_shots, num_ways)]
-
-    
-    # matrix dim: 3 x num_ways, num_shots 
-    rearranged_query = [query_set[0].reshape(num_shots, num_ways, 3, 128, 128), query_set[1].reshape(num_shots, num_ways)]
-    print("shape rearranged support: ", rearranged_support.shape)
-    print("rearranged_support", rearranged_support)
     nr_splits_query = 2
-    nr_splits_support = 3
 
-    # generate list of n_way*n_shot indices, shuffle them
-    # n x way x 2xshot/2
-    # split into 2 subarrays
+
     indices_per_way_query = [
-            np.array_split(np.random.shuffle(np.arange(num_shots)), nr_splits_query) for cls in num_ways
+        np.array_split(random.sample(list(np.arange(num_shots)), num_shots), nr_splits_query) for cls in range(num_ways)
         ]
 
     indices_per_way_support = [
-            np.array_split(np.random.shuffle(np.arange(num_shots)), nr_splits_support) for cls in num_ways
+        np.array_split(random.sample(list(np.arange(num_shots)), num_shots), nr_splits_support) for cls in range(num_ways)
         ]    
 
-    print("indices_per_way", indices_per_way)
-    # replace this with calculation from "nr_splits"
-    cut_idxs = [np.floor(num_shots/2), num_shots]
-    print("cut_idxs", cut_idxs)
+    print("indices per way, shuffled and split: ", indices_per_way_support[0])
 
-    split_support = [[[[rearranged_support[i][j][idx] for idx in indices[s]] for j, indices in enumerate(indices_per_way_support)] for i in range(len(rearranged_support))] for s in range(nr_splits_support)]
-    # matrix with dim: 3x3xnum_ways x num_shots
-    print("split_support", split_support.shape)
-    
+
+    #split_support = [[[[rearranged_support[i][j][idx] for idx in indices[s]] for j, indices in enumerate(indices_per_way_support)] for i in range(len(rearranged_support))] for s in range(nr_splits_support)]
+    # TODO: rewrite this in easier to understand way
     split_query = [[[[rearranged_query[i][j][idx] for idx in indices[s]] for j, indices in enumerate(indices_per_way_query)] for i in range(len(rearranged_query))] for s in range(nr_splits_query)]
-    # matrix with dim: 2x2xnum_waysxnum_shots
 
 
     split_support = [[support_set[0].reshape(len(support_set[0][0])* num_ways, 3, 128, 128), support_set[1].reshape(num_ways*len(support_set[0][0])), support_set[2].reshape(len(support_set[0][0])*num_ways), num_ways, len(support_set[0][0])] for support_set in split_support]
