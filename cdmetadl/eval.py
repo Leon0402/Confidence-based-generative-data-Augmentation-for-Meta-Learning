@@ -6,12 +6,12 @@ from tqdm import tqdm
 import torch
 import pandas as pd
 
+import cdmetadl.augmentation
+import cdmetadl.confidence_estimator
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
-import cdmetadl.dataset.split
-import cdmetadl.confidence_estimator
-import cdmetadl.augmentation
+
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -75,35 +75,31 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
     return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)   
 
 
-
-
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator, augmentation: False) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
     for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
+
+
         # TODO check args otherwise run without CE and DA, check for types of those
         print("getting confidence estimation")
         support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
 
-        learner = model_module.MyLearner()
-        learner.load(args.training_output_dir / "model")
-        
         print("splitting sets:")
         # split support_set into 3 sets (actual support_set, set for pretraining and subsequent confidence estimation, backup set for pseudo augmentation)
         # split query set (actual query_set and set for prediction for confidence estimation)
         # TODO: check which kind of DA done
-        support_set, conf_support_set, backup_support_set, query_set, conf_query_set = rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots)
-        
+        support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed)
         # get confidence scores calculated on "validation"/conf_support_set per class in task
         # TODO: check for kind of CE etc.
         conf_scores = ref_set_confidence_scores(conf_support_set, conf_query_set, learner)
         print("conf_scores: ", conf_scores)
 
         # set up augmentation, get augmented support set, shots per way list
-        augmentation = PseudoAug(task.support_set, conf_support_set, conf_scores, threshold, scale)
-        support_set, nr_shots = augmentation.getDatasetAugmented()
+        augmentation = PseudoAug(threshold, scale)
+        support_set, nr_shots = augmentation.augment(task.support_set, conf_scores, backup_support_set)
 
         # after augmentation, pretrain again on support set which is now augmented, then predict
         # rewrite this

@@ -6,9 +6,14 @@ import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 import cdmetadl.dataset.split
 
+# TODO: fix this import
+import sys
+sys.path.append("..")
+from baselines.finetuning.api import MetaLearner, Learner, Predictor
+
 # TODO: makes this more modular for other methods
 
-def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], learner: MyLearner) -> dict: 
+def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], learner: Learner) -> dict: 
     """
     Calculates confidence score for every class in task by pretraining/finetuning on validation/conf_support_set and prediction on validation query_set. Returns the mean of confidence scores per 
     class over every where a particular class was the correct predction. If class C is correctly classified, the CS will be the output of the softmax, if it is wrongly classified it will be 0. 
@@ -23,15 +28,23 @@ def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor
     """
     conf_scores = dict()
     learner.fit(support_set)
-    # TODO: check for exact output of predictor.predict
+   
     predictions = predictor.predict(query_set[0])
-    # need softmax and label of predicted item
-    print("predictions: ", predictions)
+    ground_truth = query_set[1].numpy()
 
-    # check if max(softmax) is of class same as ground truth -> add softmax to dict
-    # otherwise add 0 to dict, keeping running average
-    #for prediciton in predictions: 
-    #    if 
+    # go through predictions query_size x ways, compare max softmax to ground truth, if it matches add sogftmax output to accumulating average of this class, otherwise add 0
+    # TODO: what if np.max not unique
+    for idx, prediction in enumerate(predictions): 
+        label = ground_truth[idx]
 
+        if np.argmax(prediction) == label: 
+            conf_sc = np.max(prediction)
+        else: 
+            conf_sc = 0.0    
+
+        if conf_scores[label]: 
+            conf_scores[label] = np.mean(conf_scores[label], conf_sc)
+        else: 
+            conf_scores[label] = conf_sc
 
     return conf_scores
