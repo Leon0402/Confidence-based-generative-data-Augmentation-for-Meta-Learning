@@ -1,0 +1,34 @@
+dataset: 
+    split:
+        cross_domain: 
+            train: ["BRD", "PLK", "FLW", "PLT_VIL", "BCT", "RESISC", "CRS", "TEX", "SPT", "MD_MIX"]
+            validation: ["DOG", "INS_2", "PLT_NET", "MED_LF", "PNU", "RSICB", "APL", "TEX_DTD", "ACT_40", "MD_5_BIS"]
+            test: ["AWA", "FNG", "PRT", "BTS", "ACT_410"]
+        domain_independent: 
+            train: ["PLK", "INS_2", "INS", "RESISC", "RSICB", "MD_MIX", "MD_5_BIS", "MD_6"]
+            validation: ["PLT_VIL", "MED_LF", "PLT_DOC", "TEX", "TEX_DTD", "TEX_ALOT"]
+            test: ["AWA", "FNG", "PRT", "BTS", "ACT_410"]
+    train: 
+        batch_size: 16
+        n_ways:
+            value: 5
+        k_shots: 
+            range: [1, 20]
+        query_size: 20
+    validation: 
+        n_ways:
+            value: 5
+        k_shots: 
+            range: [1, 20]
+        query_size: 20
+    test: 
+        n_ways:
+            value: 5
+        k_shots: 
+            range: [1, 20]
+        query_size: 20
+model: 
+    number_of_batches: 10000
+    number_of_training_tasks: 10000
+    number_of_validation_tasks_per_dataset: 10
+    validate_every: 100

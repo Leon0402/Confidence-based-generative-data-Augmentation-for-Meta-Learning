@@ -39,9 +39,8 @@ class DatasetConfig:
                 return cdmetadl.samplers.ChoiceSampler(sampler_config['choice'])
 
         return DatasetConfig(
-            batch_size=json_config['batch_size'],
-            n_ways=parse_sampler(json_config['n_ways']), k_shots=parse_sampler(json_config['k_shots']),
-            query_size=json_config['query_size']
+            batch_size=json_config.get('batch_size', None), n_ways=parse_sampler(json_config['n_ways']),
+            k_shots=parse_sampler(json_config['k_shots']), query_size=json_config['query_size']
         )
 
 
@@ -62,9 +61,8 @@ class ModelConfig:
         )
 
 
-def read_config(path: pathlib.Path) -> tuple[DatasetConfig, ModelConfig]:
+def read_config(path: pathlib.Path) -> dict:
     with open(path, 'r') as file:
         config = yaml.safe_load(file)
     jsonschema.validate(instance=config, schema=config_schema)
-
-    return DatasetConfig.from_json(config['dataset']), ModelConfig.from_json(config['model'])
+    return config

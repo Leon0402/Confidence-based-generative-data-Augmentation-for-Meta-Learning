@@ -75,7 +75,7 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         # General data parameters
         self.should_train = True
         self.ncc = False
-        self.train_tasks = config.number_of_validation_tasks_per_dataset
+        self.train_tasks = config.number_of_training_tasks
         self.val_tasks = config.number_of_validation_tasks_per_dataset
         self.val_after = config.validate_every
 
@@ -107,7 +107,9 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         self.best_state = None
         self.val_learner = ResNet(**self.model_args).to(self.dev)
 
-    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> cdmetadl.api.Learner:
+    def meta_fit(
+        self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]
+    ) -> cdmetadl.api.Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 

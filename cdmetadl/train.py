@@ -15,6 +15,7 @@ import cdmetadl.config
 class DomainType(Enum):
     WITHIN_DOMAIN = "within-domain"
     CROSS_DOMAIN = "cross-domain"
+    DOMAIN_INDEPENDENT = "domain-independent"
 
     def __str__(self):
         return self.value
@@ -83,7 +84,9 @@ def process_args(args: argparse.Namespace) -> None:
     if args.domain_type == DomainType.WITHIN_DOMAIN and len(args.datasets) > 1:
         raise ValueError("More than one dataset specified for within-domain scenario")
 
-    args.dataset_config, args.model_config = cdmetadl.config.read_config(args.config_path)
+    args.config = cdmetadl.config.read_config(args.config_path)
+    # Overwrite config values from given arguments
+    args.config["model"]["path"] = str(args.model_dir.relative_to(pathlib.Path.cwd()))
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
@@ -128,13 +131,20 @@ def prepare_data_generators(
         cdmetadl.dataset.ImageDataset(name, info) for name, info in datasets_info.items()
     ])
 
-    splitting = [args.train_split, args.validation_split, args.test_split]
+    # TODO: Fix random cross domain split
+    # TODO: Add random domain independent splitting
+    # TODO: Allow random splitting and overwrite config before writing it out
     match args.domain_type:
+        case DomainType.DOMAIN_INDEPENDENT:
+            split_config = args.config["dataset"]["split"]["domain_independent"]
+            splitting = [split_config["train"], split_config["validation"], split_config["test"]]
+            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.split_by_names(meta_dataset, splitting)
         case DomainType.CROSS_DOMAIN:
-            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_meta_split(
-                meta_dataset, splitting, seed=args.seed
-            )
+            split_config = args.config["dataset"]["split"]["cross_domain"]
+            splitting = [split_config["train"], split_config["validation"], split_config["test"]]
+            train_dataset, val_dataset, test_dataset = cdmetadl.dataset.split_by_names(meta_dataset, splitting)
         case DomainType.WITHIN_DOMAIN:
+            splitting = [args.train_split, args.validation_split, args.test_split]
             train_dataset, val_dataset, test_dataset = cdmetadl.dataset.random_class_split(
                 meta_dataset, splitting, seed=args.seed
             )
@@ -146,26 +156,16 @@ def prepare_data_generators(
     with open(args.dataset_output_dir / 'test_dataset.pkl', 'wb') as f:
         pickle.dump(test_dataset, f)
 
-    with open(args.config_path, 'r') as f:
-        config = yaml.safe_load(f)
-
-    config["dataset"]["split"] = {}
-    config["dataset"]["split"]["train"] = ",".join([dataset.name for dataset in train_dataset.datasets])
-    config["dataset"]["split"]["validation"] = ",".join([dataset.name for dataset in val_dataset.datasets])
-    config["dataset"]["split"]["test"] = ",".join([dataset.name for dataset in test_dataset.datasets])
-    config["model"]["path"] = str(args.model_dir.relative_to(pathlib.Path.cwd()))
-
-    with open(args.output_dir / "config.yaml", "w") as f:
-        yaml.safe_dump(config, f)
-
+    train_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["train"])
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
     match model_module.MyMetaLearner.data_format:
         case cdmetadl.config.DataFormat.TASK:
-            meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, args.dataset_config)
+            meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, train_config)
         case cdmetadl.config.DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, args.dataset_config)
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_config)
 
-    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, args.dataset_config)
+    valid_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["validation"])
+    meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_config)
     return meta_train_generator, meta_val_generator
 
 
@@ -176,11 +176,13 @@ def meta_learn(
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     logger = cdmetadl.logger.Logger(
-        args.logger_dir, args.tensorboard_output_dir if args.use_tensorboard else None, meta_val_generator.dataset.number_of_datasets
+        args.logger_dir, args.tensorboard_output_dir if args.use_tensorboard else None,
+        meta_val_generator.dataset.number_of_datasets
     )
 
+    model_config = cdmetadl.config.ModelConfig.from_json(args.config["model"])
     meta_learner = model_module.MyMetaLearner(
-        args.model_config, meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
+        model_config, meta_train_generator.number_of_classes, meta_train_generator.total_number_of_classes, logger
     )
     meta_learner.meta_fit(meta_train_generator, meta_val_generator).save(args.output_model_dir)
 
@@ -202,6 +204,9 @@ def main():
     cdmetadl.helpers.general_helpers.vprint("\nPreparing dataset", args.verbose)
     meta_train_generator, meta_val_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
+
+    with open(args.output_dir / "config.yaml", "w") as f:
+        yaml.safe_dump(args.config, f)
 
     cdmetadl.helpers.general_helpers.vprint("\nMeta-train your meta-learner...", args.verbose)
     meta_learn(args, meta_train_generator, meta_val_generator)
