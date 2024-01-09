@@ -3,17 +3,18 @@ import torch
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 
+import abc
+
+
 # TODO: make more modular class structure and useful methods
-class Augmentation():
-    
-    def __init__(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], threshold: float, scale: int):
-        self.support_set = support_set
-        self.conf_support_set = conf_support_set
-        self.conf_scores = conf_scores
+class Augmentation(metaclass=abc.ABCMeta):
+    def __init__(self, threshold: float, scale: int):
         self.threshold = threshold
         self.scale = scale
        
-
+    @abc.abstractmethod
+    def augment(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]): 
+        pass 
 
 class PseudoAug(Augmentation):
 
@@ -35,23 +36,18 @@ class PseudoAug(Augmentation):
         tuple[torch.Tensor, torch.Tensor, torch.Tensor: Augmented 
     """
 
-    def __init__(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], threshold: float, scale: int, num_shots: int, num_ways: int):
-        super().__init__(support_set, conf_scores, threshold, scale)
-        self.backup_support_set = backup_support_set
-
-        rearranged_conf_support = [backup_support_set[0].reshape(num_ways, num_shots, 3, 128, 128), backup_support_set[1].reshape(num_ways, num_shots), backup_support_set[2].reshape(num_ways, num_shots)]
-
-    
-    def getDatasetAugmented(): 
+    def augment(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]): 
         shots = list()
         samples_idxs = list()
+        rearranged_conf_support = [backup_support_set[0].reshape(num_ways, num_shots, 3, 128, 128), backup_support_set[1].reshape(num_ways, num_shots), backup_support_set[2].reshape(num_ways, num_shots)]
+
 
         # go through all classes and check scores vs threshold per class
         for idx, score in enumerate(self.conf_scores): 
 
             if score < self.threshold:   
                 # calculate amount of samples to be added and augmented with      
-                nr_samples = 1/score * nr_shots * scale
+                nr_samples = 1/score * nr_shots * self.scale
                 # add number of total shots for this class in augmented dataset
                 shots[idx] = nr_samples + num_shot
                 # get nr_samples random indexes for sampling from backup_support_set
@@ -70,15 +66,14 @@ class PseudoAug(Augmentation):
 
 
 class StandardAug(Augmentation):
-
-    def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
-        super().__init__(task, confidence_threshold, aug_factor, conf_scores)
+    def augment(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = None): 
+        pass
+    
 
 
 
 class GenerativeAug(Augmentation):
-    def __init__(self, task: Task, confidence_threshold: float, aug_factor: int, conf_scores: list[float]):
-        super().__init__(task, confidence_threshold, aug_factor, conf_scores)
-       
+    def augment(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = None): 
+        pass
 
     
