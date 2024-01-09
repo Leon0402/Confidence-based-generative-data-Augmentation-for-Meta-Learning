@@ -82,6 +82,8 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
     for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
 
+        learner = model_module.MyLearner()
+        learner.load(args.training_output_dir / "model")
 
         # TODO check args otherwise run without CE and DA, check for types of those
         print("getting confidence estimation")
@@ -94,15 +96,19 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed)
         # get confidence scores calculated on "validation"/conf_support_set per class in task
         # TODO: check for kind of CE etc.
-        conf_scores = ref_set_confidence_scores(conf_support_set, conf_query_set, learner)
+
+        print("conf support set: ", conf_support_set[0].shape, conf_support_set[1].shape, conf_support_set[2].shape)
+        print("conf query set", conf_query_set[0].shape, conf_query_set[1].shape, conf_query_set[2].shape)
+
+        conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_support_set, conf_query_set, learner, task.num_ways)
         print("conf_scores: ", conf_scores)
 
         # set up augmentation, get augmented support set, shots per way list
         augmentation = PseudoAug(threshold, scale)
-        support_set, nr_shots = augmentation.augment(task.support_set, conf_scores, backup_support_set)
+        support_set, nr_shots = augmentation.augment(task.support_set, conf_scores, backup_support_set, task.num_ways)
 
         # after augmentation, pretrain again on support set which is now augmented, then predict
-        # rewrite this
+        # TODO: rewrite this to account for variable shots
         predictor = learner.fit(support_set)
 
         predictions.append({

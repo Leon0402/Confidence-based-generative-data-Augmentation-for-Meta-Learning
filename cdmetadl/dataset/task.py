@@ -28,7 +28,7 @@ class Task:
                 [num_ways*query_size x 3 x 128 x 128]. The second tensor 
                 corresponds to the labels with a shape of [num_ways*query_size]
                 and the last tensor corresponds to the original labels with a 
-                shape of [num_ways*num_shots]. The query_size can vary 
+                shape of [num_ways*query_size]. The query_size can vary 
                 depending on the configuration of the data loader.
             original_class_idx (np.ndarray): Array with the original class 
                 indexes used in the current task, its shape is [num_ways, ].

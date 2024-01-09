@@ -1,3 +1,5 @@
+__all__ = ["ref_set_confidence_scores"]
+
 import torch
 import pandas as pd
 
@@ -13,7 +15,7 @@ from baselines.finetuning.api import MetaLearner, Learner, Predictor
 
 # TODO: makes this more modular for other methods
 
-def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], learner: Learner) -> dict: 
+def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], learner: Learner, num_ways: int) -> dict: 
     """
     Calculates confidence score for every class in task by pretraining/finetuning on validation/conf_support_set and prediction on validation query_set. Returns the mean of confidence scores per 
     class over every where a particular class was the correct predction. If class C is correctly classified, the CS will be the output of the softmax, if it is wrongly classified it will be 0. 
@@ -26,11 +28,15 @@ def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor
     Returns:
         dict: dictionary with key being class and value the confidence estimate for that class.
     """
+    print("estimating confidence: ")
     conf_scores = dict()
-    learner.fit(support_set)
+    num_shots = conf_support_set[1].shape[0] / num_ways
+    print("debug for training: ", (conf_support_set[0].shape, conf_support_set[1].shape, conf_support_set[2].shape, num_ways, 4))
+    learner.fit((conf_support_set[0], conf_support_set[1], conf_support_set[2], num_ways, 4))
    
     predictions = predictor.predict(query_set[0])
     ground_truth = query_set[1].numpy()
+    print("predictions: ", predictions)
 
     # go through predictions query_size x ways, compare max softmax to ground truth, if it matches add sogftmax output to accumulating average of this class, otherwise add 0
     # TODO: what if np.max not unique
@@ -47,4 +53,4 @@ def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor
         else: 
             conf_scores[label] = conf_sc
 
-    return conf_scores
+    return list(conf_scores.values())
