@@ -1,0 +1,85 @@
+dataset:
+  split:
+    cross_domain:
+      test:
+      - AWA
+      - FNG
+      - PRT
+      - BTS
+      - ACT_410
+      train:
+      - BRD
+      - PLK
+      - FLW
+      - PLT_VIL
+      - BCT
+      - RESISC
+      - CRS
+      - TEX
+      - SPT
+      - MD_MIX
+      validation:
+      - DOG
+      - INS_2
+      - PLT_NET
+      - MED_LF
+      - PNU
+      - RSICB
+      - APL
+      - TEX_DTD
+      - ACT_40
+      - MD_5_BIS
+    domain_independent:
+      test:
+      - AWA
+      - FNG
+      - PRT
+      - BTS
+      - ACT_410
+      train:
+      - PLK
+      - INS_2
+      - INS
+      - RESISC
+      - RSICB
+      - MD_MIX
+      - MD_5_BIS
+      - MD_6
+      validation:
+      - PLT_VIL
+      - MED_LF
+      - PLT_DOC
+      - TEX
+      - TEX_DTD
+      - TEX_ALOT
+  test:
+    k_shots:
+      range:
+      - 1
+      - 20
+    n_ways:
+      value: 5
+    query_size: 20
+  train:
+    batch_size: 16
+    k_shots:
+      range:
+      - 1
+      - 20
+    n_ways:
+      value: 5
+    query_size: 20
+  validation:
+    k_shots:
+      range:
+      - 1
+      - 20
+    n_ways:
+      value: 5
+    query_size: 20
+model:
+  number_of_batches: 10000
+  number_of_training_tasks: 10000
+  number_of_validation_tasks_per_dataset: 10
+  path: baselines/finetuning
+  validate_every: 100

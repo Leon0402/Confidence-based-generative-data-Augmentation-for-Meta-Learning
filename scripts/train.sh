@@ -22,15 +22,35 @@ if [ -z "$MODEL_DIR" ]; then
     exit 1
 fi
 
+echo "Running model $MODEL_DIR in domain-independent mode" 
+
+python -m cdmetadl.train \
+    --config_path="configs/full.yml" \
+    --model_dir="$MODEL_DIR" \
+    --output_dir="./output/full/training" \
+    --domain_type="domain-independent" \
+    --data_dir="$DATASETS_DIR" \
+    --verbose
+
+echo "Running model $MODEL_DIR in cross-domain mode" 
+
+python -m cdmetadl.train \
+    --config_path="configs/full.yml" \
+    --model_dir="$MODEL_DIR" \
+    --output_dir="./output/full/training" \
+    --domain_type="cross-domain" \
+    --data_dir="$DATASETS_DIR" \
+    --verbose
+
 echo "Running model $MODEL_DIR in within-domain mode"
 
-for DATASET_PATH in "$DATASETS_DIR"/*
+# TODO: Read datasets from config perhaps?
+for DATASET_NAME in "AWA" "FNG" "PRT" "BTS" "ACT_410"
 do
-    DATASET_NAME=$(basename "$DATASET_PATH")
     echo "Running model with dataset: $DATASET_NAME"
 
     python -m cdmetadl.train \
-        --config_path="configs/train.yml" \
+        --config_path="configs/full.yml" \
         --model_dir="$MODEL_DIR" \
         --output_dir="./output/full/training" \
         --datasets="$DATASET_NAME" \
@@ -38,13 +58,3 @@ do
         --data_dir="$DATASETS_DIR" \
         --verbose 
 done
-
-echo "Running model $MODEL_DIR in cross-domain mode" 
-
-python -m cdmetadl.train \
-    --config_path="configs/train.yml" \
-    --model_dir="$MODEL_DIR" \
-    --output_dir="./output/full/training" \
-    --domain_type="cross-domain" \
-    --data_dir="$DATASETS_DIR" \
-    --verbose
