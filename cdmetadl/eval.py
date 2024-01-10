@@ -44,8 +44,9 @@ def process_args(args: argparse.Namespace) -> None:
     args.output_dir = args.output_dir.resolve()
 
     with open(args.training_output_dir / "config.yaml", "r") as f:
-        config = yaml.safe_load(f)
-    args.model_dir = pathlib.Path(config["model"]["path"]).resolve()
+        args.config = yaml.safe_load(f)
+    args.model_dir = pathlib.Path(args.config["model"]["path"]).resolve()
+    args.config["model"]["number_of_test_tasks_per_dataset"] = args.test_tasks_per_dataset
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
@@ -66,15 +67,7 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
     with open(args.training_output_dir / "datasets/test_dataset.pkl", 'rb') as f:
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
-    # TODO: Should probably be specified as a config as well
-    test_generator_config = cdmetadl.config.DatasetConfig(
-        train_mode=cdmetadl.config.DataFormat.TASK,
-        batch_size=64,
-        n_ways=cdmetadl.samplers.RangeSampler(2, 5),
-        k_shots=cdmetadl.samplers.RangeSampler(1, 20),
-        query_size=20,
-    )
-
+    test_generator_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["test"])
     return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)
 
 
@@ -133,6 +126,9 @@ def main():
     cdmetadl.helpers.general_helpers.vprint("\nPreparing dataset", args.verbose)
     meta_test_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
+
+    with open(args.output_dir / "config.yaml", "w") as f:
+        yaml.safe_dump(args.config, f)
 
     cdmetadl.helpers.general_helpers.vprint("\nMeta-testing your learner...", args.verbose)
     predictions = meta_test(args, meta_test_generator)
