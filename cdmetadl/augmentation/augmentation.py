@@ -44,7 +44,7 @@ class PseudoAug(Augmentation):
         shots = list()
         sample_idxs = list()
         num_shots_support = int(support_set[1].shape[0] / num_ways)
-        num_shots_support_backup = int(support_set[1].shape[0] / num_ways) #backup_support_set[1].shape[0] / num_ways
+        num_shots_support_backup = int(backup_support_set[1].shape[0] / num_ways) #backup_support_set[1].shape[0] / num_ways
         print("-------------------------------------------------------------------------------------------")
         print("shots: ", num_shots_support, num_shots_support_backup)
        # print("backup images", backup_support_set[0][0])
@@ -52,7 +52,7 @@ class PseudoAug(Augmentation):
         # fix dims
         #rearranged_backup_images = backup_support_set[0].reshape(num_shots_support, num_ways, 3, 128, 128)
         # should be np.transpose(reshape(num_ways, num_shots))
-        rearranged_backup_images = support_set[0].reshape(num_shots_support, num_ways, 3, 128, 128)
+        rearranged_backup_images = backup_support_set[0].reshape(num_shots_support_backup, num_ways, 3, 128, 128)
         rearranged_images = support_set[0].reshape(num_shots_support, num_ways, 3, 128, 128)
 
         rearranged_images_ways = support_set[0].reshape(num_ways, num_shots_support, 3, 128, 128)

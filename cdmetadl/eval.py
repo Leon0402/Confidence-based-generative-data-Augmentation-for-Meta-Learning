@@ -102,7 +102,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         print("conf query set", conf_query_set[0].shape, conf_query_set[1].shape, conf_query_set[2].shape)
 
         # just for testing
-        conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(task.support_set, task.query_set, learner, task.num_ways)
+        conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_query_set, conf_query_set, learner, task.num_ways)
         print("conf_scores: ", conf_scores)
         # set up augmentation, get augmented support set, shots per way list
 
