@@ -85,7 +85,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
-
+        print("processing new task: --------------------------------------------------------------")
         # TODO check args otherwise run without CE and DA, check for types of those
         print("getting confidence estimation")
         support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
@@ -107,11 +107,12 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         # set up augmentation, get augmented support set, shots per way list
 
 
-        augmentation = PseudoAug(threshold, scale)
-        support_set, nr_shots = augmentation.augment(task.support_set, conf_scores, backup_support_set, task.num_ways)
+        augmentation = PseudoAug(0.25, 2)
+        support_set, nr_shots = augmentation.augment(support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set, num_ways=task.num_ways)
 
         # after augmentation, pretrain again on support set which is now augmented, then predict
         # TODO: rewrite this to account for variable shots
+        support_set = (support_set[0], support_set[1], support_set[2], task.num_ways, nr_shots)
         predictor = learner.fit(support_set)
 
         predictions.append({
