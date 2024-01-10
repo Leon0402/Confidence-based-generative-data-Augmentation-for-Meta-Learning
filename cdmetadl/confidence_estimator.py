@@ -14,7 +14,6 @@ import sys
 sys.path.append("..")
 from baselines.finetuning.api import MetaLearner, Learner, Predictor
 from baselines.maml.api import MetaLearner, Learner, Predictor
-# TODO: makes this more modular for other methods
 
 def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], learner: Learner, num_ways: int) -> dict: 
     """
@@ -27,7 +26,7 @@ def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor
         learner: (MyLeaner) pretrained model instatiated for meta-testing. 
 
     Returns:
-        dict: dictionary with key being class and value the confidence estimate for that class.
+        list: list of confidence scores for all ways.
     """
     conf_scores = dict()
     num_shots = int(conf_support_set[1].shape[0] / num_ways)
@@ -40,12 +39,14 @@ def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor
     # go through predictions, compare with ground truth and update confidence score for particular class accordingly
     for idx, prediction in enumerate(predictions): 
         label = ground_truth[idx]
+        #print("prediction", prediction)
+        #print("label", label)
 
         if np.argmax(prediction) == label: 
             conf_sc = np.max(prediction)
         else: 
             conf_sc = 0.0    
-
+        #print("conf_sc for this prediction", conf_sc)
         if label in conf_scores: 
             conf_scores[label] = np.mean([conf_scores[label], conf_sc])
         else: 

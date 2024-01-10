@@ -76,7 +76,7 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
     return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)   
 
 
-def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator, augmentation: False) -> list[dict]:
+def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     predictions = []
@@ -86,42 +86,37 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
         print("processing new task: --------------------------------------------------------------")
-        # TODO check args otherwise run without CE and DA, check for types of those
-        print("getting confidence estimation")
+        print("shots, ways", task.num_shots, task.num_ways)
+      
         support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
 
-        print("splitting sets:")
-        # split support_set into 3 sets (actual support_set, set for pretraining and subsequent confidence estimation, backup set for pseudo augmentation)
-        # split query set (actual query_set and set for prediction for confidence estimation)
-        # TODO: check which kind of DA done
-        support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed)
-        # get confidence scores calculated on "validation"/conf_support_set per class in task
-        # TODO: check for kind of CE etc.
+        if args.pseudo_DA: 
 
-        print("conf support set: ", conf_support_set[0].shape, conf_support_set[1].shape, conf_support_set[2].shape)
-        print("conf query set", conf_query_set[0].shape, conf_query_set[1].shape, conf_query_set[2].shape)
+            # split support_set into 3 sets (actual support_set, set for pretraining and subsequent confidence estimation, backup set for pseudo data augmentation)
+            support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed)
+            print("splits resulted in image tensor shapes for support_set, conf_support_set, backup_support_set, query_set, conf_query_set: ", support_set[0].shape, conf_support_set[0].shape, backup_support_set[0].shape, query_set[0].shape, conf_query_set[0].shape)
+        
+            # get confidence scores calculated on "validation"/conf_support_set per class
+            conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_query_set, conf_query_set, learner, task.num_ways)
+            print("confidence scores for ways: ", conf_scores)
 
-        # just for testing
-        conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_query_set, conf_query_set, learner, task.num_ways)
-        print("conf_scores: ", conf_scores)
-        # set up augmentation, get augmented support set, shots per way list
+            # setting up augmentation with threshold and scale, augmenting support_set and 
+            augmentation = PseudoAug(threshold=0.25, scale=2)
+            support_set, nr_shots = augmentation.augment(support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set, num_ways=task.num_ways)
+            print("support_set dims after augmentation: ", support_set[0].shape, support_set[1].shape, support_set[2].shape)
 
+            # reshape support_set into tuple to pass into leaner.fit
+            support_set = (support_set[0], support_set[1], support_set[2], task.num_ways, nr_shots)
+        else:
+            predictor = learner.fit(support_set)
 
-        augmentation = PseudoAug(0.25, 2)
-        support_set, nr_shots = augmentation.augment(support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set, num_ways=task.num_ways)
-
-        # after augmentation, pretrain again on support set which is now augmented, then predict
-        # TODO: rewrite this to account for variable shots
-        support_set = (support_set[0], support_set[1], support_set[2], task.num_ways, nr_shots)
-        predictor = learner.fit(support_set)
-
-        predictions.append({
-            "Dataset": task.dataset,
-            "Number of Ways": task.num_ways,
-            "Number of Shots": task.num_shots,
-            "Predictions": predictor.predict(task.query_set[0]),
-            "Ground Truth": task.query_set[1].numpy(),
-        })
+            predictions.append({
+                "Dataset": task.dataset,
+                "Number of Ways": task.num_ways,
+                "Number of Shots": task.num_shots,
+                "Predictions": predictor.predict(task.query_set[0]),
+                "Ground Truth": task.query_set[1].numpy(),
+            })
 
     with open(args.output_dir / f"predictions.pkl", 'wb') as f:
         pickle.dump(predictions, f)
@@ -159,14 +154,8 @@ def main():
     meta_test_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
 
-    # check for data augmentation, confidence estimation step, augment tasks (e.g with test set)
-    if args.pseudo_DA: 
-        print("using confidence estimation, DA")
-
-
-
     cdmetadl.helpers.general_helpers.vprint("\nMeta-testing your learner...", args.verbose)
-    predictions = meta_test(args, meta_test_generator, args.pseudo_DA)
+    predictions = meta_test(args, meta_test_generator)
     cdmetadl.helpers.general_helpers.vprint("[+] Learner meta-tested", args.verbose)
 
     cdmetadl.helpers.general_helpers.vprint("\nEvaluate learner...", args.verbose)
