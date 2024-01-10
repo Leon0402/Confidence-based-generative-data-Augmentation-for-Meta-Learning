@@ -9,26 +9,16 @@ dataset:
       - ACT_410
       train:
       - BRD
-      - PLK
       - FLW
-      - PLT_VIL
       - BCT
-      - RESISC
       - CRS
-      - TEX
       - SPT
-      - MD_MIX
       validation:
       - DOG
-      - INS_2
       - PLT_NET
-      - MED_LF
       - PNU
-      - RSICB
       - APL
-      - TEX_DTD
       - ACT_40
-      - MD_5_BIS
     domain_independent:
       test:
       - AWA
@@ -39,19 +29,15 @@ dataset:
       train:
       - PLK
       - INS_2
-      - INS
       - RESISC
       - RSICB
       - MD_MIX
       - MD_5_BIS
-      - MD_6
       validation:
       - PLT_VIL
       - MED_LF
-      - PLT_DOC
       - TEX
       - TEX_DTD
-      - TEX_ALOT
   test:
     k_shots:
       range:

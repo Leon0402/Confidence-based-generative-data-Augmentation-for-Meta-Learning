@@ -1,12 +1,12 @@
 dataset: 
     split:
         cross_domain: 
-            train: ["BRD", "PLK", "FLW", "PLT_VIL", "BCT", "RESISC", "CRS", "TEX", "SPT", "MD_MIX"]
-            validation: ["DOG", "INS_2", "PLT_NET", "MED_LF", "PNU", "RSICB", "APL", "TEX_DTD", "ACT_40", "MD_5_BIS"]
+            train: ["BRD", "FLW", "BCT", "CRS", "SPT"]
+            validation: ["DOG", "PLT_NET", "PNU", "APL", "ACT_40"]
             test: ["AWA", "FNG", "PRT", "BTS", "ACT_410"]
         domain_independent: 
-            train: ["PLK", "INS_2", "INS", "RESISC", "RSICB", "MD_MIX", "MD_5_BIS", "MD_6"]
-            validation: ["PLT_VIL", "MED_LF", "PLT_DOC", "TEX", "TEX_DTD", "TEX_ALOT"]
+            train: ["PLK", "INS_2", "RESISC", "RSICB", "MD_MIX", "MD_5_BIS"]
+            validation: ["PLT_VIL", "MED_LF", "TEX", "TEX_DTD"]
             test: ["AWA", "FNG", "PRT", "BTS", "ACT_410"]
     train: 
         batch_size: 16
