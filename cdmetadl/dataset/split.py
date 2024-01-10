@@ -54,7 +54,7 @@ def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
    
     # reshape input array so that number of shots is first index and it can be split based on that
     # output dim num_shots x num_ways x 3 x 128 x 128 for images
-    rearranged_support = [support_set[0].reshape(num_shots, num_ways, 3, 128, 128), np.transpose(support_set[1].reshape(num_ways, num_shots)), np.transpose(support_set[2].reshape(num_ways, num_shots))]
+    rearranged_support = support_set[0].reshape(num_shots, num_ways, 3, 128, 128)
 
  
     query_size = int(query_set[0].shape[0] / num_ways)
@@ -75,8 +75,8 @@ def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
     # gives back the split image tensors in proper dimensions nr_splits x n_ways*n_shots
     # split_nr x way*shot 
-    split_support_images = [torch.stack([rearranged_support[0][i][j] for j, indices in enumerate(indices_per_way_support) for i in indices[split]]) for split in range(nr_splits_support)]
-    split_query_images = [torch.stack([rearranged_query[0][i][j] for j, indices in enumerate(indices_per_way_query) for i in indices[split]]) for split in range(nr_splits_query)]
+    split_support_images = [torch.stack([rearranged_support[0] for j, indices in enumerate(indices_per_way_support) for i in indices[split]]) for split in range(nr_splits_support)]
+    split_query_images = [torch.stack([rearranged_query[0] for j, indices in enumerate(indices_per_way_query) for i in indices[split]]) for split in range(nr_splits_query)]
 
     print("shape split_support_images", split_support_images[1].shape,split_support_images[2].shape, split_support_images)
 

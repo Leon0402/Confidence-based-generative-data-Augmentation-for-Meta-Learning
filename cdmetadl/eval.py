@@ -5,8 +5,9 @@ import pathlib
 from tqdm import tqdm
 import torch
 import pandas as pd
+import sys
 
-import cdmetadl.augmentation
+import cdmetadl.augmentation 
 import cdmetadl.confidence_estimator
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
@@ -100,10 +101,12 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         print("conf support set: ", conf_support_set[0].shape, conf_support_set[1].shape, conf_support_set[2].shape)
         print("conf query set", conf_query_set[0].shape, conf_query_set[1].shape, conf_query_set[2].shape)
 
-        conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_support_set, conf_query_set, learner, task.num_ways)
+        # just for testing
+        conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(task.support_set, task.query_set, learner, task.num_ways)
         print("conf_scores: ", conf_scores)
-
         # set up augmentation, get augmented support set, shots per way list
+
+
         augmentation = PseudoAug(threshold, scale)
         support_set, nr_shots = augmentation.augment(task.support_set, conf_scores, backup_support_set, task.num_ways)
 
@@ -171,4 +174,5 @@ def main():
 
 
 if __name__ == "__main__":
+    print("sys.path", sys.path)
     main()

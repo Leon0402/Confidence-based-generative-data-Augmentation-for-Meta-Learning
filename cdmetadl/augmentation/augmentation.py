@@ -1,3 +1,5 @@
+__all__ = ["Augmentation", "PseudoAug", "StandardAug", "GenerativeAug"]
+
 import torch
 
 import cdmetadl.dataset
