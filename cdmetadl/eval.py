@@ -7,7 +7,7 @@ import torch
 import pandas as pd
 import sys
 
-import cdmetadl.augmentation 
+from cdmetadl.augmentation.augmentation import PseudoAug
 import cdmetadl.confidence_estimator
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
