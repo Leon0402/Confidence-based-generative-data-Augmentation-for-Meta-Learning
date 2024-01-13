@@ -1,7 +1,6 @@
-__all__ = ["ref_set_confidence_scores"]
+__all__ = ["ref_set_confidence_scores", "MCDropoutConfidenceEstimation"]
+from collections import defaultdict
 
-import torch
-import pandas as pd
 import numpy as np
 
 import cdmetadl.dataset
@@ -9,44 +8,61 @@ import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 import cdmetadl.dataset.split
 
-# TODO: fix this import
-import sys
-sys.path.append("..")
-from baselines.finetuning.api import MetaLearner, Learner, Predictor
-from baselines.maml.api import MetaLearner, Learner, Predictor
+import cdmetadl.api
 
-def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], learner: Learner, num_ways: int) -> dict: 
-    """
-    Calculates confidence score for every class in task by pretraining/finetuning on validation/conf_support_set and prediction on validation query_set. Returns the mean of confidence scores per 
-    class over every where a particular class was the correct predction. If class C is correctly classified, the CS will be the output of the softmax, if it is wrongly classified it will be 0. 
 
-    Args:
-        conf_support_set: (tuple[torch.Tensor, torch.Tensor, torch.Tensor]): Support set used for pretraining the model on.
-        conf_query_set: (tuple[torch.Tensor, torch.Tensor, torch.Tensor]): Query set for prediction after pretraining and estimation of confidence scores through softmax. 
-        learner: (MyLeaner) pretrained model instatiated for meta-testing. 
+def caculate_confidence_on_reference_set(
+    predictor: cdmetadl.api.Predictor, reference_set: cdmetadl.dataset.SetData
+) -> dict:
+    data, labels, _ = reference_set
 
-    Returns:
-        list: list of confidence scores for all ways.
-    """
-    conf_scores = dict()
-    num_shots = int(conf_support_set[1].shape[0] / num_ways)
-    predictor = learner.fit((conf_support_set[0], conf_support_set[1], conf_support_set[2], num_ways, num_shots))
-   
-    predictions = predictor.predict(conf_query_set[0])
-    ground_truth = conf_query_set[1].numpy()
-    #print("ground truth", ground_truth)
+    confidence_scores = defaultdict(list)
+    for prediction, gt_label in zip(predictor.predict(data), labels):
+        gt_label = int(gt_label)
 
-    # go through predictions, compare with ground truth and update confidence score for particular class accordingly
-    for idx, prediction in enumerate(predictions): 
-        label = ground_truth[idx]
-        #print("prediction for true class", label, prediction)
+        confidence_score = 0.0
+        if np.argmax(prediction) == gt_label:
+            confidence_score = np.max(prediction)
 
-        if np.argmax(prediction) == label: 
-            conf_sc = np.max(prediction)
-        else: 
-            conf_sc = 0.0    
-        if label in conf_scores: 
-            conf_scores[label] = np.mean([conf_scores[label], conf_sc])
-        else: 
-            conf_scores[label] = conf_sc
-    return list(conf_scores.values())
+        confidence_scores[gt_label].append(confidence_score)
+
+    return [np.mean(scores) for scores in confidence_scores.values()]
+
+
+class MCDropoutConfidenceEstimation:
+
+    def __init__(self, num_samples: int = 100, dropout_probability: float = None):
+        """
+        Initialize the MCDropoutConfidenceEstimation class.
+
+        Args:
+        num_samples (int): Number of samples to draw for each prediction to estimate uncertainty.
+        dropout_probability (float): Probability used in dropout layers of model.
+        """
+        self.num_samples = num_samples
+        self.dropout_probability = dropout_probability
+
+    def estimate(self, predictor: cdmetadl.api.Predictor, reference_set: cdmetadl.dataset.SetData) -> list[float]:
+        """
+        Estimate the confidence of predictions using Monte Carlo Dropout.
+
+        Args:
+        predictor (cdmetadl.api.Predictor): The predictor object with dropout enabled.
+        reference_set (cdmetadl.dataset.SetData): The dataset for which to estimate confidence.
+
+        Returns:
+        A list of confidence scores for each class.
+        """
+        for m in predictor.model.modules():
+            if m.__class__.__name__.startswith('Dropout'):
+                m.train()
+                if self.dropout_probability is not None:
+                    m.p = self.dropout_probability
+
+        data, _, _ = reference_set
+        class_predictions = np.array([predictor.predict(data) for _ in range(self.num_samples)])
+        uncertainty_estimates = np.std(class_predictions, axis=0)
+
+        # TODO: We measure uncertainty here, but we really want to estimate confidence (=>  confidence = 1 - uncertainty?)
+        # TODO: Uncertainty values are close to each others, how can they be interpreted? How can they be converted to confidence values?
+        return np.mean(uncertainty_estimates, axis=0)

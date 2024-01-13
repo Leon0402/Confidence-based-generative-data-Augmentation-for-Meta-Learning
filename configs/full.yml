@@ -25,7 +25,7 @@ dataset:
         n_ways:
             value: 5
         k_shots: 
-            range: [1, 20]
+            value: 15
         query_size: 20
 model: 
     number_of_batches: 10000

@@ -11,8 +11,11 @@ from weight_names import WEIGHT_NAMES_RESNET18, WEIGHT_NAMES_RESNET34
 
 class ResidualBlock(nn.Module):
 
-    def __init__(self, in_channels: int, out_channels: int, stride: int, padding: int, dev: torch.device) -> None:
-        """ Define the initializaion of a residual block of a ResNet.
+    def __init__(
+        self, in_channels: int, out_channels: int, stride: int, padding: int, dev: torch.device,
+        dropout_prob: float = 0.0
+    ) -> None:
+        """ Define the initialization of a residual block of a ResNet.
 
         Args:
             in_channels (int): Number of input channels.
@@ -20,6 +23,7 @@ class ResidualBlock(nn.Module):
             stride (int): Stride for the convolutions.
             padding (int): Padding for the convolutions.
             dev (torch.device): Device where the data is located.
+            dropout_prob (float): Dropout probability for dropout layers.
         """
         super().__init__()
         self.in_channels = in_channels
@@ -27,33 +31,28 @@ class ResidualBlock(nn.Module):
         self.stride = stride
         self.padding = padding
         self.dev = dev
+        self.dropout_prob = dropout_prob
 
-        self.conv1 = nn.Conv2d(in_channels=in_channels,
-                               out_channels=out_channels,
-                               kernel_size=3,
-                               stride=stride,
-                               padding=padding,
-                               bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=stride, padding=padding,
+            bias=False
+        )
         self.bn1 = nn.BatchNorm2d(num_features=out_channels, momentum=1)
         self.relu = nn.ReLU()
-        self.conv2 = nn.Conv2d(in_channels=out_channels,
-                               out_channels=out_channels,
-                               kernel_size=3,
-                               stride=1,
-                               padding=padding,
-                               bias=False)
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=padding, bias=False
+        )
         self.bn2 = nn.BatchNorm2d(num_features=out_channels, momentum=1)
+        self.dropout = nn.Dropout2d(p=self.dropout_prob)
         self.skip = stride > 1
         if self.skip:
-            self.conv3 = nn.Conv2d(in_channels=in_channels,
-                                   out_channels=out_channels,
-                                   kernel_size=1,
-                                   stride=stride,
-                                   bias=False)
+            self.conv3 = nn.Conv2d(
+                in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=stride, bias=False
+            )
             self.bn3 = nn.BatchNorm2d(num_features=out_channels, momentum=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """ Forwards the input data through the block.
+        """ Forward the input data through the block.
 
         Args:
             x (torch.Tensor): Input data.
@@ -66,6 +65,7 @@ class ResidualBlock(nn.Module):
         z = self.relu(z)
         z = self.conv2(z)
         z = self.bn2(z)
+        z = self.dropout(z)
 
         y = x
         if self.skip:
@@ -76,13 +76,10 @@ class ResidualBlock(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self,
-                 num_classes: int,
-                 dev: torch.device,
-                 pretrained: bool = False,
-                 num_blocks: int = 18,
-                 criterion: nn.modules.loss = nn.CrossEntropyLoss(),
-                 img_size: int = 128) -> None:
+    def __init__(
+        self, num_classes: int, dev: torch.device, pretrained: bool = False, num_blocks: int = 18,
+        criterion: nn.modules.loss = nn.CrossEntropyLoss(), img_size: int = 128, dropout_prob: float = 0.0
+    ) -> None:
         """ Define the initializaion of the ResNet.
 
         Args:
@@ -151,8 +148,10 @@ class ResNet(nn.Module):
                     padding = math.ceil(max(3 - (inpsize % stride), 0) / 2)
 
                 d.update({
-                    f"res_block{c}":
-                    ResidualBlock(in_channels=in_channels, out_channels=filter, stride=stride, padding=padding, dev=dev)
+                    f"res_block{c}": ResidualBlock(
+                        in_channels=in_channels, out_channels=filter, stride=stride, padding=padding, dev=dev,
+                        dropout_prob=dropout_prob
+                    )
                 })
                 c += 1
         self.model = nn.ModuleDict({"features": nn.Sequential(d)})

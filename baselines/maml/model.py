@@ -89,7 +89,13 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         # General model parameters
         self.dev = self.get_device()
         self.opt_fn = torch.optim.Adam
-        self.model_args = {"num_classes": self.train_classes, "dev": self.dev, "num_blocks": 18, "pretrained": False}
+        self.model_args = {
+            "num_classes": self.train_classes,
+            "dev": self.dev,
+            "num_blocks": 18,
+            "pretrained": False,
+            "dropout_prob": 0.25
+        }
 
         # Meta-learner
         self.lr = 0.001

@@ -2,6 +2,7 @@ __all__ = ["Augmentation", "PseudoAug", "StandardAug", "GenerativeAug"]
 
 import torch
 import numpy as np
+import math
 
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
@@ -9,19 +10,20 @@ import cdmetadl.helpers.general_helpers
 import abc
 
 
-# TODO: make more modular class structure and useful methods
 class Augmentation(metaclass=abc.ABCMeta):
-    def __init__(self, threshold: float, scale: int):
+
+    def __init__(self, threshold: float, scale: int, keep_original_data: bool):
         self.threshold = threshold
         self.scale = scale
+        self.keep_original_data = keep_original_data
 
-       
     @abc.abstractmethod
-    def augment(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], num_ways: int): 
-        pass 
+    def augment(self, support_set: cdmetadl.dataset.SetData,
+                conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, list[int]]:
+        pass
+
 
 class PseudoAug(Augmentation):
-
     """
     Class for pseudo augmentation. Goes through all ways/classes, checks confidence score for particular class, calculates number of extra samples to sample for particular class as an inverse of its 
     confidence score * scale rounded down. It will randomly pick samples from the backup set and concatenate them with the original support_set. It also augments the label and original label tensors accordingly
@@ -41,75 +43,63 @@ class PseudoAug(Augmentation):
         list: list of shots per ways
     """
 
-    def augment(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list, backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], num_ways: int):
-        # to store shots per way of augmented (nr_shots from before + samples added through augmentation) 
-        shots = list()
-        # keeps indexes to sample from backup_support_set
-        sample_idxs = list()
-        num_shots_support = int(support_set[1].shape[0] / num_ways)
-        num_shots_support_backup = int(backup_support_set[1].shape[0] / num_ways) #backup_support_set[1].shape[0] / num_ways
-        print("pseudo DA with threshold and scale:", self.threshold, self.scale)
-      
-        rearranged_backup_images = backup_support_set[0].reshape(num_shots_support_backup, num_ways, 3, 128, 128)
-        rearranged_images = support_set[0].reshape(num_shots_support, num_ways, 3, 128, 128)
+    def __init__(
+        self, augmentation_set: cdmetadl.dataset.SetData, threshold: float, scale: int, keep_original_data: bool
+    ):
+        super().__init__(threshold, scale, keep_original_data)
+        self.augmentation_set = augmentation_set
 
-        rearranged_images_ways = support_set[0].reshape(num_ways, num_shots_support, 3, 128, 128)
+    def augment(self, support_set: cdmetadl.dataset.SetData,
+                conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, list[int]]:
+        num_ways = len(conf_scores)
 
+        support_data, support_labels, _ = support_set
+        num_shots_support_set = int(len(support_data) / num_ways)
+        support_data = support_data.reshape(num_ways, num_shots_support_set, 3, 128, 128)
+        support_labels = support_labels.reshape(num_ways, num_shots_support_set)
 
-        # get original labels 
-        original_labels = np.array([support_set[2][i*num_shots_support].item() for i in range(num_ways)])
+        augmentation_data, augmentation_label, _ = self.augmentation_set
+        num_shots_augmentation_set = int(len(augmentation_data) / num_ways)
+        augmentation_data = augmentation_data.reshape(num_ways, num_shots_augmentation_set, 3, 128, 128)
+        augmentation_label = augmentation_label.reshape(num_ways, num_shots_augmentation_set)
 
-        # go through all classes and check scores vs threshold per class
-        for clls, score in enumerate(conf_scores): 
-            print("score, class", score, clls)
-            if score < self.threshold:   
-                # calculate amount of samples to be added and augmented with      
-                nr_samples = int(1/(score + 0.01) * num_shots_support * self.scale)
+        extended_data = []
+        extended_labels = []
+        shots_per_class = []
+        for cls, score in enumerate(conf_scores):
+            extended_data.append(support_data[cls])
+            extended_labels.append(support_labels[cls])
+            shots_per_class.append(num_shots_support_set)
 
-                # if number of samples ought to be greater than the available samples per shot from backup_set, set it to the max
-                if nr_samples > num_shots_support_backup: 
-                    nr_samples = num_shots_support_backup
-                # add number of total shots for this class in augmented dataset
-                shots.append(nr_samples + num_shots_support)
-                # get nr_samples random indexes for sampling from backup_support_set
-                sample_idxs.append(np.random.choice(np.arange(0, nr_samples), nr_samples))
-            else: 
-                shots.append(num_shots_support)    
-                sample_idxs.append(())
+            if score < self.threshold:
+                # TODO: Check if linear interpolation makes sense. Exponential might be better, but harder to control.
+                number_of_augmented_shots = math.ceil((1 - score) * num_shots_support_set * self.scale)
+                if number_of_augmented_shots > num_shots_augmentation_set:
+                    print(
+                        f"Warning: number of augmented shots {number_of_augmented_shots} is higher than available data in augmentation set {num_shots_augmentation_set}"
+                    )
+                    number_of_augmented_shots = num_shots_augmentation_set
 
-        print("nr_shots per way after augmentation", shots)  
+                extended_data.append(augmentation_data[cls][:number_of_augmented_shots])
+                extended_labels.append(augmentation_label[cls][:number_of_augmented_shots])
+                shots_per_class[-1] += number_of_augmented_shots
 
-        # num_ways x num_shots_per_ways dim
-        images_way = list()
-        for j, way_idxs in enumerate(sample_idxs): 
-            # sample images for this class form backup support_set, if there are none use only support_set, otherwise concatenate them together
-            backup_images_way = np.array([rearranged_backup_images[i][j] for i in way_idxs])
-            original_images_way = rearranged_images_ways[j]
-           
-            if not len(way_idxs) == 0:
-                images_way.append(np.concatenate((original_images_way, backup_images_way), axis=0))
-            else:
-                images_way.append(original_images_way)  
-                    
-        # put all images into 1D subsequent array for putting into tensor
-        images = np.array([images_way[j][i] for j in range(len(images_way)) for i in range(len(images_way[j])) ])
-        
-        augmented_support_set = (torch.tensor(images), torch.tensor(np.arange(num_ways).repeat(shots)), torch.tensor(original_labels.repeat(shots)))
-  
-        return augmented_support_set, shots
-
-
+        return (torch.cat(extended_data, dim=0), torch.cat(extended_labels, dim=0), None), shots_per_class
 
 
 class StandardAug(Augmentation):
-    def augment(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = None): 
-        pass
-    
 
+    def augment(
+        self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float],
+        backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = None
+    ):
+        pass
 
 
 class GenerativeAug(Augmentation):
-    def augment(self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float], backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = None): 
-        pass
 
-    
+    def augment(
+        self, support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor], conf_scores: list[float],
+        backup_support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor] = None
+    ):
+        pass

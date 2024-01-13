@@ -1,9 +1,12 @@
-__all__ = ["Task"]
+__all__ = ["Task", "SetData"]
 
+from typing import NewType
 from dataclasses import dataclass
 
 import torch
 import numpy as np
+
+SetData = NewType("SetData", tuple[torch.Tensor, torch.Tensor, torch.Tensor])
 
 
 @dataclass
@@ -39,7 +42,7 @@ class Task:
     num_ways: int
     num_shots: int
     query_size: int
-    support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    query_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    support_set: SetData
+    query_set: SetData
     original_class_idx: np.ndarray
     dataset: str = None

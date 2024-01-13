@@ -5,9 +5,7 @@ import shutil
 import yaml
 
 from tqdm import tqdm
-import torch
 import pandas as pd
-import sys
 
 from cdmetadl.augmentation.augmentation import PseudoAug
 import cdmetadl.confidence_estimator
@@ -16,8 +14,6 @@ import cdmetadl.dataset
 import cdmetadl.samplers
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
-
-import matplotlib.pyplot as plt
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -92,48 +88,34 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
-        print("processing new task: --------------------------------------------------------------")
-        print("shots, ways", task.num_shots, task.num_ways)
 
-        support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
-
-        if args.pseudo_DA:
-
-            # split support_set into 3 sets (actual support_set, set for pretraining and subsequent confidence estimation, backup set for pseudo data augmentation)
-            support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(
-                task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed
-            )
-            print(
-                "splits resulted in image tensor shapes for support_set, conf_support_set, backup_support_set, query_set, conf_query_set: ",
-                support_set[0].shape, conf_support_set[0].shape, backup_support_set[0].shape, query_set[0].shape,
-                conf_query_set[0].shape
+        if True:  # TODO: Change back
+            support_set, confidence_reference_set, augmentation_set = cdmetadl.dataset.set_split(
+                task.support_set, num_shots=task.num_shots, num_ways=task.num_ways, number_of_splits=3
             )
 
-            # get confidence scores calculated on "validation"/conf_support_set per class
-            conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(
-                conf_support_set, conf_query_set, learner, task.num_ways
+            # TODO: Should be part of the confidence estimator ?!
+            confidence_predictor = learner.fit((*support_set, task.num_ways, None))
+
+            confidence_scores = cdmetadl.confidence_estimator.caculate_confidence_on_reference_set(
+                confidence_predictor, confidence_reference_set
             )
-            print("confidence scores for ways: ", conf_scores)
-            #print("print first image support set")
-            #plt.imshow((support_set[0][0]).T)
+            print("Confidence Score PseudoConfidence")
+            print(confidence_scores)
 
-            # setting up augmentation with threshold and scale, augmenting support_set and
-            augmentation = PseudoAug(threshold=0.75, scale=2)
-            support_set, nr_shots = augmentation.augment(
-                support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set,
-                num_ways=task.num_ways
-            )
-            print(
-                "support_set dims after augmentation: ", support_set[0].shape, support_set[1].shape,
-                support_set[2].shape
-            )
+            confidence_estimator = cdmetadl.confidence_estimator.MCDropoutConfidenceEstimation(num_samples=20)
+            confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
+            print("Confidence Score MC Dropout")
+            print(confidence_scores)
 
-            # reshape support_set into tuple to pass into leaner.fit
-            support_set = (support_set[0], support_set[1], support_set[2], task.num_ways, nr_shots)
+            augmentor = PseudoAug(augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True)
+            augmented_set, _ = augmentor.augment(support_set, conf_scores=confidence_scores)
 
-        predictor = learner.fit(support_set)
+            predictor = learner.fit((*augmented_set, task.num_ways, None))
+        else:
+            predictor = learner.fit((*task.support_set, task.num_ways, None))
 
-        # this needs to be edited because number of shots is now variable, causes problems in score calculation
+        # TODO: this needs to be edited because number of shots is now variable, causes problems in score calculation
         predictions.append({
             "Dataset": task.dataset,
             "Number of Ways": task.num_ways,
@@ -191,5 +173,4 @@ def main():
 
 
 if __name__ == "__main__":
-    print("sys.path", sys.path)
     main()
