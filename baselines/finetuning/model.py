@@ -17,7 +17,8 @@ from typing import Iterable, Any, Tuple
 from network import ResNet
 from helpers_finetuning import *
 
-from api import MetaLearner, Learner, Predictor
+import cdmetadl.api
+import cdmetadl.config
 
 # --------------- MANDATORY ---------------
 SEED = 98
@@ -31,9 +32,12 @@ if torch.cuda.is_available():
 # -----------------------------------------
 
 
-class MyMetaLearner(MetaLearner):
+class MyMetaLearner(cdmetadl.api.MetaLearner):
+    data_format = cdmetadl.config.DataFormat.BATCH
 
-    def __init__(self, train_classes: int, total_classes: int, logger: Any) -> None:
+    def __init__(
+        self, config: cdmetadl.config.ModelConfig, train_classes: int, total_classes: int, logger: Any
+    ) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -73,9 +77,9 @@ class MyMetaLearner(MetaLearner):
         self.should_train = True
         self.ncc = False
         self.support_size = 12
-        self.train_batches = 20
-        self.val_tasks = 10
-        self.val_after = 5
+        self.train_batches = config.number_of_batches
+        self.val_tasks = config.number_of_validation_tasks_per_dataset
+        self.val_after = config.validate_every
 
         # General model parameters
         self.dev = self.get_device()
@@ -103,7 +107,9 @@ class MyMetaLearner(MetaLearner):
         self.val_learner.load_state_dict(self.meta_learner.state_dict())
         self.val_learner.eval()
 
-    def meta_fit(self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]) -> Learner:
+    def meta_fit(
+        self, meta_train_generator: Iterable[Any], meta_valid_generator: Iterable[Any]
+    ) -> cdmetadl.api.Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
         meta-training generator generates either few-shot learning tasks or 
         batches of images, while the meta-valid generator always generates 
@@ -144,7 +150,8 @@ class MyMetaLearner(MetaLearner):
                         self.optimizer.step()
 
                         # Log iteration
-                        self.log((X_test, y_test), out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
+                        self.log((X_test, y_test),
+                                 out.detach().cpu().numpy(), loss.item(), self.val_tasks, self.val_after)
                 else:
                     # Optimize metalearner
                     out, loss = optimize_linear(self.meta_learner, self.optimizer, X_train, y_train)
@@ -227,8 +234,7 @@ class MyMetaLearner(MetaLearner):
         """ Initialize the prototypes for the NCC classifier with batch 
         learning.
         """
-        self.running_prototypes = torch.zeros((self.train_classes, self.meta_learner.in_features),
-                                              device=self.dev,
+        self.running_prototypes = torch.zeros((self.train_classes, self.meta_learner.in_features), device=self.dev,
                                               requires_grad=False)
         self.running_lenght = torch.zeros(self.train_classes, device=self.dev, requires_grad=False)
 
@@ -246,9 +252,7 @@ class MyMetaLearner(MetaLearner):
             print("Using CPU")
         return device
 
-    def update_prototypes(self,
-                          X: torch.Tensor,
-                          y: torch.Tensor,
+    def update_prototypes(self, X: torch.Tensor, y: torch.Tensor,
                           grad: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Update the prototypes following the NCC strategy.
 
@@ -355,7 +359,7 @@ class MyMetaLearner(MetaLearner):
         yield None
 
 
-class MyLearner(Learner):
+class MyLearner(cdmetadl.api.Learner):
 
     def __init__(self, model_args: dict = {}, model_state: dict = {}, learner_params: dict = {}) -> None:
         """ Defines the learner initialization.
@@ -373,7 +377,7 @@ class MyLearner(Learner):
         self.model_state = model_state
         self.learner_params = learner_params
 
-    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> Predictor:
+    def fit(self, support_set: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]) -> cdmetadl.api.Predictor:
         """ Fit the Learner to the support set of a new unseen task. 
         
         Args:
@@ -396,7 +400,7 @@ class MyLearner(Learner):
         X_train, y_train = X_train.to(self.dev), y_train.to(self.dev)
 
         self.learner.freeze_layers(n_ways)
-        
+
         if self.ncc:
             with torch.no_grad():
                 prototypes = process_support_set(self.learner, X_train, y_train, n_ways)
@@ -468,7 +472,7 @@ class MyLearner(Learner):
             raise Exception(f"'{learner_params_file}' not found")
 
 
-class MyPredictor(Predictor):
+class MyPredictor(cdmetadl.api.Predictor):
 
     def __init__(self, model: nn.Module, dev: torch.device, prototypes: torch.Tensor) -> None:
         """ Defines the Predictor initialization.

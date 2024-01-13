@@ -1,6 +1,8 @@
 import argparse
 import pickle
 import pathlib
+import shutil
+import yaml
 
 from tqdm import tqdm
 import torch
@@ -9,12 +11,13 @@ import sys
 
 from cdmetadl.augmentation.augmentation import PseudoAug
 import cdmetadl.confidence_estimator
+import cdmetadl.config
 import cdmetadl.dataset
+import cdmetadl.samplers
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 
 import matplotlib.pyplot as plt
-
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -28,11 +31,8 @@ def define_argparser() -> argparse.ArgumentParser:
         '--training_output_dir', type=pathlib.Path, required=True, help='Path to the output directory for training'
     )
     parser.add_argument(
-        '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the solution to use.'
-    )
-    parser.add_argument(
-        '--output_dir', type=pathlib.Path, default='./eval_output',
-        help='Path to the output directory for evaluation. Default: "./eval_output".'
+        '--output_dir', type=pathlib.Path, default='./output/tmp/eval',
+        help='Path to the output directory for evaluation. Default: "./output/tmp/eval".'
     )
     parser.add_argument(
         '--test_tasks_per_dataset', type=int, default=100,
@@ -42,40 +42,45 @@ def define_argparser() -> argparse.ArgumentParser:
         '--pseudo_DA', action=argparse.BooleanOptionalAction, default=False,
         help='Uses pseudo data augmentation. Default: False.'
     )
-
+    parser.add_argument(
+        '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
+        help='Overwrites the previous output directory instead of renaming it. Default: False.'
+    )
     return parser
 
 
 def process_args(args: argparse.Namespace) -> None:
     args.training_output_dir = args.training_output_dir.resolve()
-    args.model_dir = args.model_dir.resolve()
     args.output_dir = args.output_dir.resolve()
+
+    with open(args.training_output_dir / "config.yaml", "r") as f:
+        args.config = yaml.safe_load(f)
+    args.model_dir = pathlib.Path(args.config["model"]["path"]).resolve()
+    args.config["model"]["number_of_test_tasks_per_dataset"] = args.test_tasks_per_dataset
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.training_output_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
-    # TODO: How to deal with existing output dir
-    args.output_dir /= args.training_output_dir.relative_to(args.training_output_dir.parent.parent.parent)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.output_dir /= pathlib.Path(
+        *args.training_output_dir.parts[args.training_output_dir.parts.index("training") + 1:]
+    )
+    if args.output_dir.exists() and args.overwrite_previous_results:
+        shutil.rmtree(args.output_dir)
+    elif args.output_dir.exists():
+        raise ValueError(
+            f"Output directory {args.output_dir} exists and overwrite previous results option is not provided"
+        )
+    args.output_dir.mkdir(parents=True)
 
 
 def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGenerator:
     with open(args.training_output_dir / "datasets/test_dataset.pkl", 'rb') as f:
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
-    test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 5,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
-    return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)   
+    test_generator_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["test"])
+    return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)
 
 
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
@@ -89,31 +94,44 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         learner.load(args.training_output_dir / "model")
         print("processing new task: --------------------------------------------------------------")
         print("shots, ways", task.num_shots, task.num_ways)
-      
+
         support_set = (task.support_set[0], task.support_set[1], task.support_set[2], task.num_ways, task.num_shots)
 
-        if args.pseudo_DA: 
+        if args.pseudo_DA:
 
             # split support_set into 3 sets (actual support_set, set for pretraining and subsequent confidence estimation, backup set for pseudo data augmentation)
-            support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed)
-            print("splits resulted in image tensor shapes for support_set, conf_support_set, backup_support_set, query_set, conf_query_set: ", support_set[0].shape, conf_support_set[0].shape, backup_support_set[0].shape, query_set[0].shape, conf_query_set[0].shape)
-        
+            support_set, conf_support_set, backup_support_set, query_set, conf_query_set = cdmetadl.dataset.rand_conf_split(
+                task.support_set, task.query_set, task.num_ways, task.num_shots, 3, seed=args.seed
+            )
+            print(
+                "splits resulted in image tensor shapes for support_set, conf_support_set, backup_support_set, query_set, conf_query_set: ",
+                support_set[0].shape, conf_support_set[0].shape, backup_support_set[0].shape, query_set[0].shape,
+                conf_query_set[0].shape
+            )
+
             # get confidence scores calculated on "validation"/conf_support_set per class
-            conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_support_set, conf_query_set, learner, task.num_ways)
+            conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(
+                conf_support_set, conf_query_set, learner, task.num_ways
+            )
             print("confidence scores for ways: ", conf_scores)
             #print("print first image support set")
             #plt.imshow((support_set[0][0]).T)
 
-            # setting up augmentation with threshold and scale, augmenting support_set and 
+            # setting up augmentation with threshold and scale, augmenting support_set and
             augmentation = PseudoAug(threshold=0.75, scale=2)
-            support_set, nr_shots = augmentation.augment(support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set, num_ways=task.num_ways)
-            print("support_set dims after augmentation: ", support_set[0].shape, support_set[1].shape, support_set[2].shape)
+            support_set, nr_shots = augmentation.augment(
+                support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set,
+                num_ways=task.num_ways
+            )
+            print(
+                "support_set dims after augmentation: ", support_set[0].shape, support_set[1].shape,
+                support_set[2].shape
+            )
 
             # reshape support_set into tuple to pass into leaner.fit
             support_set = (support_set[0], support_set[1], support_set[2], task.num_ways, nr_shots)
-        
-        predictor = learner.fit(support_set)
 
+        predictor = learner.fit(support_set)
 
         # this needs to be edited because number of shots is now variable, causes problems in score calculation
         predictions.append({
@@ -159,6 +177,9 @@ def main():
     cdmetadl.helpers.general_helpers.vprint("\nPreparing dataset", args.verbose)
     meta_test_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
+
+    with open(args.output_dir / "config.yaml", "w") as f:
+        yaml.safe_dump(args.config, f)
 
     cdmetadl.helpers.general_helpers.vprint("\nMeta-testing your learner...", args.verbose)
     predictions = meta_test(args, meta_test_generator)
