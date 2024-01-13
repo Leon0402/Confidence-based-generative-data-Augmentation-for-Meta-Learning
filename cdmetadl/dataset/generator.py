@@ -19,7 +19,7 @@ class DataGenerator(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def number_of_classes(self) -> int: 
+    def number_of_classes(self) -> int:
         pass
 
 
@@ -35,7 +35,7 @@ class BatchGenerator(DataGenerator):
                 generated_batches += 1
 
     @property
-    def number_of_classes(self) -> int: 
+    def number_of_classes(self) -> int:
         return self.dataset.total_number_of_classes
 
 
@@ -43,25 +43,29 @@ class SampleTaskGenerator(DataGenerator):
 
     def __call__(self, num_tasks: int):
         yield from self.dataset.generate_tasks(
-            num_tasks, self.config.n_ways, self.config.n_ways, self.config.query_size
+            num_tasks, self.config.n_ways, self.config.k_shots, self.config.query_size
         )
 
     @property
-    def number_of_classes(self) -> int: 
+    def number_of_classes(self) -> int:
         if isinstance(self.config.n_ways, cdmetadl.samplers.ValueSampler):
             return self.config.n_ways.value
-        raise ValueError("Sampler with variable number of ways is used in task mode, thus number of classes cannot be determined")
+        raise ValueError(
+            "Sampler with variable number of ways is used in task mode, thus number of classes cannot be determined"
+        )
 
 
 class TaskGenerator(DataGenerator):
 
     def __call__(self, num_tasks_per_dataset: int):
         yield from self.dataset.generate_tasks_for_each_dataset(
-            num_tasks_per_dataset, self.config.n_ways, self.config.n_ways, self.config.query_size
+            num_tasks_per_dataset, self.config.n_ways, self.config.k_shots, self.config.query_size
         )
-    
+
     @property
-    def number_of_classes(self) -> int: 
+    def number_of_classes(self) -> int:
         if isinstance(self.config.n_ways, cdmetadl.samplers.ValueSampler):
             return self.config.n_ways.value
-        raise ValueError("Sampler with variable number of ways is used in task mode, thus number of classes cannot be determined")
+        raise ValueError(
+            "Sampler with variable number of ways is used in task mode, thus number of classes cannot be determined"
+        )

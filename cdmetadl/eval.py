@@ -53,7 +53,9 @@ def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.training_output_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
-    args.output_dir /= args.training_output_dir.relative_to(args.training_output_dir.parent.parent.parent)
+    args.output_dir /= pathlib.Path(
+        *args.training_output_dir.parts[args.training_output_dir.parts.index("training") + 1:]
+    )
     if args.output_dir.exists() and args.overwrite_previous_results:
         shutil.rmtree(args.output_dir)
     elif args.output_dir.exists():

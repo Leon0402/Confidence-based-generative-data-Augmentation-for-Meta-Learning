@@ -64,7 +64,7 @@ python -m cdmetadl.eval \
 Open dashboard with: 
 
 ```bash
-python -m cdmetadl.dashboard
+python -m cdmetadl.dashboard --eval-output-path "./output/full/eval"
 ```
 
 ## Automation Scripts 

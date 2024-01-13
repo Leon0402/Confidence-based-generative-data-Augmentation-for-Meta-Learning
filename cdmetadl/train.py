@@ -45,16 +45,16 @@ def define_argparser() -> argparse.ArgumentParser:
         help='Default location of the directory containing the meta_train and meta_test data. Default: "./public_data".'
     )
     parser.add_argument(
-        "--train_split", type=float, default=0.6, help=
-        "Proportion of dataset used for training. Train, validation and test split should sum up to one. Default: 0.6."
+        "--train_split", type=float, default=0.5, help=
+        "Proportion of dataset used for training. Train, validation and test split should sum up to one. Default: 0.5."
     )
     parser.add_argument(
-        "--validation_split", type=float, default=0.2, help=
-        "Proportion of dataset used for validation. Train, validation and test split should sum up to one. Default: 0.2."
+        "--validation_split", type=float, default=0.25, help=
+        "Proportion of dataset used for validation. Train, validation and test split should sum up to one. Default: 0.25."
     )
     parser.add_argument(
-        "--test_split", type=float, default=0.2, help=
-        "Proportion of dataset used for testing. Train, validation and test split should sum up to one. Default: 0.2."
+        "--test_split", type=float, default=0.25, help=
+        "Proportion of dataset used for testing. Train, validation and test split should sum up to one. Default: 0.25."
     )
     parser.add_argument(
         '--output_dir', type=pathlib.Path, default='./output/tmp/training',
