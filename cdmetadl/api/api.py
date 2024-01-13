@@ -1,9 +1,10 @@
-""" Defines the API used in the Cross-Domain MetaDL competition. Please check 
-the dedicated notebook tutorial (cd-metadl/tutorial.ipynb) for details.
+__all__ = ["MetaLearner", "Learner", "Predictor"]
 
-AS A PARTICIPANT, DO NOT MODIFY THIS CODE
+"""API for models
 """
 import numpy as np
+
+import cdmetadl.config
 
 
 class Predictor():
@@ -95,7 +96,12 @@ class MetaLearner():
     on the algorithm.
     """
 
-    def __init__(self, train_classes, total_classes, logger) -> None:
+    """
+    Which data formats the meta learner expects 
+    """
+    data_format = cdmetadl.config.DataFormat.TASK
+
+    def __init__(self, train_classes, total_classes, logger, mode = cdmetadl.config.DataFormat.TASK) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -122,11 +128,12 @@ class MetaLearner():
                     Defaults to None.
                 - meta_train (bool, optional): Boolean flag to control if the 
                     current iteration belongs to meta-training. Defaults to 
-                    True.       
+                    True.  
         """
         self.train_classes = train_classes
         self.total_classes = total_classes
         self.log = logger.log
+
 
     def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 
