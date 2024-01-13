@@ -7,6 +7,8 @@ import random
 
 import torch.utils.data
 
+import cdmetadl.samplers
+
 from .image_dataset import ImageDataset
 from .task import Task
 
@@ -67,15 +69,16 @@ class MetaImageDataset(torch.utils.data.Dataset):
         return dataset_idx, idx - self.dataset_end_index[dataset_idx - 1]
 
     def generate_tasks(
-        self, num_tasks: int, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int
+        self, num_tasks: int, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int
     ) -> Iterator[Task]:
         for _ in range(num_tasks):
             dataset = random.choice(self.datasets)
-            yield dataset.generate_task(min_ways, max_ways, min_shots, max_shots, query_size)
+            yield dataset.generate_task(n_ways, k_shots, query_size)
 
     def generate_tasks_for_each_dataset(
-        self, num_tasks_per_dataset: int, min_ways: int, max_ways: int, min_shots: int, max_shots: int, query_size: int
+        self, num_tasks_per_dataset: int, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler,
+        query_size: int
     ) -> Iterator[Task]:
         for dataset in self.datasets:
             for _ in range(num_tasks_per_dataset):
-                yield dataset.generate_task(min_ways, max_ways, min_shots, max_shots, query_size)
+                yield dataset.generate_task(n_ways, k_shots, query_size)

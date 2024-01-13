@@ -1,4 +1,5 @@
 import pathlib
+import argparse
 
 import dash
 import dash_mantine_components as dmc
@@ -8,21 +9,28 @@ import plotly.express as px
 
 all_metrics = ['Normalized Accuracy', 'Accuracy', 'Macro F1 Score', 'Macro Precision', 'Macro Recall']
 
+parser = argparse.ArgumentParser(description='Dashboard')
+parser.add_argument('--eval-output-path', type=pathlib.Path, required=True, help='Path to eval output')
+args = parser.parse_args()
+
+short_names = {"cross-domain": "CD", "within-domain": "WD", "domain-independent": "DI"}
+
 
 def read_df(path: pathlib.Path) -> pd.DataFrame:
     df = pd.read_pickle(path)
-    domain = "CD" if path.parent.parent.name == "cross-domain" else "WD"
-    df.insert(0, 'Model', f"{path.parent.parent.parent.name} ({domain})")
+    path_parts = path.relative_to(args.eval_output_path).parts
+    df.insert(0, 'Model', f"{path_parts[0]} ({short_names[path_parts[1]]})")
     return df
 
 
-full_df = pd.concat([read_df(filepath) for filepath in pathlib.Path("./eval_output").glob('**/evaluation.pkl')])
+full_df = pd.concat([read_df(filepath) for filepath in args.eval_output_path.glob('**/evaluation.pkl')])
 
 # Keep only datasets present in all models
 nb_models_used = full_df.groupby("Dataset")["Model"].nunique()
 keep_groups = nb_models_used == nb_models_used.max()
 full_df = full_df[full_df['Dataset'].isin(keep_groups[keep_groups].index)]
 
+full_df = full_df[full_df['Dataset'].isin(keep_groups[keep_groups].index)]
 dfs = {model: full_df[full_df["Model"] == model] for model in full_df["Model"].unique()}
 
 

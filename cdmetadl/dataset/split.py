@@ -1,10 +1,18 @@
-__all__ = ["random_meta_split", "random_class_split"]
+__all__ = ["split_by_names", "random_meta_split", "random_class_split"]
 
-from collections import defaultdict
 import numpy as np
 
 from .meta_image_dataset import MetaImageDataset
 from .image_dataset import ImageDataset
+
+
+def split_by_names(meta_dataset: MetaImageDataset, names: list[list[str]]) -> list[MetaImageDataset]:
+    return [
+        MetaImageDataset([dataset
+                          for dataset in meta_dataset.datasets
+                          if dataset.name in dataset_names])
+        for dataset_names in names
+    ]
 
 
 def random_meta_split(meta_dataset: MetaImageDataset, lengths: list[float], seed: int = None) -> list[MetaImageDataset]:

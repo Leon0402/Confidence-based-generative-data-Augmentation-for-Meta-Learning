@@ -1,11 +1,15 @@
 import argparse
 import pickle
 import pathlib
+import shutil
+import yaml
 
 from tqdm import tqdm
 import pandas as pd
 
+import cdmetadl.config
 import cdmetadl.dataset
+import cdmetadl.samplers
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 
@@ -21,49 +25,51 @@ def define_argparser() -> argparse.ArgumentParser:
         '--training_output_dir', type=pathlib.Path, required=True, help='Path to the output directory for training'
     )
     parser.add_argument(
-        '--model_dir', type=pathlib.Path, required=True, help='Path to the directory containing the solution to use.'
-    )
-    parser.add_argument(
-        '--output_dir', type=pathlib.Path, default='./eval_output',
-        help='Path to the output directory for evaluation. Default: "./eval_output".'
+        '--output_dir', type=pathlib.Path, default='./output/tmp/eval',
+        help='Path to the output directory for evaluation. Default: "./output/tmp/eval".'
     )
     parser.add_argument(
         '--test_tasks_per_dataset', type=int, default=100,
         help='The total number of test tasks will be num_datasets x test_tasks_per_dataset. Default: 100.'
     )
-
+    parser.add_argument(
+        '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
+        help='Overwrites the previous output directory instead of renaming it. Default: False.'
+    )
     return parser
 
 
 def process_args(args: argparse.Namespace) -> None:
     args.training_output_dir = args.training_output_dir.resolve()
-    args.model_dir = args.model_dir.resolve()
     args.output_dir = args.output_dir.resolve()
+
+    with open(args.training_output_dir / "config.yaml", "r") as f:
+        args.config = yaml.safe_load(f)
+    args.model_dir = pathlib.Path(args.config["model"]["path"]).resolve()
+    args.config["model"]["number_of_test_tasks_per_dataset"] = args.test_tasks_per_dataset
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.training_output_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
-    # TODO: How to deal with existing output dir
-    args.output_dir /= args.training_output_dir.relative_to(args.training_output_dir.parent.parent.parent)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.output_dir /= pathlib.Path(
+        *args.training_output_dir.parts[args.training_output_dir.parts.index("training") + 1:]
+    )
+    if args.output_dir.exists() and args.overwrite_previous_results:
+        shutil.rmtree(args.output_dir)
+    elif args.output_dir.exists():
+        raise ValueError(
+            f"Output directory {args.output_dir} exists and overwrite previous results option is not provided"
+        )
+    args.output_dir.mkdir(parents=True)
 
 
 def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGenerator:
     with open(args.training_output_dir / "datasets/test_dataset.pkl", 'rb') as f:
         test_dataset: cdmetadl.dataset.MetaImageDataset = pickle.load(f)
 
-    test_generator_config = {
-        "N": None,
-        "min_N": 2,
-        "max_N": 5,
-        "k": None,
-        "min_k": 1,
-        "max_k": 20,
-        "query_images_per_class": 20
-    }
-
+    test_generator_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["test"])
     return cdmetadl.dataset.TaskGenerator(test_dataset, test_generator_config)
 
 
@@ -122,6 +128,9 @@ def main():
     cdmetadl.helpers.general_helpers.vprint("\nPreparing dataset", args.verbose)
     meta_test_generator = prepare_data_generators(args)
     cdmetadl.helpers.general_helpers.vprint("[+]Datasets prepared", args.verbose)
+
+    with open(args.output_dir / "config.yaml", "w") as f:
+        yaml.safe_dump(args.config, f)
 
     cdmetadl.helpers.general_helpers.vprint("\nMeta-testing your learner...", args.verbose)
     predictions = meta_test(args, meta_test_generator)
