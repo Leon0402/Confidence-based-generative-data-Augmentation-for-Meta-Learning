@@ -34,22 +34,19 @@ def ref_set_confidence_scores(conf_support_set: tuple[torch.Tensor, torch.Tensor
    
     predictions = predictor.predict(conf_query_set[0])
     ground_truth = conf_query_set[1].numpy()
- 
+    #print("ground truth", ground_truth)
 
     # go through predictions, compare with ground truth and update confidence score for particular class accordingly
     for idx, prediction in enumerate(predictions): 
         label = ground_truth[idx]
-        #print("prediction", prediction)
-        #print("label", label)
+        #print("prediction for true class", label, prediction)
 
         if np.argmax(prediction) == label: 
             conf_sc = np.max(prediction)
         else: 
             conf_sc = 0.0    
-        #print("conf_sc for this prediction", conf_sc)
         if label in conf_scores: 
             conf_scores[label] = np.mean([conf_scores[label], conf_sc])
         else: 
             conf_scores[label] = conf_sc
-
     return list(conf_scores.values())

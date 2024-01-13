@@ -55,12 +55,6 @@ class PseudoAug(Augmentation):
 
         rearranged_images_ways = support_set[0].reshape(num_ways, num_shots_support, 3, 128, 128)
 
-        print("shape images support set", support_set[0].shape)
-
-
-        print("reshaped support set images by shots", rearranged_images.shape)
-        print("reshaped support set images by ways", rearranged_images.shape)
-        print("reshaped backup support set images by shots", rearranged_backup_images.shape)
 
         # get original labels 
         original_labels = np.array([support_set[2][i*num_shots_support].item() for i in range(num_ways)])
@@ -70,7 +64,7 @@ class PseudoAug(Augmentation):
             print("score, class", score, clls)
             if score < self.threshold:   
                 # calculate amount of samples to be added and augmented with      
-                nr_samples = 1/score * num_shots_support * self.scale
+                nr_samples = int(1/(score + 0.01) * num_shots_support * self.scale)
 
                 # if number of samples ought to be greater than the available samples per shot from backup_set, set it to the max
                 if nr_samples > num_shots_support_backup: 

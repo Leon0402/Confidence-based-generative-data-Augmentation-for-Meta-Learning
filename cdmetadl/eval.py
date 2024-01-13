@@ -13,6 +13,8 @@ import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 
+import matplotlib.pyplot as plt
+
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -97,26 +99,30 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             print("splits resulted in image tensor shapes for support_set, conf_support_set, backup_support_set, query_set, conf_query_set: ", support_set[0].shape, conf_support_set[0].shape, backup_support_set[0].shape, query_set[0].shape, conf_query_set[0].shape)
         
             # get confidence scores calculated on "validation"/conf_support_set per class
-            conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_query_set, conf_query_set, learner, task.num_ways)
+            conf_scores = cdmetadl.confidence_estimator.ref_set_confidence_scores(conf_support_set, conf_query_set, learner, task.num_ways)
             print("confidence scores for ways: ", conf_scores)
+            #print("print first image support set")
+            #plt.imshow((support_set[0][0]).T)
 
             # setting up augmentation with threshold and scale, augmenting support_set and 
-            augmentation = PseudoAug(threshold=0.25, scale=2)
+            augmentation = PseudoAug(threshold=0.75, scale=2)
             support_set, nr_shots = augmentation.augment(support_set=task.support_set, conf_scores=conf_scores, backup_support_set=backup_support_set, num_ways=task.num_ways)
             print("support_set dims after augmentation: ", support_set[0].shape, support_set[1].shape, support_set[2].shape)
 
             # reshape support_set into tuple to pass into leaner.fit
             support_set = (support_set[0], support_set[1], support_set[2], task.num_ways, nr_shots)
-        else:
-            predictor = learner.fit(support_set)
+        
+        predictor = learner.fit(support_set)
 
-            predictions.append({
-                "Dataset": task.dataset,
-                "Number of Ways": task.num_ways,
-                "Number of Shots": task.num_shots,
-                "Predictions": predictor.predict(task.query_set[0]),
-                "Ground Truth": task.query_set[1].numpy(),
-            })
+
+        # this needs to be edited because number of shots is now variable, causes problems in score calculation
+        predictions.append({
+            "Dataset": task.dataset,
+            "Number of Ways": task.num_ways,
+            "Number of Shots": task.num_shots,
+            "Predictions": predictor.predict(task.query_set[0]),
+            "Ground Truth": task.query_set[1].numpy(),
+        })
 
     with open(args.output_dir / f"predictions.pkl", 'wb') as f:
         pickle.dump(predictions, f)

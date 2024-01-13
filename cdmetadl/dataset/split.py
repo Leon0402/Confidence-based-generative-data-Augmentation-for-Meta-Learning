@@ -8,6 +8,7 @@ import random
 from .meta_image_dataset import MetaImageDataset
 from .image_dataset import ImageDataset
 
+import matplotlib.pyplot as plt
 
 def random_meta_split(meta_dataset: MetaImageDataset, lengths: list[float], seed: int = None) -> list[MetaImageDataset]:
     if not np.isclose(sum(lengths), 1.0):
@@ -66,24 +67,22 @@ def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     """
    
     # reshape image tensor or support/query set, so that first index is num_shots for splitting
-    rearranged_support = support_set[0].reshape(num_shots, num_ways, 3, 128, 128)
+    support_images_by_shots = support_set[0].reshape(num_shots, num_ways, 3, 128, 128)
 
     query_size = int(query_set[0].shape[0] / num_ways)
-    rearranged_query = query_set[0].reshape(query_size, num_ways, 3, 128, 128)
+    query_images_by_query_size = query_set[0].reshape(query_size, num_ways, 3, 128, 128)
 
     original_labels = np.array([support_set[2][i*num_shots].item() for i in range(num_ways)])
 
-    print("shape support set", support_set[0].shape)
-    print("shape query set", query_set[0].shape)
+    print("support set original", support_set[0].shape, support_set[0][0][0])
+    print("support set shape after reshape", support_images_by_shots.shape, support_images_by_shots[0][0])
 
-    print("reshaped suport set", rearranged_support.shape)
-    print("reshaped query set", rearranged_query.shape)
-    
     nr_splits_query = 2
 
     # for every class randomize indices and split them based on nr_splits. 
     # gives list of shape num_ways x num_splits x num_shots_per_split
     # nr_splits for support can be 2 e.g in case no backup set is needed for augmentation
+    # TODO: use split with indices to get bigger backup_set (when using high num_shots)
     indices_per_way_query = [
         np.array_split(random.sample(list(np.arange(query_size)), query_size), nr_splits_query) for cls in range(num_ways)
         ]
@@ -92,13 +91,10 @@ def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         np.array_split(random.sample(list(np.arange(num_shots)), num_shots), nr_splits_support) for cls in range(num_ways)
         ]    
 
-    print("indices per way support", indices_per_way_support)
-    print("indices per way query", indices_per_way_query)
-
     # make list of images for putting into tensor
     # num_splits x num_ways*num_shots_per_split
-    split_support_images = [[rearranged_support[i][j] for j, indices in enumerate(indices_per_way_support) for i in indices[split]] for split in range(nr_splits_support)]
-    split_query_images = [[rearranged_query[i][j] for j, indices in enumerate(indices_per_way_query) for i in indices[split]] for split in range(nr_splits_query)]
+    split_support_images = [[support_images_by_shots[i][j] for j, indices in enumerate(indices_per_way_support) for i in indices[split]] for split in range(nr_splits_support)]
+    split_query_images = [[query_images_by_query_size[i][j] for j, indices in enumerate(indices_per_way_query) for i in indices[split]] for split in range(nr_splits_query)]
 
     # calculate number of shots for every split for label/original_label tensors
     # num_splits x num_ways
@@ -113,7 +109,11 @@ def rand_conf_split(support_set: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
     split_query = [(torch.tensor(np.array(split_query_images[i])), torch.tensor(np.arange(num_ways).repeat(query_shots_nr[i])),
-                torch.tensor(original_labels.repeat(query_shots_nr[i]))) for i in range(nr_splits_query)]
+                torch.tensor(original_labels.repeat(query_shots_nr[i]))) for i in range(nr_splits_query)]  
+
+    print(split_support[0][0].shape, split_support[1][0].shape, split_support[2][0].shape)
+    
+
 
     return split_support[0], split_support[1], split_support[2], split_query[0], split_query[1]
     
