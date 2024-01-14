@@ -54,17 +54,17 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
 
 
 def set_split(data_set: SetData, num_shots: int, num_ways: int, number_of_splits: int):
-    # TODO: Fix this
-    if num_shots % number_of_splits != 0:
-        raise ValueError(f"Number of shots {num_shots} must be multiple of number of splits {number_of_splits}")
+    if number_of_splits > num_shots:
+        raise ValueError(f"Number of splits {number_of_splits} cannot be greater than number of shots {num_shots}")
+    data = data_set[0].reshape(num_ways, num_shots, 3, 128, 128).swapaxes(0, 1)
+    labels = data_set[1].reshape(num_ways, num_shots).swapaxes(0, 1)
 
-    data = data_set[0].reshape(num_ways, num_shots, 3, 128, 128).swapaxes(0, 1).flatten(end_dim=1)
-    labels = data_set[1].reshape(num_ways, num_shots).swapaxes(0, 1).flatten(end_dim=1)
+    split_sizes = [num_shots // number_of_splits] * number_of_splits
+    for i in range(num_shots % number_of_splits):
+        split_sizes[i] += 1
 
-    numer_of_elements_per_split = int(num_ways * num_shots / number_of_splits)
-    return tuple(
-        zip(
-            torch.split(data, numer_of_elements_per_split), torch.split(labels, numer_of_elements_per_split),
-            [None for _ in range(number_of_splits)]
-        )
-    )
+    splits = []
+    for data, labels in zip(torch.split(data, split_sizes), torch.split(labels, split_sizes)):
+        splits.append((data.swapaxes(0, 1).flatten(end_dim=1), labels.swapaxes(0, 1).flatten(end_dim=1), None))
+
+    return splits
