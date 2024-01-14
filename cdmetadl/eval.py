@@ -7,7 +7,7 @@ import yaml
 from tqdm import tqdm
 import pandas as pd
 
-from cdmetadl.augmentation.augmentation import PseudoAug
+import cdmetadl.augmentation
 import cdmetadl.confidence_estimator
 import cdmetadl.config
 import cdmetadl.dataset
@@ -103,12 +103,16 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             print("Confidence Score PseudoConfidence")
             print(confidence_scores)
 
-            confidence_estimator = cdmetadl.confidence_estimator.MCDropoutConfidenceEstimation(num_samples=20)
-            confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
-            print("Confidence Score MC Dropout")
-            print(confidence_scores)
+            # confidence_estimator = cdmetadl.confidence_estimator.MCDropoutConfidenceEstimation(num_samples=20)
+            # confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
+            # print("Confidence Score MC Dropout")
+            # print(confidence_scores)
 
-            augmentor = PseudoAug(augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True)
+            # TODO: Report / Save number of total shots
+            augmentor = cdmetadl.augmentation.PseudoAug(
+                augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True
+            )
+            # augmentor = cdmetadl.augmentation.StandardAug(threshold=0.75, scale=2, keep_original_data=True)
             augmented_set, _ = augmentor.augment(support_set, conf_scores=confidence_scores)
 
             predictor = learner.fit((*augmented_set, task.num_ways, None))
