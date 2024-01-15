@@ -23,11 +23,11 @@ class ImageDataset(torch.utils.data.Dataset):
         transform (torchvision.transforms.Compose): Transformation to apply to each image.
     """
 
-    def __init__(self, name: str, dataset_info: dict, img_size: int = 128, included_classes: set[str] = None):
+    def __init__(self, name: str, dataset_info: tuple, img_size: int = 128, included_classes: set[str] = None):
         """
         Args:
             name (str): Name of the dataset
-            dataset_info (dict): Contains the following keys:
+            dataset_info (tuple): Contains the following entries:
                              - 'label_column': Column name for labels in metadata CSV.
                              - 'file_column': Column name for file names in metadata CSV.
                              - 'imgage_path': Path to the directory containing images.
@@ -87,7 +87,9 @@ class ImageDataset(torch.utils.data.Dataset):
         """
         return self.transform(PIL.Image.open(self.img_paths[idx])), torch.tensor(self.labels[idx])
 
-    def generate_task(self, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int) -> Task:
+    def generate_task(
+        self, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int
+    ) -> Task:
         if n_ways.max_value > self.number_of_classes:
             raise ValueError(
                 f"Max ways was set to {n_ways.max_value}, but dataset {self.name} only has {self.number_of_classes} classes"

@@ -83,3 +83,4 @@
 /output/full/training/maml/within-domain/PRT/model/weights.pickle filter=lfs diff=lfs merge=lfs -text
 /output/full/training/maml/within-domain/PRT/tensorboard/valid/events.out.tfevents.1705137445.lab05.873552.1 filter=lfs diff=lfs merge=lfs -text
 /cdmetadl/controlnet/initial_augmentation_tests.ipynb filter=lfs diff=lfs merge=lfs -text
+/cdmetadl/notebooks/augmentation.ipynb filter=lfs diff=lfs merge=lfs -text
