@@ -1,5 +1,4 @@
 __all__ = ["MetaLearner", "Learner", "Predictor"]
-
 """API for models
 """
 import numpy as np
@@ -95,13 +94,12 @@ class MetaLearner():
     It is an abstract class so one has to overide the core methods depending 
     on the algorithm.
     """
-
     """
     Which data formats the meta learner expects 
     """
     data_format = cdmetadl.config.DataFormat.TASK
 
-    def __init__(self, train_classes, total_classes, logger, mode = cdmetadl.config.DataFormat.TASK) -> None:
+    def __init__(self, train_classes, total_classes, logger, mode=cdmetadl.config.DataFormat.TASK) -> None:
         """ Defines the meta-learning algorithm's parameters. For example, one 
         has to define what would be the meta-learner's architecture. 
         
@@ -133,7 +131,6 @@ class MetaLearner():
         self.train_classes = train_classes
         self.total_classes = total_classes
         self.log = logger.log
-
 
     def meta_fit(self, meta_train_generator, meta_valid_generator) -> Learner:
         """ Uses the generators to tune the meta-learner's parameters. The 

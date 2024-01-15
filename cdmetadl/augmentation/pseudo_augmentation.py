@@ -1,7 +1,5 @@
 __all__ = ["PseudoAugmentation"]
 
-from typing import override
-
 import torch
 
 import cdmetadl.dataset
@@ -28,7 +26,6 @@ class PseudoAugmentation(Augmentation):
         super().__init__(threshold, scale, keep_original_data)
         self.augmentation_set = augmentation_set
 
-    @override
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
         augmentation_data, augmentation_label, _ = self.augmentation_set
 
@@ -40,7 +37,6 @@ class PseudoAugmentation(Augmentation):
 
         return augmentation_data, augmentation_label, num_shots
 
-    @override
     def _augment_class(self, cls: int, number_of_shots: int, init_args: list,
                        specific_init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
         """

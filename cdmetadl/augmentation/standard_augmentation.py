@@ -1,7 +1,5 @@
 __all__ = ["StandardAugmentation"]
 
-from typing import override
-
 import numpy as np
 import torch
 import torchvision.transforms
@@ -41,11 +39,9 @@ class StandardAugmentation(Augmentation):
             torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         ])
 
-    @override
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
         return None
 
-    @override
     def _augment_class(self, cls: int, number_of_shots: int, init_args: list,
                        specific_init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
         """

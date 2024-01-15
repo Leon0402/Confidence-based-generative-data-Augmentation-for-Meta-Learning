@@ -84,6 +84,16 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
+
+    if False:  #TODO: Move augmentation set outside of PseudoAug init
+        augmentor = cdmetadl.augmentation.PseudoAug(
+            augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True
+        )
+    elif False:  #TODO: Check augmentation output (seems wrong at first sight)
+        augmentor = cdmetadl.augmentation.StandardAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+    elif True:
+        augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+
     for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
 
         learner = model_module.MyLearner()
@@ -108,13 +118,9 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             # print("Confidence Score MC Dropout")
             # print(confidence_scores)
 
-            # TODO: Report / Save number of total shots
-            augmentor = cdmetadl.augmentation.PseudoAug(
-                augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True
-            )
-            # augmentor = cdmetadl.augmentation.StandardAug(threshold=0.75, scale=2, keep_original_data=True)
-            augmented_set, _ = augmentor.augment(support_set, conf_scores=confidence_scores)
+            # TODO: Report / Save number of total shots, Change if paths
 
+            augmented_set, _ = augmentor.augment(support_set, conf_scores=confidence_scores)
             predictor = learner.fit((*augmented_set, task.num_ways, None))
         else:
             predictor = learner.fit((*task.support_set, task.num_ways, None))
