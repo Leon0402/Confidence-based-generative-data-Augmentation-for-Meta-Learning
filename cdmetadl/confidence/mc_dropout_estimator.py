@@ -1,35 +1,14 @@
-__all__ = ["ref_set_confidence_scores", "MCDropoutConfidenceEstimation"]
-from collections import defaultdict
+__all__ = ["MCDropoutConfidenceEstimator"]
 
 import numpy as np
 
 import cdmetadl.dataset
-import cdmetadl.helpers.general_helpers
-import cdmetadl.helpers.scoring_helpers
-import cdmetadl.dataset.split
-
 import cdmetadl.api
 
-
-def caculate_confidence_on_reference_set(
-    predictor: cdmetadl.api.Predictor, reference_set: cdmetadl.dataset.SetData
-) -> dict:
-    data, labels, _ = reference_set
-
-    confidence_scores = defaultdict(list)
-    for prediction, gt_label in zip(predictor.predict(data), labels):
-        gt_label = int(gt_label)
-
-        confidence_score = 0.0
-        if np.argmax(prediction) == gt_label:
-            confidence_score = np.max(prediction)
-
-        confidence_scores[gt_label].append(confidence_score)
-
-    return [np.mean(scores) for scores in confidence_scores.values()]
+from .confidence_estimator import ConfidenceEstimator
 
 
-class MCDropoutConfidenceEstimation:
+class MCDropoutConfidenceEstimator(ConfidenceEstimator):
 
     def __init__(self, num_samples: int = 100, dropout_probability: float = None):
         """
@@ -59,8 +38,7 @@ class MCDropoutConfidenceEstimation:
                 if self.dropout_probability is not None:
                     m.p = self.dropout_probability
 
-        data, _, _ = reference_set
-        class_predictions = np.array([predictor.predict(data) for _ in range(self.num_samples)])
+        class_predictions = np.array([predictor.predict(reference_set.images) for _ in range(self.num_samples)])
         uncertainty_estimates = np.std(class_predictions, axis=0)
 
         # TODO: We measure uncertainty here, but we really want to estimate confidence (=>  confidence = 1 - uncertainty?)

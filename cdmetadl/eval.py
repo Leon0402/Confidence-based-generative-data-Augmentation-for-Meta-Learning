@@ -7,8 +7,9 @@ import yaml
 from tqdm import tqdm
 import pandas as pd
 
+import cdmetadl.api
 import cdmetadl.augmentation
-import cdmetadl.confidence_estimator
+import cdmetadl.confidence
 import cdmetadl.config
 import cdmetadl.dataset
 import cdmetadl.samplers
@@ -82,9 +83,6 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
-    predictions = []
-    total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
-
     if False:  #TODO: Move augmentation set outside of PseudoAug init
         augmentor = cdmetadl.augmentation.PseudoAug(
             augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True
@@ -94,22 +92,23 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     elif True:
         augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True)
 
+    predictions = []
+    total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
     for task in tqdm(meta_test_generator(args.test_tasks_per_dataset), total=total_number_of_tasks):
 
-        learner = model_module.MyLearner()
+        learner: cdmetadl.api.Learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
 
         if True:  # TODO: Change back
             support_set, confidence_reference_set, augmentation_set = cdmetadl.dataset.set_split(
-                task.support_set, num_shots=task.num_shots, num_ways=task.num_ways, number_of_splits=3
+                task.support_set, number_of_splits=3
             )
 
             # TODO: Should be part of the confidence estimator ?!
-            confidence_predictor = learner.fit((*support_set, task.num_ways, None))
+            confidence_predictor = learner.fit(support_set)
 
-            confidence_scores = cdmetadl.confidence_estimator.caculate_confidence_on_reference_set(
-                confidence_predictor, confidence_reference_set
-            )
+            confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
+            confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
             print("Confidence Score PseudoConfidence")
             print(confidence_scores)
 
@@ -121,17 +120,16 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             # TODO: Report / Save number of total shots, Change if paths
 
             augmented_set, _ = augmentor.augment(support_set, conf_scores=confidence_scores)
-            predictor = learner.fit((*augmented_set, task.num_ways, None))
+            predictor = learner.fit(augmented_set)
         else:
-            predictor = learner.fit((*task.support_set, task.num_ways, None))
+            predictor = learner.fit(task.support_set)
 
-        # TODO: this needs to be edited because number of shots is now variable, causes problems in score calculation
         predictions.append({
-            "Dataset": task.dataset,
-            "Number of Ways": task.num_ways,
-            "Number of Shots": task.num_shots,
-            "Predictions": predictor.predict(task.query_set[0]),
-            "Ground Truth": task.query_set[1].numpy(),
+            "Dataset": task.dataset_name,
+            "Number of Ways": task.number_of_ways,
+            "Number of Shots": task.support_set.min_number_of_shots,  # TODO: Save all number of shots rather than min?
+            "Predictions": predictor.predict(task.query_set.images),
+            "Ground Truth": task.query_set.labels.numpy(),
         })
 
     with open(args.output_dir / f"predictions.pkl", 'wb') as f:

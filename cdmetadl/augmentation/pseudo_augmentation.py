@@ -27,33 +27,32 @@ class PseudoAugmentation(Augmentation):
         self.augmentation_set = augmentation_set
 
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
-        augmentation_data, augmentation_label, _ = self.augmentation_set
-
-        num_ways = len(conf_scores)
-        num_shots = int(len(augmentation_data) / num_ways)
-
-        augmentation_data = augmentation_data.reshape(num_ways, num_shots, 3, 128, 128)
-        augmentation_label = augmentation_label.reshape(num_ways, num_shots)
-
-        return augmentation_data, augmentation_label, num_shots
-
-    def _augment_class(self, cls: int, number_of_shots: int, init_args: list,
-                       specific_init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Perform augmentation for a specific class.
+        Initialize augmentation-specific parameters.
+
+        :param support_set: The support set.
+        :param conf_scores: Confidence scores for each class.
+        :return: Specific initialization arguments for augmentation.
+        """
+        return None
+
+    def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
+                       init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Augments data for a specific class using the defined image transformations. 
+        Used in base class `augment` function.
 
         :param cls: Class index to augment.
+        :param support_set: The support set to augment.
         :param number_of_shots: Number of augmented shots to generate.
-        :param init_args: Initial arguments including support data and labels.
-        :param specific_init_args: Specific arguments for the augmentation.
+        :param init_args: Arguments returned by the `_init_augmentation` function. 
         :return: tuple of the augmented data and labels for the specified class.
         """
-        augmentation_data, augmentation_label, num_shots_augmentation_set = specific_init_args
-
-        if number_of_shots > num_shots_augmentation_set:
+        if number_of_shots > self.augmentation_set.number_of_shots:
             print(
-                f"Warning: number of augmented shots {number_of_shots} is higher than available data in augmentation set {num_shots_augmentation_set}"
+                f"Warning: number of augmented shots {number_of_shots} is higher than available data in augmentation set {self.augmentation_set.number_of_shots}"
             )
-            number_of_shots = num_shots_augmentation_set
+            number_of_shots = self.augmentation_set.number_of_shots
 
-        return augmentation_data[cls][:number_of_shots], augmentation_label[cls][:number_of_shots]
+        return self.augmentation_set.images_by_class[cls][:number_of_shots], self.augmentation_set.labels_by_class[
+            cls][:number_of_shots]

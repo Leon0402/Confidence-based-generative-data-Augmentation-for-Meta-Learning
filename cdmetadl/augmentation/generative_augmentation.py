@@ -28,7 +28,7 @@ class GenerativeAugmentation(Augmentation):
             keep_original_data (bool): A flag to determine whether original data should be included together with the augmented data.
         """
         super().__init__(threshold, scale, keep_original_data)
-        print("\n")
+
         self.upscaler_pipeline = StableDiffusionUpscalePipeline.from_pretrained(
             upscaler_id, variant="fp16", torch_dtype=torch.float16
         ).to(device)
@@ -53,43 +53,48 @@ class GenerativeAugmentation(Augmentation):
         diffusers.utils.logging.set_verbosity(40)
 
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
+        """
+        Abstract method to initialize augmentation-specific parameters.
+
+        :param support_set: The support set.
+        :param conf_scores: Confidence scores for each class.
+        :return: Specific initialization arguments for augmentation.
+        """
         return None
 
-    def _augment_class(self, cls: int, number_of_shots: int, init_args: list,
-                       specific_init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
+    def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
+                       init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Augments data for a specific class using the defined image transformations. 
-        Used in base class `augment` function,
+        Used in base class `augment` function.
 
-        Args:
-            cls (int): The class index for which the data augmentation is to be performed.
-            number_of_shots (int): The number of samples to generate.
-            init_args (list): General init args of the augmentation like the support_data
-            specific_init_args (list): Class specific init args created in the `_init_augmentation` function, 
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]: A tuple containing the augmented data and corresponding labels for the specified class.
+        :param cls: Class index to augment.
+        :param support_set: The support set to augment.
+        :param number_of_shots: Number of augmented shots to generate.
+        :param init_args: Arguments returned by the `_init_augmentation` function. 
+        :return: tuple of the augmented data and labels for the specified class.
         """
-        support_data, _, num_shots_support_set = init_args
+        class_name = support_set.class_names[cls]
+        random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
 
-        random_indices = np.random.randint(0, num_shots_support_set, size=number_of_shots)
-
-        diffusion_images = torch.stack([self.generateImage(support_data[cls][idx]) for idx in random_indices]).float()
+        diffusion_images = torch.stack([
+            self.generate_image(support_set.images_by_class[cls][idx], class_name) for idx in random_indices
+        ]).float()
         diffusion_labels = torch.full(size=(number_of_shots, ), fill_value=cls)
 
         return diffusion_images, diffusion_labels
 
-    def generateImage(self, image):
+    def generate_image(self, image, class_name: str):
         image_array = (image * 255).detach().cpu().numpy().astype(np.uint8)
         image_array = np.transpose(image_array, (1, 2, 0))
         image_array = Image.fromarray(image_array)
 
-        upscaled_image = self.upscaleImage(image_array)
-        edge_image = self.edgeDetection(upscaled_image)
-        diffusion_image = self.generateDiffusionImage(
+        upscaled_image = self.upscale_image(image_array)
+        edge_image = self.edge_detection(upscaled_image)
+        diffusion_image = self.generate_diffusion_image(
             edge_image, image_class=""
         )  #TODO: Insert the class name as prompt here
-        downscaled_diffusion_image = self.downscaleImage(diffusion_image)
+        downscaled_diffusion_image = self.downscale_image(diffusion_image)
         if False:  #TODO: Delete this if not needed anymore
             image_array.save("/home/workstation/Schreibtisch/test_normal.png")
             edge_image.save("/home/workstation/Schreibtisch/test_edges.png")
@@ -101,13 +106,13 @@ class GenerativeAugmentation(Augmentation):
 
         return diffusion_array
 
-    def upscaleImage(self, image_array):
+    def upscale_image(self, image_array):
         return self.upscaler_pipeline(prompt="", image=image_array).images[0]
 
-    def downscaleImage(self, image):
+    def downscale_image(self, image):
         return image.resize((128, 128))
 
-    def edgeDetection(self, image):
+    def edge_detection(self, image):
         image = np.array(image)
         low_threshold = 100
         high_threshold = 200
@@ -119,7 +124,7 @@ class GenerativeAugmentation(Augmentation):
 
         return canny_image
 
-    def generateDiffusionImage(self, image, image_class: str):
+    def generate_diffusion_image(self, image, image_class: str):
         PROMPT = image_class
         NEGATIVE_PROMPT = "Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"
 

@@ -8,7 +8,7 @@ import PIL
 
 import cdmetadl.samplers
 
-from .task import Task
+from .task import SetData, Task
 
 
 class ImageDataset(torch.utils.data.Dataset):
@@ -48,6 +48,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.number_of_classes = len(self.label_names)
 
         self.text_to_numerical_label = {label: idx for idx, label in enumerate(self.label_names)}
+        self.numerical_label_to_text = {number: text for text, number in self.text_to_numerical_label.items()}
         self.labels = np.array([
             self.text_to_numerical_label[label] for label in metadata[label_column] if label in self.label_names
         ])
@@ -108,17 +109,25 @@ class ImageDataset(torch.utils.data.Dataset):
             np.random.choice(self.idx_per_label[cls], k_shot + query_size, replace=False) for cls in selected_classes
         ]
 
-        support_images = torch.stack([
-            self[idx][0] for indices in sampled_indices_per_class for idx in indices[:k_shot]
-        ])
-        query_images = torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]])
+        support_set = SetData(
+            images=torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[:k_shot]]),
+            labels=torch.tensor(np.arange(n_way).repeat(k_shot)),
+            number_of_ways=n_way,
+            number_of_shots=k_shot,
+            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+        )
+        query_set = SetData(
+            images=torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]]),
+            labels=torch.tensor(np.arange(n_way).repeat(query_size)),
+            number_of_ways=n_way,
+            number_of_shots=k_shot,
+            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+        )
 
         return Task(
-            num_ways=n_way, num_shots=k_shot, query_size=query_size, support_set=(
-                support_images, torch.tensor(np.arange(n_way).repeat(k_shot)),
-                torch.tensor(selected_classes.repeat(k_shot))
-            ), query_set=(
-                query_images, torch.tensor(np.arange(n_way).repeat(query_size)),
-                torch.tensor(selected_classes.repeat(query_size))
-            ), original_class_idx=selected_classes, dataset=self.name
+            dataset_name=self.name,
+            support_set=support_set,
+            query_set=query_set,
+            number_of_ways=n_way,
+            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
         )

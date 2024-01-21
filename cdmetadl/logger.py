@@ -134,6 +134,7 @@ class TensorboardLogger():
         )
         writer.add_figure(f"Dataset/Support Set", plt.gcf(), meta_train_iteration)
 
+        # TODO: Adjustments needed for new task structure, possible in other places too
         self._create_figure(
             title="Query-Set", data=data.query_set[0].cpu().numpy(), labels=data.query_set[1].cpu().numpy(),
             num_ways=data.num_ways, sample_size=min(data.query_size, 5), predictions=predictions

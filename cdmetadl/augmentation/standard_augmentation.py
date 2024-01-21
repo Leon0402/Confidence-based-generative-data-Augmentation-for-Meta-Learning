@@ -42,24 +42,19 @@ class StandardAugmentation(Augmentation):
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
         return None
 
-    def _augment_class(self, cls: int, number_of_shots: int, init_args: list,
-                       specific_init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
+    def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
+                       init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Augments data for a specific class using the defined image transformations. 
-        Used in base class `augment` function,
+        Used in base class `augment` function.
 
-        Args:
-            cls (int): The class index for which the data augmentation is to be performed.
-            number_of_shots (int): The number of samples to generate.
-            init_args (list): General init args of the augmentation like the support_data
-            specific_init_args (list): Class specific init args created in the `_init_augmentation` function, 
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]: A tuple containing the augmented data and corresponding labels for the specified class.
+        :param cls: Class index to augment.
+        :param support_set: The support set to augment.
+        :param number_of_shots: Number of augmented shots to generate.
+        :param init_args: Arguments returned by the `_init_augmentation` function. 
+        :return: tuple of the augmented data and labels for the specified class.
         """
-        support_data, _, num_shots_support_set = init_args
-
-        random_indices = np.random.randint(0, num_shots_support_set, size=number_of_shots)
-        augmented_data = torch.stack([self.transform(support_data[cls][idx]) for idx in random_indices])
+        random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
+        augmented_data = torch.stack([self.transform(support_set.images_by_class[cls][idx]) for idx in random_indices])
         augmented_labels = torch.full(size=(number_of_shots, ), fill_value=cls)
         return augmented_data, augmented_labels

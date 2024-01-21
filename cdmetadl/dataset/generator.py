@@ -1,6 +1,7 @@
 __all__ = ["DataGenerator", "BatchGenerator", "SampleTaskGenerator", "TaskGenerator"]
 
 import abc
+from typing import Iterator
 import torch
 import torch.utils.data
 
@@ -8,6 +9,7 @@ import cdmetadl.config
 import cdmetadl.samplers
 
 from .meta_image_dataset import MetaImageDataset
+from .task import Task
 
 
 class DataGenerator(abc.ABC):
@@ -25,7 +27,7 @@ class DataGenerator(abc.ABC):
 
 class BatchGenerator(DataGenerator):
 
-    def __call__(self, num_batches: int):
+    def __call__(self, num_batches: int) -> Iterator:
         generated_batches = 0
         while True:
             for batch in torch.utils.data.DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True):
@@ -41,7 +43,7 @@ class BatchGenerator(DataGenerator):
 
 class SampleTaskGenerator(DataGenerator):
 
-    def __call__(self, num_tasks: int):
+    def __call__(self, num_tasks: int) -> Iterator[Task]:
         yield from self.dataset.generate_tasks(
             num_tasks, self.config.n_ways, self.config.k_shots, self.config.query_size
         )
@@ -57,7 +59,7 @@ class SampleTaskGenerator(DataGenerator):
 
 class TaskGenerator(DataGenerator):
 
-    def __call__(self, num_tasks_per_dataset: int):
+    def __call__(self, num_tasks_per_dataset: int) -> Iterator[Task]:
         yield from self.dataset.generate_tasks_for_each_dataset(
             num_tasks_per_dataset, self.config.n_ways, self.config.k_shots, self.config.query_size
         )
