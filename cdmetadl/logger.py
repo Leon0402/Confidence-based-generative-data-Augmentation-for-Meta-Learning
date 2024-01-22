@@ -129,15 +129,15 @@ class TensorboardLogger():
             meta_train_iteration (int): Meta-train iteration.
         """
         self._create_figure(
-            title="Support-Set", data=data.support_set[0].cpu().numpy(), labels=data.support_set[1].cpu().numpy(),
-            num_ways=data.num_ways, sample_size=min(data.num_shots, 5)
+            title="Support-Set", data=data.support_set.images.cpu().numpy(), labels=data.support_set.labels.cpu().numpy(),
+            num_ways=data.number_of_ways, sample_size=min(data.support_set.number_of_shots, 5)
         )
         writer.add_figure(f"Dataset/Support Set", plt.gcf(), meta_train_iteration)
 
         # TODO: Adjustments needed for new task structure, possible in other places too
         self._create_figure(
-            title="Query-Set", data=data.query_set[0].cpu().numpy(), labels=data.query_set[1].cpu().numpy(),
-            num_ways=data.num_ways, sample_size=min(data.query_size, 5), predictions=predictions
+            title="Query-Set", data=data.query_set.images.cpu().numpy(), labels=data.query_set.labels.cpu().numpy(),
+            num_ways=data.number_of_ways, sample_size=min(data.query_set.number_of_shots, 5), predictions=predictions
         )
         writer.add_figure(f"Dataset/Query Set ", plt.gcf(), meta_train_iteration)
 
@@ -274,9 +274,9 @@ class Logger():
 
         if is_task:
             # Save task information
-            dataset = data.dataset
-            N = data.num_ways
-            k = data.num_shots
+            dataset = data.dataset_name
+            N = data.number_of_ways
+            k = data.query_set.number_of_shots
 
             with open(task_file, "a", newline="") as f:
                 writer = csv.writer(f)
@@ -284,7 +284,7 @@ class Logger():
                     writer.writerow(["Dataset", "N", "k"])
                 writer.writerow([dataset, N, k])
 
-            ground_truth = data.query_set[1].cpu().numpy()
+            ground_truth = data.query_set.labels.cpu().numpy()
 
         else:
             N = None

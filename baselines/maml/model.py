@@ -229,7 +229,7 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
             self.log(task, out.cpu().numpy(), loss, self.val_tasks, self.val_after, meta_train=False)
             # Keep track of scores
             total_test_images += len(y_test)
-            correct_predictions += np.sum(preds == y_test.numpy())
+            correct_predictions += np.sum(preds == y_test.cpu().numpy())
 
         # Check if the accuracy is better and store the new best state
         val_acc = correct_predictions / total_test_images

@@ -29,6 +29,6 @@ dataset:
         query_size: 20
 model: 
     number_of_batches: 1000
-    number_of_training_tasks: 10_000
+    number_of_training_tasks: 1000
     number_of_validation_tasks_per_dataset: 10
     validate_every: 100
