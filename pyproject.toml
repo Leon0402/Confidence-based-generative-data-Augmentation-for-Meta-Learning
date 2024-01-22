@@ -38,6 +38,7 @@ prettytable = "^3.9.0"
 timm = "^0.9.12"
 basicsr = "^1.4.2"
 einops = "^0.7.0"
+kaleido = "0.2.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
