@@ -87,9 +87,9 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         augmentor = cdmetadl.augmentation.PseudoAug(
             augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True
         )
-    elif False:  #TODO: Check augmentation output (seems wrong at first sight)
+    elif True:  #TODO: Check augmentation output (seems wrong at first sight)
         augmentor = cdmetadl.augmentation.StandardAugmentation(threshold=0.75, scale=2, keep_original_data=True)
-    elif True:
+    elif False:
         augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True)
 
     predictions = []

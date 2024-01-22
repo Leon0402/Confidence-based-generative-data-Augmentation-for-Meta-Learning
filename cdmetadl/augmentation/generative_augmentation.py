@@ -95,7 +95,7 @@ class GenerativeAugmentation(Augmentation):
             edge_image, image_class=""
         )  #TODO: Insert the class name as prompt here
         downscaled_diffusion_image = self.downscale_image(diffusion_image)
-        if False:  #TODO: Delete this if not needed anymore
+        if True:  #TODO: Delete this if not needed anymore
             image_array.save("/home/workstation/Schreibtisch/test_normal.png")
             edge_image.save("/home/workstation/Schreibtisch/test_edges.png")
             diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion.png")
