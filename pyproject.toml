@@ -33,6 +33,11 @@ diffusers = "^0.25.0"
 xformers = "^0.0.23.post1"
 transformers = "^4.36.2"
 accelerate = "^0.26.1"
+addict = "^2.4.0"
+prettytable = "^3.9.0"
+timm = "^0.9.12"
+basicsr = "^1.4.2"
+einops = "^0.7.0"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

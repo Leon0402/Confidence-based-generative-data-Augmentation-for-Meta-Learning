@@ -22,3 +22,7 @@ output/tmp
 .venv
 .keys
 
+*.pth
+*.pt
+
+

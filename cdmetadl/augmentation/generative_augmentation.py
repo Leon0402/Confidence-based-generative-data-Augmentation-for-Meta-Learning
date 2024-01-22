@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from PIL import Image
 import cdmetadl.dataset
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler, StableDiffusionUpscalePipeline
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler, StableDiffusionUpscalePipeline
 import diffusers
 from .augmentation import Augmentation
 
@@ -14,7 +14,6 @@ class GenerativeAugmentation(Augmentation):
 
     def __init__(
         self, threshold: float, scale: int, keep_original_data: bool,
-        upscaler_id: str = "stabilityai/stable-diffusion-x4-upscaler",
         diffusion_model_id: str = "lllyasviel/sd-controlnet-canny",
         pipeline_model_id: str = "runwayml/stable-diffusion-v1-5", device: str = "cuda"
     ):
@@ -28,22 +27,13 @@ class GenerativeAugmentation(Augmentation):
             keep_original_data (bool): A flag to determine whether original data should be included together with the augmented data.
         """
         super().__init__(threshold, scale, keep_original_data)
-
-        self.upscaler_pipeline = StableDiffusionUpscalePipeline.from_pretrained(
-            upscaler_id, variant="fp16", torch_dtype=torch.float16
-        ).to(device)
-
-        self.upscaler_pipeline.enable_model_cpu_offload()
-        self.upscaler_pipeline.enable_xformers_memory_efficient_attention()
-        self.upscaler_pipeline.set_progress_bar_config(disable=True)
-
         controlnet = ControlNetModel.from_pretrained(diffusion_model_id, torch_dtype=torch.float16)
         self.diffusion_model_pipeline = StableDiffusionControlNetPipeline.from_pretrained(
             pipeline_model_id, controlnet=controlnet, torch_dtype=torch.float16, safety_checker=None,
             requires_safety_checker=False
         ).to(device)
 
-        self.diffusion_model_pipeline.scheduler = UniPCMultistepScheduler.from_config(
+        self.diffusion_model_pipeline.scheduler = DDIMScheduler.from_config(
             self.diffusion_model_pipeline.scheduler.config
         )
         self.diffusion_model_pipeline.enable_model_cpu_offload()
@@ -92,11 +82,12 @@ class GenerativeAugmentation(Augmentation):
         upscaled_image = self.upscale_image(image_array)
         edge_image = self.edge_detection(upscaled_image)
         diffusion_image = self.generate_diffusion_image(
-            edge_image, image_class=""
-        )  #TODO: Insert the class name as prompt here
+            edge_image, image_class=class_name
+        )
         downscaled_diffusion_image = self.downscale_image(diffusion_image)
         if True:  #TODO: Delete this if not needed anymore
             image_array.save("/home/workstation/Schreibtisch/test_normal.png")
+            upscaled_image.save("/home/workstation/Schreibtisch/test_upsclaed_normal.png")
             edge_image.save("/home/workstation/Schreibtisch/test_edges.png")
             diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion.png")
             downscaled_diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion_downscaled.png")
@@ -107,19 +98,19 @@ class GenerativeAugmentation(Augmentation):
         return diffusion_array
 
     def upscale_image(self, image_array):
-        return self.upscaler_pipeline(prompt="", image=image_array).images[0]
+        return image_array.resize((512, 512))
 
     def downscale_image(self, image):
         return image.resize((128, 128))
 
     def edge_detection(self, image):
-        image = np.array(image)
+        image = np.array(image) #512x512x3
         low_threshold = 100
         high_threshold = 200
 
-        canny_image = cv2.Canny(image, low_threshold, high_threshold)
-        canny_image = canny_image[:, :, None]
-        canny_image = np.concatenate([canny_image, canny_image, canny_image], axis=2)
+        canny_image = cv2.Canny(image, low_threshold, high_threshold) #512x512
+        canny_image = canny_image[:, :, None] #512x512x1
+        canny_image = np.concatenate([canny_image, canny_image, canny_image], axis=2) #512x512x3
         canny_image = Image.fromarray(canny_image)
 
         return canny_image
