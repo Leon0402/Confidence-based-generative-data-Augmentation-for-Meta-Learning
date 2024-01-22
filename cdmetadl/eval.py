@@ -119,7 +119,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
             # TODO: Report / Save number of total shots, Change if paths
 
-            augmented_set, _ = augmentor.augment(support_set, conf_scores=confidence_scores)
+            augmented_set = augmentor.augment(support_set, conf_scores=confidence_scores)
             predictor = learner.fit(augmented_set)
         else:
             predictor = learner.fit(task.support_set)
