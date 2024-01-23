@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 import cdmetadl.dataset
+from tqdm import tqdm
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler
 from cdmetadl.annotator.uniformer import UniformerDetector
 from cdmetadl.annotator.mlsd import MLSDdetector
@@ -124,7 +125,7 @@ class GenerativeAugmentation(Augmentation):
         self.diffusion_model_pipeline.set_progress_bar_config(disable=True)
         diffusers.utils.logging.set_verbosity(40)
 
-        #TODO: Define a usefull 
+        #TODO: Define a useful prompt
         self.style_prompt = ["16th century, colourfull",
                              "brightness, daylight",
                              "4k, cinematic, detailled"]
@@ -157,8 +158,10 @@ class GenerativeAugmentation(Augmentation):
         random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
 
         diffusion_images = torch.stack([
-            self.generate_image(support_set.images_by_class[cls][idx]) for idx in random_indices
-        ]).float()
+            self.generate_image(support_set.images_by_class[cls][idx]) for idx in tqdm(random_indices, 
+                                                                                       leave=False,
+                                                                                       desc=f"Generated Images of class {cls}")]).float()
+        
         diffusion_labels = torch.full(size=(number_of_shots, ), fill_value=cls)
 
         return diffusion_images, diffusion_labels

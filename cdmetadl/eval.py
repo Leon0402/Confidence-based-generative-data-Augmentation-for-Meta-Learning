@@ -84,8 +84,8 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     confidence_estimator = cdmetadl.confidence.ConstantConfidenceProvider(confidence=1)
-    confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
     confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20)
+    confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
 
     augmentor: cdmetadl.augmentation.Augmentation = None
     augmentor = cdmetadl.augmentation.PseudoAugmentation(threshold=0.75, scale=2, keep_original_data=True)

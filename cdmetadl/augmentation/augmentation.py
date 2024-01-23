@@ -6,7 +6,7 @@ from typing import Any
 
 import torch
 import numpy as np
-
+from tqdm import tqdm
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 
@@ -38,7 +38,7 @@ class Augmentation(metaclass=abc.ABCMeta):
         extended_data = []
         extended_labels = []
         shots_per_class = []
-        for cls, score in enumerate(conf_scores):
+        for cls, score in tqdm(enumerate(conf_scores), total=len(conf_scores), desc=f"Augmenting class", unit=""):
             shots_per_class.append(0)
 
             if self.keep_original_data:
