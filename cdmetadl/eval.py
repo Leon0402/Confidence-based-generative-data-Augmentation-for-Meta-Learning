@@ -107,15 +107,15 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             # TODO: Should be part of the confidence estimator ?!
             confidence_predictor = learner.fit(support_set)
 
-            confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
-            confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
-            print("Confidence Score PseudoConfidence")
-            print(confidence_scores)
+            #confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
+            #confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
+            #print("Confidence Score PseudoConfidence")
+            #print(confidence_scores)
 
-            # confidence_estimator = cdmetadl.confidence_estimator.MCDropoutConfidenceEstimation(num_samples=20)
-            # confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
-            # print("Confidence Score MC Dropout")
-            # print(confidence_scores)
+            confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20, dropout_probability=0.98)
+            confidence_scores = confidence_estimator.estimate(confidence_predictor, support_set)
+            print("Confidence Score MC Dropout")
+            print(confidence_scores)
 
             # TODO: Report / Save number of total shots, Change if paths
 
