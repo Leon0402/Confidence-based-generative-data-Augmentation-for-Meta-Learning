@@ -52,7 +52,8 @@ class GenerativeAugmentation(Augmentation):
 
         diffusers.utils.logging.set_verbosity(40)
 
-    def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
+    def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
+                           conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, None]:
         """
         Abstract method to initialize augmentation-specific parameters.
 
@@ -60,7 +61,7 @@ class GenerativeAugmentation(Augmentation):
         :param conf_scores: Confidence scores for each class.
         :return: Specific initialization arguments for augmentation.
         """
-        return None
+        return support_set, None
 
     def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
                        init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
@@ -95,11 +96,11 @@ class GenerativeAugmentation(Augmentation):
             edge_image, image_class=""
         )  #TODO: Insert the class name as prompt here
         downscaled_diffusion_image = self.downscale_image(diffusion_image)
-        if True:  #TODO: Delete this if not needed anymore
-            image_array.save("/home/workstation/Schreibtisch/test_normal.png")
-            edge_image.save("/home/workstation/Schreibtisch/test_edges.png")
-            diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion.png")
-            downscaled_diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion_downscaled.png")
+        # if True:  #TODO: Delete this if not needed anymore
+        #     image_array.save("/home/workstation/Schreibtisch/test_normal.png")
+        #     edge_image.save("/home/workstation/Schreibtisch/test_edges.png")
+        #     diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion.png")
+        #     downscaled_diffusion_image.save("/home/workstation/Schreibtisch/test_diffusion_downscaled.png")
 
         diffusion_array = np.array(downscaled_diffusion_image) / 255
         diffusion_array = torch.tensor(np.transpose(diffusion_array, (2, 0, 1)))

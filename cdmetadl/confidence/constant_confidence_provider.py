@@ -1,4 +1,4 @@
-__all__ = ["ConfidenceEstimator"]
+__all__ = ["ConstantConfidenceProvider"]
 
 import abc
 
@@ -6,7 +6,13 @@ import cdmetadl.dataset
 import cdmetadl.api
 
 
-class ConfidenceEstimator(metaclass=abc.ABCMeta):
+class ConstantConfidenceProvider():
+    """
+    TODO: Description
+    """
+
+    def __init__(self, confidence: float):
+        self.confidence = confidence
 
     @abc.abstractmethod
     def estimate(self, learner: cdmetadl.api.Learner,
@@ -21,4 +27,4 @@ class ConfidenceEstimator(metaclass=abc.ABCMeta):
         Returns:
             A tuple consisting of a dataset which can be used for finetuning the model and a list of confidence scores.
         """
-        pass
+        return data_set, [self.confidence] * data_set.number_of_ways

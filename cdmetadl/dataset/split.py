@@ -53,7 +53,7 @@ def random_class_split(meta_dataset: MetaImageDataset, lengths: list[float],
     return [MetaImageDataset(datasets) for datasets in filtered_datasets_by_split.values()]
 
 
-def set_split(data_set: SetData, number_of_splits: int) -> SetData:
+def set_split(data_set: SetData, number_of_splits: int) -> list[SetData]:
     if number_of_splits > data_set.number_of_shots:
         raise ValueError(
             f"Number of splits {number_of_splits} cannot be greater than number of shots {data_set.number_of_shots}"
@@ -69,10 +69,8 @@ def set_split(data_set: SetData, number_of_splits: int) -> SetData:
 
     return [
         SetData(
-            images=images_split.swapaxes(0, 1).flatten(end_dim=1),
-            labels=labels_split.swapaxes(0, 1).flatten(end_dim=1),
-            number_of_ways=data_set.number_of_ways,
-            number_of_shots=len(labels_split),
-            class_names=data_set.class_names
+            images=images_split.swapaxes(0, 1).flatten(end_dim=1), labels=labels_split.swapaxes(0,
+                                                                                                1).flatten(end_dim=1),
+            number_of_ways=data_set.number_of_ways, number_of_shots=len(labels_split), class_names=data_set.class_names
         ) for images_split, labels_split in zip(torch.split(images, split_sizes), torch.split(labels, split_sizes))
     ]
