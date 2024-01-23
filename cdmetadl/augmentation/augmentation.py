@@ -38,7 +38,7 @@ class Augmentation(metaclass=abc.ABCMeta):
         extended_data = []
         extended_labels = []
         shots_per_class = []
-        for cls, score in tqdm(enumerate(conf_scores), total=len(conf_scores), desc=f"Augmenting class", unit=""):
+        for cls, score in tqdm(enumerate(conf_scores), total=len(conf_scores), leave=False, desc=f"Augmenting class", unit=""):
             shots_per_class.append(0)
 
             if self.keep_original_data:
