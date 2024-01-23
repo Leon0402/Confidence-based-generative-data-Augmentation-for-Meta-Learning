@@ -84,3 +84,8 @@
 /output/full/training/maml/within-domain/PRT/tensorboard/valid/events.out.tfevents.1705137445.lab05.873552.1 filter=lfs diff=lfs merge=lfs -text
 /cdmetadl/controlnet/initial_augmentation_tests.ipynb filter=lfs diff=lfs merge=lfs -text
 /cdmetadl/notebooks/augmentation.ipynb filter=lfs diff=lfs merge=lfs -text
+/cdmetadl/notebooks/confidence_estimation.ipynb filter=lfs diff=lfs merge=lfs -text
+/cdmetadl/notebooks/diffusion_augmentation[[:space:]]BCT.ipynb filter=lfs diff=lfs merge=lfs -text
+/cdmetadl/notebooks/diffusion_augmentation[[:space:]]CRS.ipynb filter=lfs diff=lfs merge=lfs -text
+/cdmetadl/notebooks/diffusion_augmentation[[:space:]]DOG.ipynb filter=lfs diff=lfs merge=lfs -text
+/cdmetadl/notebooks/diffusion_augmentation_APL.ipynb filter=lfs diff=lfs merge=lfs -text
