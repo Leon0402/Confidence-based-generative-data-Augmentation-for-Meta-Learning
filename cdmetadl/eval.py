@@ -90,7 +90,8 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     augmentor: cdmetadl.augmentation.Augmentation = None
     augmentor = cdmetadl.augmentation.PseudoAugmentation(threshold=0.75, scale=2, keep_original_data=True)
     augmentor = cdmetadl.augmentation.StandardAugmentation(threshold=0.75, scale=2, keep_original_data=True)
-    augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+    augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True,
+                                                             annotator_type="canny", safe_images=True)
 
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
