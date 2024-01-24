@@ -83,14 +83,15 @@ def prepare_data_generators(args: argparse.Namespace) -> cdmetadl.dataset.TaskGe
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
-    if False:  #TODO: Move augmentation set outside of PseudoAug init
-        augmentor = cdmetadl.augmentation.PseudoAug(
-            augmentation_set=augmentation_set, threshold=0.75, scale=2, keep_original_data=True
-        )
-    elif True:  #TODO: Check augmentation output (seems wrong at first sight)
-        augmentor = cdmetadl.augmentation.StandardAugmentation(threshold=0.75, scale=2, keep_original_data=True)
-    elif False:
-        augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+    confidence_estimator = cdmetadl.confidence.ConstantConfidenceProvider(confidence=1)
+    confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20)
+    confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
+
+    augmentor: cdmetadl.augmentation.Augmentation = None
+    augmentor = cdmetadl.augmentation.PseudoAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+    augmentor = cdmetadl.augmentation.StandardAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+    augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True,
+                                                             annotator_type="canny", safe_images=True)
 
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
@@ -119,15 +120,13 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
             # TODO: Report / Save number of total shots, Change if paths
 
-            augmented_set = augmentor.augment(support_set, conf_scores=confidence_scores)
-            predictor = learner.fit(augmented_set)
-        else:
-            predictor = learner.fit(task.support_set)
+        predictor = learner.fit(task.support_set)
 
         predictions.append({
             "Dataset": task.dataset_name,
             "Number of Ways": task.number_of_ways,
-            "Number of Shots": task.support_set.min_number_of_shots,  # TODO: Save all number of shots rather than min?
+            # TODO: Save all number of shots rather than min?
+            "Number of Shots": task.support_set.min_number_of_shots,
             "Predictions": predictor.predict(task.query_set.images),
             "Ground Truth": task.query_set.labels.numpy(),
         })

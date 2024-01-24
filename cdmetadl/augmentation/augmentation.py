@@ -2,10 +2,11 @@ __all__ = ["Augmentation"]
 
 import abc
 import math
+from typing import Any
 
 import torch
 import numpy as np
-
+from tqdm import tqdm
 import cdmetadl.dataset
 import cdmetadl.helpers.general_helpers
 
@@ -32,12 +33,12 @@ class Augmentation(metaclass=abc.ABCMeta):
         :param conf_scores: List of confidence scores corresponding to each class.
         :return: The augmented dataset.
         """
-        init_args = self._init_augmentation(support_set, conf_scores)
+        support_set, init_args = self._init_augmentation(support_set, conf_scores)
 
         extended_data = []
         extended_labels = []
         shots_per_class = []
-        for cls, score in enumerate(conf_scores):
+        for cls, score in tqdm(enumerate(conf_scores), total=len(conf_scores), leave=False, desc=f"Augmenting class", unit=""):
             shots_per_class.append(0)
 
             if self.keep_original_data:
@@ -62,7 +63,8 @@ class Augmentation(metaclass=abc.ABCMeta):
         )
 
     @abc.abstractmethod
-    def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
+    def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
+                           conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, Any]:
         """
         Abstract method to initialize augmentation-specific parameters.
 

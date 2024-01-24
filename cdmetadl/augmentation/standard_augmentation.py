@@ -39,8 +39,9 @@ class StandardAugmentation(Augmentation):
             torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         ])
 
-    def _init_augmentation(self, support_set: cdmetadl.dataset.SetData, conf_scores: list[float]) -> tuple:
-        return None
+    def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
+                           conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, None]:
+        return support_set, None
 
     def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
                        init_args: list) -> tuple[torch.Tensor, torch.Tensor]:

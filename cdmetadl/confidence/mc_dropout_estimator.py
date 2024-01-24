@@ -9,14 +9,17 @@ from .confidence_estimator import ConfidenceEstimator
 
 
 class MCDropoutConfidenceEstimator(ConfidenceEstimator):
+    """
+    TODO General Description + class members
+    """
 
     def __init__(self, num_samples: int = 100, dropout_probability: float = None):
         """
         Initialize the MCDropoutConfidenceEstimation class.
 
         Args:
-        num_samples (int): Number of samples to draw for each prediction to estimate uncertainty.
-        dropout_probability (float): Probability used in dropout layers of model.
+            num_samples (int): Number of samples to draw for each prediction to estimate uncertainty.
+            dropout_probability (float): Probability used in dropout layers of model.
         """
         self.num_samples = num_samples
         self.dropout_probability = dropout_probability
@@ -35,8 +38,10 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
         x_main: (int) Hyperparameter that determines the cut off for the squashing of the confidence score. 
 
         Returns:
-        A list of confidence scores for each class.
+            A tuple consisting of a dataset which can be used for finetuning the model and a list of confidence scores.
         """
+        predictor = learner.fit(data_set)
+
         for m in predictor.model.modules():
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
