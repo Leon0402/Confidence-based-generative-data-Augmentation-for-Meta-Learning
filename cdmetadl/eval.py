@@ -112,8 +112,8 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             #print("Confidence Score PseudoConfidence")
             #print(confidence_scores)
 
-            confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20, dropout_probability=0.98)
-            confidence_scores = confidence_estimator.estimate(confidence_predictor, support_set)
+            confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20, dropout_probability=0.5)
+            confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set, x_max=0.05, x_min=0.01)
             print("Confidence Score MC Dropout")
             print(confidence_scores)
 
