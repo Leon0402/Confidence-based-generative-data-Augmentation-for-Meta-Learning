@@ -37,7 +37,7 @@ Run the code with:
 
 ```bash
 python -m cdmetadl.train \
-    --config_path="configs/train.yml" \
+    --config_path="configs/train/experiment.yml" \
     --model_dir=baselines/finetuning \
     --domain_type="cross-domain" \
     --overwrite_previous_results \

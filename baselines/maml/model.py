@@ -95,7 +95,7 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
             "dev": self.dev,
             "num_blocks": 18,
             "pretrained": False,
-            "dropout_prob": 0.25
+            "dropout_prob": config.dropout_probability
         }
 
         # Meta-learner

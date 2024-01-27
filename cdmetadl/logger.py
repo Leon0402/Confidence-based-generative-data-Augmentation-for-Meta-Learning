@@ -290,11 +290,12 @@ class Logger():
             N = None
             ground_truth = data[1].cpu().numpy()
 
-        if meta_train:
-            # Save ground truth and predicted values
-            np.savetxt(f"{ground_truth_path}/{curr_iter}", ground_truth, fmt="%d")
-            fmt = "%f" if len(predictions.shape) == 2 else "%d"
-            np.savetxt(f"{predictions_path}/{curr_iter}", predictions, fmt=fmt)
+        # Disabled to avoid extensive storage usage during logging
+        #if meta_train:
+        #    # Save ground truth and predicted values
+        #    np.savetxt(f"{ground_truth_path}/{curr_iter}", ground_truth, fmt="%d")
+        #    fmt = "%f" if len(predictions.shape) == 2 else "%d"
+        #    np.savetxt(f"{predictions_path}/{curr_iter}", predictions, fmt=fmt)
 
         # Compute and save performance
         scores = cdmetadl.helpers.scoring_helpers.compute_all_scores(ground_truth, predictions, N, not is_task)

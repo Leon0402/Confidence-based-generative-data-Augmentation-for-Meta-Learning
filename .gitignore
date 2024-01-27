@@ -25,4 +25,6 @@ output/tmp
 *.pth
 *.pt
 
+valid
+
 
