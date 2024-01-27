@@ -84,13 +84,14 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
 
     confidence_estimator = cdmetadl.confidence.ConstantConfidenceProvider(confidence=1)
-    confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
     confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20)
+    confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
 
     augmentor: cdmetadl.augmentation.Augmentation = None
     augmentor = cdmetadl.augmentation.PseudoAugmentation(threshold=0.75, scale=2, keep_original_data=True)
     augmentor = cdmetadl.augmentation.StandardAugmentation(threshold=0.75, scale=2, keep_original_data=True)
-    augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True)
+    augmentor = cdmetadl.augmentation.GenerativeAugmentation(threshold=0.75, scale=2, keep_original_data=True,
+                                                             annotator_type="canny", safe_images=True)
 
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * args.test_tasks_per_dataset
@@ -99,10 +100,25 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         learner: cdmetadl.api.Learner = model_module.MyLearner()
         learner.load(args.training_output_dir / "model")
 
-        task.support_set, confidence_scores = confidence_estimator.estimate(learner, task.support_set)
+        if True:  # TODO: Change back
+            support_set, confidence_reference_set, augmentation_set = cdmetadl.dataset.set_split(
+                task.support_set, number_of_splits=3
+            )
 
-        if augmentor is not None:
-            task.support_set = augmentor.augment(task.support_set, conf_scores=confidence_scores)
+            # TODO: Should be part of the confidence estimator ?!
+            confidence_predictor = learner.fit(support_set)
+
+            #confidence_estimator = cdmetadl.confidence.PseudoConfidenceEstimator()
+            #confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set)
+            #print("Confidence Score PseudoConfidence")
+            #print(confidence_scores)
+
+            confidence_estimator = cdmetadl.confidence.MCDropoutConfidenceEstimator(num_samples=20, dropout_probability=0.5)
+            confidence_scores = confidence_estimator.estimate(confidence_predictor, confidence_reference_set, x_max=0.05, x_min=0.01)
+            print("Confidence Score MC Dropout")
+            print(confidence_scores)
+
+            # TODO: Report / Save number of total shots, Change if paths
 
         predictor = learner.fit(task.support_set)
 

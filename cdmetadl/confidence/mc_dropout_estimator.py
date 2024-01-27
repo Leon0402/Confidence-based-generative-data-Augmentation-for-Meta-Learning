@@ -24,14 +24,18 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
         self.num_samples = num_samples
         self.dropout_probability = dropout_probability
 
-    def estimate(self, learner: cdmetadl.api.Learner,
-                 data_set: cdmetadl.dataset.SetData) -> tuple[cdmetadl.dataset.SetData, list[float]]:
+    def estimate(self, predictor: cdmetadl.api.Predictor, reference_set: cdmetadl.dataset.SetData, x_max: int, x_min: int) -> list[float]:
         """
-        Generates a confidence score for each class in the given data set.
+        Estimate the confidence of predictions using Monte Carlo Dropout.
+        It does num_samples time dropout passes over the query set, computes for every prediction, the mean error over these passes. 
+        It then averages this across the predictions for every class, then normalizes and squashes this result into the [0, 1] interval with 
+        the predefined and configurable min/max parameters. 
 
         Args:
-            learner (cdmetadl.api.Learner): Learner for finetuning and confidence estimation.
-            data_set (cdmetadl.dataset.SetData): Data which can be used for finetuning the learner and estimating the confidence.
+        predictor (cdmetadl.api.Predictor): The predictor object with dropout enabled.
+        reference_set (cdmetadl.dataset.SetData): The dataset for which to estimate confidence.
+        x_max: (int) Hyperparameter that determines the cut off for the squashing of the confidence score. 
+        x_main: (int) Hyperparameter that determines the cut off for the squashing of the confidence score. 
 
         Returns:
             A tuple consisting of a dataset which can be used for finetuning the model and a list of confidence scores.
@@ -44,9 +48,11 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
                 if self.dropout_probability is not None:
                     m.p = self.dropout_probability
 
-        class_predictions = np.array([predictor.predict(data_set.images) for _ in range(self.num_samples)])
-        uncertainty_estimates = np.std(class_predictions, axis=0)
+        class_predictions = np.array([predictor.predict(reference_set.images) for _ in range(self.num_samples)])
+        mean_predictions = np.mean(class_predictions, axis=0)
+        abs_error = np.mean([np.abs(prediction - mean_predictions) for prediction in class_predictions], axis=0)
+        
 
-        # TODO: We measure uncertainty here, but we really want to estimate confidence (=>  confidence = 1 - uncertainty?)
-        # TODO: Uncertainty values are close to each others, how can they be interpreted? How can they be converted to confidence values?
-        return data_set, np.mean(uncertainty_estimates, axis=0)
+        uncertainty_scores = np.mean(abs_error, axis=0)
+        us = [1- (np.maximum(np.minimum(score, x_max), x_min) - x_min)/(x_max - x_min) for score in uncertainty_scores]
+        return us
