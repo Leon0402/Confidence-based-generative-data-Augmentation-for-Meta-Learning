@@ -1,19 +1,16 @@
 __all__ = ["GenerativeAugmentation", "Annotator"]
 
-from pathlib import Path
-import random
-
 import torch
+from pathlib import Path
 import numpy as np
 from PIL import Image
+import cdmetadl.dataset
 from tqdm import tqdm
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler
 import diffusers
-from controlnet_aux import ContentShuffleDetector, HEDdetector, MidasDetector, MLSDdetector, CannyDetector, SamDetector
-
-import cdmetadl.dataset
-
 from .augmentation import Augmentation
+import random
+from controlnet_aux import ContentShuffleDetector, HEDdetector, NormalBaeDetector, MLSDdetector, CannyDetector, SamDetector
 
 
 def set_random_seeds(seed=42, use_cuda=True):
@@ -23,13 +20,11 @@ def set_random_seeds(seed=42, use_cuda=True):
     np.random.seed(seed)
     random.seed(seed)
 
-
 class Annotator:
 
-    def __init__(
-        self, annotator_type: str = "canny", mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
-        canny_low_threshold: int = 100, canny_high_threshold: int = 200
-    ) -> None:
+    def __init__(self, annotator_type: str = "canny", mlsd_value_threshold: float = 0.1,
+                 mlsd_distance_threshold: float = 0.1, canny_low_threshold: int = 100,
+                 canny_high_threshold: int = 200) -> None:
         """
         Defines the annotator and the diffusion model that is used for the edge detection.
 
@@ -40,7 +35,7 @@ class Annotator:
                                 - "segmentation" for segmentation using UniformerDetector.
                                 - "hed" for edge detection using HEDdetector.
                                 - "mlsd" for Multi-Scale Line Segment Detector (MLSD).
-                                - "midas" for depth estimation using MidasDetector.
+                                - "normalbae" for depth estimation using NormalBaeDetector.
             mlsd_value_threshold (float): Threshold value for MLSD (Multi-Scale Line Segment Detector).
             mlsd_distance_threshold (float): Threshold value for MLSD determining distance in the augmentation process.
             canny_low_threshold (int): Lower threshold for Canny edge detector.
@@ -49,33 +44,30 @@ class Annotator:
             None
         """
         self.annotator_type = annotator_type
-        self.model_dict = {
-            "canny": ("lllyasviel/control_v11p_sd15_canny", CannyDetector),
-            "segmentation": ("lllyasviel/control_v11p_sd15_seg", SamDetector),
-            "hed": ("lllyasviel/control_v11p_sd15_softedge", HEDdetector),
-            "mlsd": ("lllyasviel/control_v11p_sd15_mlsd", MLSDdetector),
-            "midas": ("lllyasviel/control_v11p_sd15_normalbae", MidasDetector),
-            "shuffle": ("lllyasviel/control_v11e_sd15_shuffle", ContentShuffleDetector)
-        }
-
+        self.model_dict = {"canny": ("lllyasviel/control_v11p_sd15_canny", CannyDetector),
+                           "segmentation": ("lllyasviel/control_v11p_sd15_seg", SamDetector),
+                           "hed": ("lllyasviel/control_v11p_sd15_softedge", HEDdetector),
+                           "mlsd": ("lllyasviel/control_v11p_sd15_mlsd", MLSDdetector),
+                           "normalbae": ("lllyasviel/control_v11p_sd15_normalbae", NormalBaeDetector),
+                           "shuffle": ("lllyasviel/control_v11e_sd15_shuffle", ContentShuffleDetector)
+                           }
+        
         self.mlsd_value_threshold = mlsd_value_threshold
         self.mlsd_distance_threshold = mlsd_distance_threshold
         self.canny_low_threshold = canny_low_threshold
         self.canny_high_threshold = canny_high_threshold
-
+        
         if not self.annotator_type in self.model_dict.keys():
-            raise ValueError(
-                f'The annotator "{annotator_type}" is unknown. Please choose one of the following options: {", ".join(self.model_dict.keys())}'
-            )
-
+            raise ValueError(f'The annotator "{annotator_type}" is unknown. Please choose one of the following options: {", ".join(self.model_dict.keys())}')
+        
         self.diffusion_model_id, annotator = self.model_dict[annotator_type]
         if annotator_type == "segmentation":
             self.annotator = annotator.from_pretrained("ybelkada/segment-anything", subfolder="checkpoints")
-        elif annotator_type == "canny":
+        elif annotator_type in ("canny", "shuffle"):
             self.annotator = annotator()
-        else:
+        else: 
             self.annotator = annotator.from_pretrained("lllyasviel/Annotators")
-
+    
     def annotate(self, image: Image.Image) -> Image.Image:
         """
         Annotates an images by using the annotator pipeline that is specified.
@@ -91,19 +83,23 @@ class Annotator:
             if self.annotator_type == "mlsd":
                 detected_map = self.annotator(image, self.mlsd_value_threshold, self.mlsd_distance_threshold)
             elif self.annotator_type == "canny":
-                detected_map = self.annotator(image, self.canny_low_threshold, self.canny_high_threshold)
-            else:
+                detected_map = self.annotator(image, self.canny_low_threshold , self.canny_high_threshold)
+            elif self.annotator_type == "shuffle":
                 detected_map = self.annotator(image)
-
+            else:
+                detected_map =  self.annotator(image)
+                
             return Image.fromarray(np.array(detected_map))
 
 
 class GenerativeAugmentation(Augmentation):
 
     def __init__(
-        self, threshold: float, scale: int, keep_original_data: bool, annotator_type: str = "canny",
-        device: str = "cuda", cache_images: bool = False, mlsd_value_threshold: float = 0.1,
-        mlsd_distance_threshold: float = 0.1, canny_low_threshold: int = 100, canny_high_threshold: int = 200
+        self, threshold: float, scale: int, keep_original_data: bool,
+        annotator_type: str = "canny", device: str = "cuda", cache_images: bool = False,
+        mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
+        canny_low_threshold: int = 100, canny_high_threshold: int = 200
+        
     ) -> None:
         """
         Initializes the StandardAugmentation class with specified threshold, scale, and keep_original_data flags,
@@ -129,21 +125,17 @@ class GenerativeAugmentation(Augmentation):
         Returns:
             None
         """
-        generator = torch.Generator(device=device).manual_seed(42)
-
         super().__init__(threshold, scale, keep_original_data)
-        self.annotator = Annotator(
-            annotator_type=annotator_type, mlsd_value_threshold=mlsd_value_threshold,
-            mlsd_distance_threshold=mlsd_distance_threshold, canny_low_threshold=canny_low_threshold,
-            canny_high_threshold=canny_high_threshold
-        )
-        controlnet = ControlNetModel.from_pretrained(
-            self.annotator.diffusion_model_id, torch_dtype=torch.float16, generator=generator
-        )
+        generator = torch.Generator(device=device).manual_seed(42)
+    
+        self.annotator = Annotator(annotator_type=annotator_type, mlsd_value_threshold=mlsd_value_threshold, 
+                                   mlsd_distance_threshold=mlsd_distance_threshold, canny_low_threshold=canny_low_threshold,
+                                   canny_high_threshold=canny_high_threshold)
+
+        controlnet = ControlNetModel.from_pretrained(self.annotator.diffusion_model_id, torch_dtype=torch.float16, generator=generator)
         self.diffusion_model_pipeline = StableDiffusionControlNetPipeline.from_pretrained(
             "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16, safety_checker=None,
-            requires_safety_checker=False
-        ).to(device)
+            requires_safety_checker=False).to(device)
 
         self.diffusion_model_pipeline.scheduler = DDIMScheduler.from_config(
             self.diffusion_model_pipeline.scheduler.config, generator=generator
@@ -152,24 +144,46 @@ class GenerativeAugmentation(Augmentation):
         self.diffusion_model_pipeline.enable_xformers_memory_efficient_attention()
         self.diffusion_model_pipeline.set_progress_bar_config(disable=True)
         diffusers.utils.logging.set_verbosity(40)
-
+        
         # These prompts provide a brief guide using keywords for the desired artistic direction.
-        self.style_prompts = [
-            "Serenity, Calm, Soft", "Energetic, Dynamic, Movement", "Abstract, Intriguing",
-            "Dreamy, Ethereal, Soft Tones", "Bold, Striking, High Contrast", "Harmonious, Balanced",
-            "Mystery, Intrigue", "Vibrant, Lively, Colorful", "Minimalist, Clean", "Chaotic, Frenetic",
-            "Sophisticated, Elegant", "Nostalgic, Vintage", "Futuristic, Avant-Garde", "Dreamlike, Fantastical",
-            "Calming, Peaceful", "Playful, Whimsical", "Timeless, Classic Beauty", "Engaging, Attention-Grabbing",
-            "Mysterious, Atmospheric", "Wonder, Curiosity", "Impactful, Memorable", "Surreal Landscape",
-            "Nostalgia, Sentimentality", "Freedom, Openness", "Stimulating, Thought-Provoking",
-            "Tranquil, Introspective", "Movement, Flow", "Vibrant, Color Focus", "Modern, Contemporary",
-            "Unity, Connection"
-        ]
+        self.style_prompts = ["Serenity, Calm, Soft",
+                                "Energetic, Dynamic, Movement",
+                                "Abstract, Intriguing",
+                                "Dreamy, Ethereal, Soft Tones",
+                                "Bold, Striking, High Contrast",
+                                "Harmonious, Balanced",
+                                "Mystery, Intrigue",
+                                "Vibrant, Lively, Colorful",
+                                "Minimalist, Clean",
+                                "Chaotic, Frenetic",
+                                "Sophisticated, Elegant",
+                                "Nostalgic, Vintage",
+                                "Futuristic, Avant-Garde",
+                                "Dreamlike, Fantastical",
+                                "Calming, Peaceful",
+                                "Playful, Whimsical",
+                                "Timeless, Classic Beauty",
+                                "Engaging, Attention-Grabbing",
+                                "Mysterious, Atmospheric",
+                                "Wonder, Curiosity",
+                                "Impactful, Memorable",
+                                "Surreal Landscape",
+                                "Nostalgia, Sentimentality",
+                                "Freedom, Openness",
+                                "Stimulating, Thought-Provoking",
+                                "Tranquil, Introspective",
+                                "Movement, Flow",
+                                "Vibrant, Color Focus",
+                                "Modern, Contemporary",
+                                "Unity, Connection"
+                            ]
 
         self.cache_images = cache_images
         if self.cache_images:
             self.generated_images = []
         set_random_seeds(seed=42, use_cuda=True)
+
+
 
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
                            conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, None]:
@@ -197,10 +211,10 @@ class GenerativeAugmentation(Augmentation):
         random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
 
         diffusion_images = torch.stack([
-            self.generate_image(support_set.images_by_class[cls][idx])
-            for idx in tqdm(random_indices, leave=False, desc=f"Generated Images of class {cls}")
-        ]).float()
-
+            self.generate_image(support_set.images_by_class[cls][idx]) for idx in tqdm(random_indices, 
+                                                                                       leave=False,
+                                                                                       desc=f"Generated Images of class {cls}")]).float()
+        
         diffusion_labels = torch.full(size=(number_of_shots, ), fill_value=cls)
 
         return diffusion_images, diffusion_labels
@@ -231,11 +245,9 @@ class GenerativeAugmentation(Augmentation):
             edge_image.save(home_dir / "test_edges.png")
             diffusion_image.save(home_dir / "test_diffusion.png")
 
-            self.generated_images.append({
-                "original_image": image_array.resize((512, 512)),
-                "edge_map": edge_image.resize((512, 512)),
-                "generated_image": diffusion_image.resize((512, 512))
-            })
+            self.generated_images.append({"original_image": image_array.resize((512, 512)),
+                                          "feature_map": edge_image.resize((512, 512)),
+                                          "generated_image": diffusion_image.resize((512, 512))})
 
         return diffusion_array
 
@@ -254,6 +266,6 @@ class GenerativeAugmentation(Augmentation):
 
         # Run image generation
         return self.diffusion_model_pipeline(
-            prompt=POSITIVE_PROMPT, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512,
-            num_images_per_prompt=1, num_inference_steps=50
+            prompt=POSITIVE_PROMPT, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512, num_images_per_prompt=1,
+            num_inference_steps=50
         )[0][0]
