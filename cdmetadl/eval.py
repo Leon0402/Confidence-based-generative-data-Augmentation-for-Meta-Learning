@@ -38,7 +38,7 @@ def define_argparser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--overwrite_previous_results', action=argparse.BooleanOptionalAction, default=False,
-        help='Overwrites the previous output directory instead of renaming it. Default: False.'
+        help='Overwrites the previous output directory instead of giving an error. Default: False.'
     )
     return parser
 
@@ -61,9 +61,13 @@ def prepare_directories(args: argparse.Namespace) -> None:
     cdmetadl.helpers.general_helpers.exist_dir(args.training_output_dir)
     cdmetadl.helpers.general_helpers.exist_dir(args.model_dir)
 
+    training_structure = args.training_output_dir.parts[args.training_output_dir.parts.index("training") + 1:]
+
+    args.output_dir /= f"train_cfg_{training_structure[0]}"  # Training config name
+    args.output_dir /= f"eval_cfg_{args.config_path.stem}"  # Evaluation config name
     args.output_dir /= pathlib.Path(
-        *args.training_output_dir.parts[args.training_output_dir.parts.index("training") + 1:]
-    )
+        *training_structure[1:]
+    )  # rest of folder structure like model name, evaluation mode, dataset, ...
     if args.output_dir.exists() and args.overwrite_previous_results:
         shutil.rmtree(args.output_dir)
     elif args.output_dir.exists():
