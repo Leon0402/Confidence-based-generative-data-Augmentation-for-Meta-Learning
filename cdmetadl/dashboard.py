@@ -1,6 +1,8 @@
 import pathlib
 import argparse
+import time
 
+import plotly.graph_objects as go
 import dash
 import dash_mantine_components as dmc
 import pandas as pd
@@ -19,7 +21,7 @@ short_names = {"cross-domain": "CD", "within-domain": "WD", "domain-independent"
 def read_df(path: pathlib.Path) -> pd.DataFrame:
     df = pd.read_pickle(path)
     path_parts = path.relative_to(args.eval_output_path).parts
-    df.insert(0, 'Model', f"{path_parts[1]} ({short_names[path_parts[2]]})")
+    df.insert(0, 'Model', f"{path_parts[2]} ({short_names[path_parts[3]]})")
     return df
 
 
@@ -32,14 +34,6 @@ full_df = full_df[full_df['Dataset'].isin(keep_groups[keep_groups].index)]
 
 full_df = full_df[full_df['Dataset'].isin(keep_groups[keep_groups].index)]
 dfs = {model: full_df[full_df["Model"] == model] for model in full_df["Model"].unique()}
-
-
-def sort_metrics(selected_metrics):
-    return [metric for metric in all_metrics if metric in selected_metrics]
-
-
-def get_data(models):
-    return pd.concat([dfs[model_name] for model_name in models])
 
 
 def convert_df_to_dash(df):
@@ -58,6 +52,8 @@ def convert_df_to_dash(df):
 app = dash.Dash(__name__)
 
 app.layout = dmc.Container([
+    dash.dcc.Store(id='model-store', storage_type='memory'),
+    dash.dcc.Store(id='metric-store', storage_type='memory'),
     dmc.AppShell(
         navbar=dmc.Navbar(
             width={"base": 400}, fixed=True, p="md", children=[
@@ -145,12 +141,25 @@ app.layout = dmc.Container([
 ], fluid=True)
 
 
+@app.callback(dash.Output('model-store', 'data'), [dash.Input('model-selector', 'value')])
+def update_models(selected_models):
+    return pd.concat([dfs[model_name] for model_name in selected_models]).to_dict("records")
+
+
+@app.callback(dash.Output('metric-store', 'data'), [dash.Input('metric-selector', 'value')])
+def update_metrics(selected_metrics):
+    return [metric for metric in all_metrics if metric in selected_metrics]
+
+
+def sort_metrics(selected_metrics):
+    return [metric for metric in all_metrics if metric in selected_metrics]
+
+
 @app.callback([dash.Output('average_table', 'data'),
                dash.Output('average_table', 'style_data_conditional')],
-              [dash.Input('metric-selector', 'value'),
-               dash.Input('model-selector', 'value')])
-def average_table(metrics, models):
-    df = get_data(models)
+              [dash.Input('model-store', 'data'), dash.Input('metric-store', 'data')])
+def average_table(model_store_data, metrics):
+    df = pd.DataFrame(model_store_data)
 
     means = df.groupby('Model')[metrics].mean().round(decimals=3)
     std_devs = df.groupby('Model')[metrics].std().round(decimals=3)
@@ -170,19 +179,22 @@ def average_table(metrics, models):
 
 @app.callback(
     dash.Output('histogram-container', 'children'),
-    [dash.Input('metric-selector', 'value'),
-     dash.Input('model-selector', 'value')]
+    [dash.Input('model-store', 'data'), dash.Input('metric-store', 'data')]
 )
-def overall_frequence_histogram(metrics, models):
-    df = get_data(models)
+def overall_frequence_histogram(model_store_data, metrics):
+    df = pd.DataFrame(model_store_data)  #.groupby('Model')
+    # model_names = list(df.groups.keys())
+
     histogram_figures = []
-    for metric in sort_metrics(metrics):
-        hist_data = [group for _, group in df.groupby('Model')[metric]]
-        fig = ff.create_distplot(hist_data, models, bin_size=.05)
-        fig.update_layout(
-            title_text=f'Overall Frequency Histogram ({metric})', xaxis_title_text=f'Score ({metric})',
-            yaxis_title_text='Density'
-        )
+    for metric in metrics:
+        fig = px.histogram(df, x=metric, color="Model")
+
+        # hist_data = [group for _, group in df[metric]]
+        # fig = ff.create_distplot(hist_data, model_names, bin_size=.05)
+        # fig.update_layout(
+        #     title_text=f'Overall Frequency Histogram ({metric})', xaxis_title_text=f'Score ({metric})',
+        #     yaxis_title_text='Density'
+        # )
 
         histogram_figures.append(dash.dcc.Graph(figure=fig))
 
@@ -192,11 +204,11 @@ def overall_frequence_histogram(metrics, models):
 @app.callback([dash.Output('scores_per_dataset_table', 'columns'),
                dash.Output('scores_per_dataset_table', 'data')], [
                    dash.Input('feature-selector', 'value'),
-                   dash.Input('metric-selector', 'value'),
-                   dash.Input('model-selector', 'value')
+                   dash.Input('metric-store', 'data'),
+                   dash.Input('model-store', 'data')
                ])
-def scores_per_dataset(feature, metrics, models):
-    df = get_data(models)
+def scores_per_dataset(feature, metrics, model_store_data):
+    df = pd.DataFrame(model_store_data)
     averages = df.pivot_table(index=feature, columns='Model', values=metrics).reset_index().round(decimals=3)
     return convert_df_to_dash(averages)
 
@@ -204,12 +216,12 @@ def scores_per_dataset(feature, metrics, models):
 @app.callback(
     dash.Output('box-plot-container', 'children'), [
         dash.Input('feature-selector', 'value'),
-        dash.Input('metric-selector', 'value'),
-        dash.Input('model-selector', 'value')
+        dash.Input('metric-store', 'data'),
+        dash.Input('model-store', 'data'),
     ]
 )
-def box_plots(feature, metrics, models):
-    df = get_data(models)
+def box_plots(feature, metrics, model_store_data):
+    df = pd.DataFrame(model_store_data)
 
     return [
         dash.dcc.Graph(
@@ -217,7 +229,7 @@ def box_plots(feature, metrics, models):
                 df[["Model", feature, metric]], x=feature, y=metric, color="Model",
                 title=f"Box Plot of {metric} by Model and {feature}"
             )
-        ) for metric in sort_metrics(metrics)
+        ) for metric in metrics
     ]
 
 
