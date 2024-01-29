@@ -101,7 +101,7 @@ class Annotator:
 class GenerativeAugmentation(Augmentation):
 
     def __init__(
-        self, threshold: float, scale: int, keep_original_data: bool, annotator_type: str = "canny",
+        self, threshold: float, augmentation_size: dict, keep_original_data: bool, annotator_type: str = "canny",
         device: str = "cuda", cache_images: bool = False, mlsd_value_threshold: float = 0.1,
         mlsd_distance_threshold: float = 0.1, canny_low_threshold: int = 100, canny_high_threshold: int = 200
     ) -> None:
@@ -111,7 +111,7 @@ class GenerativeAugmentation(Augmentation):
 
         Args:
             threshold (float): A threshold value for deciding which classes to augment.
-            scale (int): A scale factor for deciding how many samples per classes should be created.
+            augmentation_size (dict): Uses for calculation how many shots should be augmented.
             keep_original_data (bool): A flag to determine whether original data should be included together with the augmented data.
             annotator_type (str): String that defines which type of annotator is being used. 
                                 Choose one of the following options:
@@ -131,7 +131,7 @@ class GenerativeAugmentation(Augmentation):
         """
         generator = torch.Generator(device=device).manual_seed(42)
 
-        super().__init__(threshold, scale, keep_original_data)
+        super().__init__(threshold, augmentation_size, keep_original_data)
         self.annotator = Annotator(
             annotator_type=annotator_type, mlsd_value_threshold=mlsd_value_threshold,
             mlsd_distance_threshold=mlsd_distance_threshold, canny_low_threshold=canny_low_threshold,

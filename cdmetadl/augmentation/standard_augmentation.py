@@ -20,17 +20,17 @@ class StandardAugmentation(Augmentation):
                                                     and color jitter) applied to the images.
     """
 
-    def __init__(self, threshold: float, scale: int, keep_original_data: bool):
+    def __init__(self, threshold: float, augmentation_size: dict, keep_original_data: bool):
         """
         Initializes the StandardAugmentation class with specified threshold, scale, and keep_original_data flags,
         along with a defined set of image transformations.
 
         Args:
             threshold (float): A threshold value for deciding which classes to augment.
-            scale (int): A scale factor for deciding how many samples per classes should be created.
+            augmentation_size (dict): Uses for calculation how many shots should be augmented.
             keep_original_data (bool): A flag to determine whether original data should be included together with the augmented data.
         """
-        super().__init__(threshold, scale, keep_original_data)
+        super().__init__(threshold, augmentation_size, keep_original_data)
 
         # TODO: Adjust transforms, make configurable perhaps
         self.transform = torchvision.transforms.Compose([

@@ -95,15 +95,15 @@ def initalize_confidence_estimator(args: argparse.Namespace) -> cdmetadl.confide
     match confidence_estimator_config["use"]:
         case "ConstantConfidenceProvider":
             return cdmetadl.confidence.ConstantConfidenceProvider(
-                *confidence_estimator_config["ConstantConfidenceProvider"]
+                **confidence_estimator_config["ConstantConfidenceProvider"]
             )
         case "MCDropoutConfidenceEstimator":
             return cdmetadl.confidence.MCDropoutConfidenceEstimator(
-                *confidence_estimator_config["MCDropoutConfidenceEstimator"]
+                **confidence_estimator_config["MCDropoutConfidenceEstimator"]
             )
         case "PseudoConfidenceEstimator":
             return cdmetadl.confidence.PseudoConfidenceEstimator(
-                *confidence_estimator_config["PseudoConfidenceEstimator"]
+                **confidence_estimator_config["PseudoConfidenceEstimator"]
             )
         case _:
             raise ValueError(
@@ -117,11 +117,11 @@ def initalize_data_augmentor(args: argparse.Namespace) -> cdmetadl.augmentation.
         case None:
             return None
         case "PseudoAugmentation":
-            return cdmetadl.augmentation.PseudoAugmentation(*data_augmentor_config["PseudoAugmentation"])
+            return cdmetadl.augmentation.PseudoAugmentation(**data_augmentor_config["PseudoAugmentation"])
         case "StandardAugmentation":
-            return cdmetadl.augmentation.StandardAugmentation(*data_augmentor_config["StandardAugmentation"])
+            return cdmetadl.augmentation.StandardAugmentation(**data_augmentor_config["StandardAugmentation"])
         case "GenerativeAugmentation":
-            return cdmetadl.augmentation.GenerativeAugmentation(*data_augmentor_config["GenerativeAugmentation"])
+            return cdmetadl.augmentation.GenerativeAugmentation(**data_augmentor_config["GenerativeAugmentation"])
         case _:
             raise ValueError(
                 f'Data augmentor {args.config["evaluation"]["augmentors"]} specified in config does not exists.'
@@ -141,6 +141,8 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     for task in tqdm(meta_test_generator(tasks_per_dataset), total=total_number_of_tasks):
         learner.load(args.training_output_dir / "model")
 
+        original_number_of_shots = task.support_set.min_number_of_shots
+
         task.support_set, confidence_scores = confidence_estimator.estimate(learner, task.support_set)
 
         if augmentor is not None:
@@ -151,8 +153,9 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         predictions.append({
             "Dataset": task.dataset_name,
             "Number of Ways": task.number_of_ways,
-            # TODO: Save all number of shots rather than min?
-            "Number of Shots": task.support_set.min_number_of_shots,
+            "Number of Shots": original_number_of_shots,
+            "Number of Shots per Class": task.support_set.number_of_shots_per_class,
+            "Confidence Scores": confidence_scores,
             "Predictions": predictor.predict(task.query_set.images),
             "Ground Truth": task.query_set.labels.numpy(),
         })
