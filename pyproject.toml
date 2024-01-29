@@ -33,8 +33,6 @@ timm = "^0.9.12"
 kaleido = "0.2.1"
 controlnet-aux = "^0.0.7"
 tensorboard = "^2.15.1"
-kaleido = "0.2.1"
-controlnet-aux = "^0.0.7"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
