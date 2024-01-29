@@ -11,6 +11,7 @@ import diffusers
 from .augmentation import Augmentation
 import random
 from controlnet_aux import ContentShuffleDetector, HEDdetector, NormalBaeDetector, MLSDdetector, CannyDetector, SamDetector
+import time
 
 
 def set_random_seeds(seed=42, use_cuda=True):
@@ -98,7 +99,7 @@ class GenerativeAugmentation(Augmentation):
         self, threshold: float, scale: int, keep_original_data: bool,
         annotator_type: str = "canny", device: str = "cuda", cache_images: bool = False,
         mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
-        canny_low_threshold: int = 100, canny_high_threshold: int = 200
+        canny_low_threshold: int = 100, canny_high_threshold: int = 200, batch: bool = True
         
     ) -> None:
         """
@@ -122,6 +123,7 @@ class GenerativeAugmentation(Augmentation):
             mlsd_distance_threshold (float): Threshold value for MLSD determining distance in the augmentation process.
             canny_low_threshold (int): Lower threshold for Canny edge detector.
             canny_high_threshold (int): Upper threshold for Canny edge detector.
+            batch (bool): Decide whether you want to augment a whole class at once or image by image.
         Returns:
             None
         """
@@ -179,6 +181,7 @@ class GenerativeAugmentation(Augmentation):
                             ]
 
         self.cache_images = cache_images
+        self.batch = batch
         if self.cache_images:
             self.generated_images = []
         set_random_seeds(seed=42, use_cuda=True)
@@ -206,20 +209,51 @@ class GenerativeAugmentation(Augmentation):
         :param support_set: The support set to augment.
         :param number_of_shots: Number of augmented shots to generate.
         :param init_args: Arguments returned by the `_init_augmentation` function. 
+        :param batch: indicates if the whole class should be augmented at once.
         :return: tuple of the augmented data and labels for the specified class.
         """
         random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
-
-        diffusion_images = torch.stack([
-            self.generate_image(support_set.images_by_class[cls][idx]) for idx in tqdm(random_indices, 
+        if self.batch:
+            random_samped_images = [support_set.images_by_class[cls][idx] for idx in random_indices]
+            generated_images = self.generate_images(random_samped_images)
+        else:
+            generated_images = [self.generate_images(support_set.images_by_class[cls][idx]) for idx in tqdm(random_indices, 
                                                                                        leave=False,
-                                                                                       desc=f"Generated Images of class {cls}")]).float()
+                                                                                       desc=f"Generated Images of class {cls}")]
+        
+        diffusion_images = torch.stack(generated_images).float()
         
         diffusion_labels = torch.full(size=(number_of_shots, ), fill_value=cls)
 
         return diffusion_images, diffusion_labels
 
-    def generate_image(self, image: torch.Tensor) -> torch.Tensor:
+    def __preprocess_image(self, image: torch.Tensor):
+        image_array = (image * 255).detach().cpu().numpy().astype(np.uint8)
+        image_array = np.transpose(image_array, (1, 2, 0))
+        image_array = Image.fromarray(image_array)
+
+        upscaled_image = image_array.resize((512, 512))
+        annotated_image = self.annotator.annotate(upscaled_image)
+        return image_array, annotated_image
+    
+    def __save_cached_images(self, image, annotated_image, diffusion_image):
+        if self.cache_images:
+            home_dir = Path.home()
+            image.save(home_dir / "test_normal.png")
+            annotated_image.save(home_dir / "test_edges.png")
+            diffusion_image.save(home_dir / "test_diffusion.png")
+
+            self.generated_images.append({"original_image": image.resize((512, 512)),
+                                            "feature_map": annotated_image.resize((512, 512)),
+                                            "generated_image": diffusion_image.resize((512, 512))})
+    
+    def __postprocess_diffusion_image(self, diffusion_image):
+        downscaled_diffusion_image = diffusion_image.resize((128, 128))
+        diffusion_array = np.array(downscaled_diffusion_image) / 255
+        return torch.tensor(np.transpose(diffusion_array, (2, 0, 1)))
+        
+        
+    def generate_images(self, image: torch.Tensor|list) -> torch.Tensor:
         """
         Generates a new image using the augmentation pipeline:
 
@@ -228,30 +262,28 @@ class GenerativeAugmentation(Augmentation):
         Returns:
             torch.Tensor: Generated image
         """
-        image_array = (image * 255).detach().cpu().numpy().astype(np.uint8)
-        image_array = np.transpose(image_array, (1, 2, 0))
-        image_array = Image.fromarray(image_array)
+        if type(image) == torch.Tensor:
+            image_array, annotated_image = self.__preprocess_image(image)
+            diffusion_image = self.generate_diffusion_image(annotated_image)[0]
+            diffusion_images_array = self.__postprocess_diffusion_image(diffusion_image)
+            self.__save_cached_images(image_array, annotated_image, diffusion_image)
+            
+        elif type(image) == list:
+            images_array = []
+            annotated_images = []
+            diffusion_images_array = []
+            for img in image:
+                image_array, annotated_image = self.__preprocess_image(img)
+                images_array.append(image_array)
+                annotated_images.append(annotated_image)
+            diffusion_images = self.generate_diffusion_image(annotated_images)
+            for i in range(len(diffusion_images)):
+                diffusion_images_array.append(self.__postprocess_diffusion_image(diffusion_images[i]))
+                self.__save_cached_images(images_array[i], annotated_images[i], diffusion_images[i])
+                
+        return diffusion_images_array
 
-        upscaled_image = image_array.resize((512, 512))
-        edge_image = self.annotator.annotate(upscaled_image)
-        diffusion_image = self.generate_diffusion_image(edge_image)
-        downscaled_diffusion_image = diffusion_image.resize((128, 128))
-        diffusion_array = np.array(downscaled_diffusion_image) / 255
-        diffusion_array = torch.tensor(np.transpose(diffusion_array, (2, 0, 1)))
-
-        if self.cache_images:
-            home_dir = Path.home()
-            image_array.save(home_dir / "test_normal.png")
-            edge_image.save(home_dir / "test_edges.png")
-            diffusion_image.save(home_dir / "test_diffusion.png")
-
-            self.generated_images.append({"original_image": image_array.resize((512, 512)),
-                                          "feature_map": edge_image.resize((512, 512)),
-                                          "generated_image": diffusion_image.resize((512, 512))})
-
-        return diffusion_array
-
-    def generate_diffusion_image(self, image: Image.Image) -> Image.Image:
+    def generate_diffusion_image(self, image: Image.Image|list) -> Image.Image|list:
         """
         Feeds the feature maps/edge map to the diffusion model and generates a new image.
 
@@ -261,11 +293,19 @@ class GenerativeAugmentation(Augmentation):
             Returns:
                 Image.Image: Generated image
         """
-        POSITIVE_PROMPT = str(np.random.choice(self.style_prompts))
-        NEGATIVE_PROMPT = "Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"
+        if type(image) == list:
+            n_images = len(image)
+        else:
+            n_images = 1
+            image = [image]
+        
+        POSITIVE_PROMPTS = [str(prompt) for prompt in np.random.choice(self.style_prompts, size=n_images)]
+        NEGATIVE_PROMPT = n_images*["Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"]
 
-        # Run image generation
-        return self.diffusion_model_pipeline(
-            prompt=POSITIVE_PROMPT, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512, num_images_per_prompt=1,
+
+        generated_images = self.diffusion_model_pipeline(
+            prompt=POSITIVE_PROMPTS, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512, num_images_per_prompt=1,
             num_inference_steps=50
-        )[0][0]
+        )
+    
+        return generated_images[0]
