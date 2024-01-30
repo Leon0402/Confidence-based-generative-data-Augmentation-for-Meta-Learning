@@ -3,11 +3,11 @@ dataset:
         n_ways:
             value: 5
         k_shots: 
-            choice: [1, 5, 10, 15, 20]
+            value: 5
         query_size: 20
 
 evaluation:
-    tasks_per_dataset: 500
+    tasks_per_dataset: 1
     confidence_estimators:
         use: "ConstantConfidenceProvider"
         ConstantConfidenceProvider:
@@ -17,11 +17,12 @@ evaluation:
             num_samples: 20
 
     augmentors:
-        use: StandardAugmentation
-        StandardAugmentation:
+        use: GenerativeAugmentation
+        GenerativeAugmentation:
             keep_original_data: True
             augmentation_size: 
                 scale: 1
                 offset: 5 
                 maximum: 20
                 threshold: 0.8
+            annotator_type: "hed"
