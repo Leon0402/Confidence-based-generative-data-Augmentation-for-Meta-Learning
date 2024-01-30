@@ -33,14 +33,13 @@ timm = "^0.9.12"
 kaleido = "0.2.1"
 controlnet-aux = "^0.0.7"
 tensorboard = "^2.15.1"
-kaleido = "0.2.1"
-controlnet-aux = "^0.0.7"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
 requests = "^2.31.0"
 yapf = "^0.40.2"
 pytest = "^7.4.3"
+snakeviz = "^2.2.0"
 
 [tool.yapf]
 COLUMN_LIMIT = 120

@@ -7,7 +7,7 @@ import torch
 import numpy as np
 
 
-@dataclass(frozen=True)
+@dataclass()
 class SetData:
     """
     Image tensor of shape [number_of_ways x number_of_ways[way], 3, 128, 128].

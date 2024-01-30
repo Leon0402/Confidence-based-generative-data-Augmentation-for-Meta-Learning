@@ -6,6 +6,7 @@ import yaml
 
 from tqdm import tqdm
 import pandas as pd
+import torch
 
 import cdmetadl.api
 import cdmetadl.augmentation
@@ -15,6 +16,21 @@ import cdmetadl.dataset
 import cdmetadl.samplers
 import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
+
+
+def get_device() -> torch.device:
+    """ Get the current device, it can be CPU or GPU.
+
+    Returns:
+        torch.device: Available device.
+    """
+    if torch.cuda.is_available():
+        device = torch.device(f"cuda:{torch.cuda.current_device()}")
+        print(f"Using GPU: {torch.cuda.get_device_name(device)}")
+    else:
+        device = torch.device("cpu")
+        print("Using CPU")
+    return device
 
 
 def define_argparser() -> argparse.ArgumentParser:
@@ -55,6 +71,7 @@ def process_args(args: argparse.Namespace) -> None:
         args.training_config = yaml.safe_load(f)
 
     args.model_dir = pathlib.Path(args.training_config["model"]["path"]).resolve()
+    args.device = get_device()
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
@@ -117,11 +134,17 @@ def initalize_data_augmentor(args: argparse.Namespace) -> cdmetadl.augmentation.
         case None:
             return None
         case "PseudoAugmentation":
-            return cdmetadl.augmentation.PseudoAugmentation(**data_augmentor_config["PseudoAugmentation"])
+            return cdmetadl.augmentation.PseudoAugmentation(
+                **data_augmentor_config["PseudoAugmentation"], device=args.device
+            )
         case "StandardAugmentation":
-            return cdmetadl.augmentation.StandardAugmentation(**data_augmentor_config["StandardAugmentation"])
+            return cdmetadl.augmentation.StandardAugmentation(
+                **data_augmentor_config["StandardAugmentation"], device=args.device
+            )
         case "GenerativeAugmentation":
-            return cdmetadl.augmentation.GenerativeAugmentation(**data_augmentor_config["GenerativeAugmentation"])
+            return cdmetadl.augmentation.GenerativeAugmentation(
+                **data_augmentor_config["GenerativeAugmentation"], device=args.device
+            )
         case _:
             raise ValueError(
                 f'Data augmentor {args.config["evaluation"]["augmentors"]} specified in config does not exists.'
@@ -141,6 +164,11 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     for task in tqdm(meta_test_generator(tasks_per_dataset), total=total_number_of_tasks):
         learner.load(args.training_output_dir / "model")
 
+        task.support_set.images = task.support_set.images.to(args.device)
+        task.support_set.labels = task.support_set.labels.to(args.device)
+        task.query_set.images = task.query_set.images.to(args.device)
+        task.query_set.labels = task.query_set.labels.to(args.device)
+
         original_number_of_shots = task.support_set.min_number_of_shots
 
         task.support_set, confidence_scores = confidence_estimator.estimate(learner, task.support_set)
@@ -157,7 +185,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             "Number of Shots per Class": task.support_set.number_of_shots_per_class,
             "Confidence Scores": confidence_scores,
             "Predictions": predictor.predict(task.query_set.images),
-            "Ground Truth": task.query_set.labels.numpy(),
+            "Ground Truth": task.query_set.labels.cpu().numpy(),
         })
 
     with open(args.output_dir / f"predictions.pkl", 'wb') as f:
