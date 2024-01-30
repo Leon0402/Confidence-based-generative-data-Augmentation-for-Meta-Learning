@@ -48,12 +48,6 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
                 if self.dropout_probability is not None:
                     m.p = self.dropout_probability
 
-        # TODO: Just for testing
-        for m in reversed(list(predictor.model.modules())):
-            if m.__class__.__name__.startswith('Dropout'):
-                m.p = 0
-                break
-
         class_predictions = np.array([
             predictor.predict(data_set.images).cpu().numpy() for _ in range(self.num_samples)
         ])
