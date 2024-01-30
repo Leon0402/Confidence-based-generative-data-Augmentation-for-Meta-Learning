@@ -6,12 +6,11 @@ import numpy as np
 from PIL import Image
 import cdmetadl.dataset
 from tqdm import tqdm
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler, UniPCMultistepScheduler
 import diffusers
 from .augmentation import Augmentation
 import random
 from controlnet_aux import ContentShuffleDetector, HEDdetector, NormalBaeDetector, MLSDdetector, CannyDetector, SamDetector
-import time
 
 
 def set_random_seeds(seed=42, use_cuda=True):
@@ -26,7 +25,7 @@ class Annotator:
 
     def __init__(
         self, annotator_type: str = "canny", mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
-        canny_low_threshold: int = 100, canny_high_threshold: int = 200
+        canny_low_threshold: int = 100, canny_high_threshold: int = 200, device: str = "cuda"
     ) -> None:
         """
         Defines the annotator and the diffusion model that is used for the edge detection.
@@ -73,6 +72,11 @@ class Annotator:
             self.annotator = annotator()
         else:
             self.annotator = annotator.from_pretrained("lllyasviel/Annotators")
+            
+        try:
+            self.annotator = self.annotator.to(device)
+        except:
+            None
 
     def annotate(self, image: Image.Image) -> Image.Image:
         """
@@ -103,7 +107,8 @@ class GenerativeAugmentation(Augmentation):
     def __init__(
         self, augmentation_size: dict, keep_original_data: bool, device: torch.device, annotator_type: str = "canny",
         cache_images: bool = False, mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
-        canny_low_threshold: int = 100, canny_high_threshold: int = 200, batch: bool = True
+        canny_low_threshold: int = 100, canny_high_threshold: int = 200, batch: bool = True,
+        scheduler = UniPCMultistepScheduler, num_inference_steps: int = 25
     ) -> None:
         """
         Initializes the StandardAugmentation class with specified threshold, scale, and keep_original_data flags,
@@ -134,7 +139,7 @@ class GenerativeAugmentation(Augmentation):
         self.annotator = Annotator(
             annotator_type=annotator_type, mlsd_value_threshold=mlsd_value_threshold,
             mlsd_distance_threshold=mlsd_distance_threshold, canny_low_threshold=canny_low_threshold,
-            canny_high_threshold=canny_high_threshold
+            canny_high_threshold=canny_high_threshold, device=device
         )
         controlnet = ControlNetModel.from_pretrained(
             self.annotator.diffusion_model_id, torch_dtype=torch.float16, generator=generator
@@ -144,13 +149,14 @@ class GenerativeAugmentation(Augmentation):
             requires_safety_checker=False
         ).to(device)
 
-        self.diffusion_model_pipeline.scheduler = DDIMScheduler.from_config(
+        self.diffusion_model_pipeline.scheduler = scheduler.from_config(
             self.diffusion_model_pipeline.scheduler.config, generator=generator
         )
         self.diffusion_model_pipeline.enable_model_cpu_offload()
         self.diffusion_model_pipeline.enable_xformers_memory_efficient_attention()
         self.diffusion_model_pipeline.set_progress_bar_config(disable=True)
         diffusers.utils.logging.set_verbosity(40)
+        self.num_inference_steps = num_inference_steps
 
         # These prompts provide a brief guide using keywords for the desired artistic direction.
         self.style_prompts = [
@@ -291,7 +297,7 @@ class GenerativeAugmentation(Augmentation):
 
         generated_images = self.diffusion_model_pipeline(
             prompt=POSITIVE_PROMPTS, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512,
-            num_images_per_prompt=1, num_inference_steps=50
+            num_images_per_prompt=1, num_inference_steps=self.num_inference_steps
         )
 
         return generated_images.images
