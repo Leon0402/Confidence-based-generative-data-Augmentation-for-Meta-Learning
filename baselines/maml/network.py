@@ -67,10 +67,10 @@ class ResidualBlock(nn.Module):
         z = self.relu(z)
         z = self.conv2(z)
         z = self.bn2(z)
-        z = self.dropout(z)
 
         y = x
         if self.skip:
+            z = self.dropout(z)
             y = self.conv3(y)
             y = self.bn3(y)
         return self.relu(y + z)
@@ -103,10 +103,9 @@ class ResidualBlock(nn.Module):
             torch.ones(self.bn2.running_var.size()).to(self.dev), weights[4], weights[5], momentum=1, training=True
         )
 
-        z = self.dropout(z)
-
         y = x
         if self.skip:
+            z = self.dropout(z)
             y = F.conv2d(input=y, weight=weights[6], bias=None, stride=self.stride)
 
             y = F.batch_norm(
@@ -114,8 +113,6 @@ class ResidualBlock(nn.Module):
                 running_var=torch.ones(self.bn3.running_var.size()).to(self.dev), weight=weights[7], bias=weights[8],
                 momentum=1, training=True
             )
-
-            y = self.dropout(y)
 
         return F.relu(y + z)
 

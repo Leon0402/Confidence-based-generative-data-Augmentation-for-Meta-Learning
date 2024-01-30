@@ -11,7 +11,6 @@ import diffusers
 from .augmentation import Augmentation
 import random
 from controlnet_aux import ContentShuffleDetector, HEDdetector, NormalBaeDetector, MLSDdetector, CannyDetector, SamDetector
-import time
 
 
 def set_random_seeds(seed=42, use_cuda=True):

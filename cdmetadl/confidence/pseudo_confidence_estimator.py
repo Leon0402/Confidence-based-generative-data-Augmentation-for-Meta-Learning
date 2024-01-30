@@ -32,7 +32,7 @@ class PseudoConfidenceEstimator(ConfidenceEstimator):
         predictor = learner.fit(support_set)
 
         confidence_scores = defaultdict(list)
-        for prediction, gt_label in zip(predictor.predict(confidence_set.images), confidence_set.labels):
+        for prediction, gt_label in zip(predictor.predict(confidence_set.images).cpu().numpy(), confidence_set.labels):
             gt_label = int(gt_label)
 
             confidence_score = 0.0

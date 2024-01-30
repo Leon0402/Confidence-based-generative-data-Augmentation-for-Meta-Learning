@@ -184,7 +184,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
             "Number of Shots": original_number_of_shots,
             "Number of Shots per Class": task.support_set.number_of_shots_per_class,
             "Confidence Scores": confidence_scores,
-            "Predictions": predictor.predict(task.query_set.images),
+            "Predictions": predictor.predict(task.query_set.images).cpu().numpy(),
             "Ground Truth": task.query_set.labels.cpu().numpy(),
         })
 

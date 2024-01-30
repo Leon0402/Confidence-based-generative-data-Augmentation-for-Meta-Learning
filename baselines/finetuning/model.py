@@ -509,6 +509,6 @@ class MyPredictor(cdmetadl.api.Predictor):
                 out = -1 * distance_matrix
             else:
                 out = self.model(X_test)
-            probs = F.softmax(out, dim=1).cpu().numpy()
+            probs = F.softmax(out, dim=1)
 
         return probs

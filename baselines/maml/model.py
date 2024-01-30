@@ -494,6 +494,6 @@ class MyPredictor(cdmetadl.api.Predictor):
                 out = process_query_set(self.model, self.weights, X_test, self.prototypes)
             else:
                 out = self.model.forward_weights(X_test, self.weights)
-            probs = F.softmax(out, dim=1).cpu().numpy()
+            probs = F.softmax(out, dim=1)
 
         return probs
