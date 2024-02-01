@@ -40,7 +40,10 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
         Returns:
             A tuple consisting of a dataset which can be used for finetuning the model and a list of confidence scores.
         """
+        learner_previous_T = learner.T
+        learner.T = 2_000
         predictor = learner.fit(data_set)
+        learner.T = learner_previous_T
 
         for m in predictor.model.modules():
             if m.__class__.__name__.startswith('Dropout'):
@@ -52,10 +55,14 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
             predictor.predict(data_set.images).cpu().numpy() for _ in range(self.num_samples)
         ])
 
+        return data_set, np.mean(class_predictions.var(axis=0), axis=0)
         mean_predictions = np.mean(class_predictions, axis=0)
         abs_error = np.mean([np.abs(prediction - mean_predictions) for prediction in class_predictions], axis=0)
 
         uncertainty_scores = np.mean(abs_error, axis=0)
+        self.x_max = uncertainty_scores.max()
+        self.x_min = uncertainty_scores.min()
+
         us = [
             1 - (np.maximum(np.minimum(score, self.x_max), self.x_min) - self.x_min) / (self.x_max - self.x_min)
             for score in uncertainty_scores
