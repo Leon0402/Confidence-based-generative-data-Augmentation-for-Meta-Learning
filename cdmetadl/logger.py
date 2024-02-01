@@ -24,6 +24,7 @@ class TensorboardLogger():
         self.losses_valid = []
         self.scores_train = defaultdict(list)
         self.scores_valid = defaultdict(list)
+        self.log_train_every = 100
 
     def _update_data(self, meta_train: bool, loss: float, scores: dict) -> None:
         """
@@ -129,8 +130,9 @@ class TensorboardLogger():
             meta_train_iteration (int): Meta-train iteration.
         """
         self._create_figure(
-            title="Support-Set", data=data.support_set.images.cpu().numpy(), labels=data.support_set.labels.cpu().numpy(),
-            num_ways=data.number_of_ways, sample_size=min(data.support_set.number_of_shots, 5)
+            title="Support-Set", data=data.support_set.images.cpu().numpy(),
+            labels=data.support_set.labels.cpu().numpy(), num_ways=data.number_of_ways,
+            sample_size=min(data.support_set.number_of_shots, 5)
         )
         writer.add_figure(f"Dataset/Support Set", plt.gcf(), meta_train_iteration)
 
@@ -142,8 +144,9 @@ class TensorboardLogger():
         writer.add_figure(f"Dataset/Query Set ", plt.gcf(), meta_train_iteration)
 
     def log(
-        self, data: Any, scores: dict, loss: float, meta_train: bool, predictions: np.ndarray, val_tasks: int,
-        val_after: int, meta_train_iteration: int, meta_validation_iteration: int, number_of_valid_datasets: int
+        self, data: Any, scores: dict, loss: float, meta_train: bool, predictions: np.ndarray,
+        val_tasks_per_dataset: int, val_after: int, meta_train_iteration: int, meta_validation_iteration: int,
+        number_of_valid_datasets: int
     ) -> None:
         """
         Perform one loggin step and write current data to Tensorboard.
@@ -154,7 +157,7 @@ class TensorboardLogger():
             loss (float): Loss value.
             meta_train (bool): Boolean flag indicating if it's meta-train or meta-validation.
             predictions (np.ndarray): Model predictions.
-            val_tasks (int): Total number of tasks used during validation.
+            val_tasks_per_dataset (int): Number of tasks per dataset used during validation.
             val_after (int): Number of training iterations before entering the validation stage.
             meta_train_iteration (int): Meta-train iteration.
             meta_validation_iteration (int): Meta-validation iteration.
@@ -162,18 +165,23 @@ class TensorboardLogger():
         """
         self._update_data(meta_train, loss, scores)
 
-        training_epoch_done = meta_train_iteration % val_after == 0 and meta_train_iteration > 0
-        validation_epoch_done = meta_validation_iteration % (
-            val_tasks * number_of_valid_datasets
-        ) == 0 and meta_validation_iteration > 0
-        if training_epoch_done and validation_epoch_done:
-            loss_train, scores_train = self._avg_last_n_iters(self.losses_train, self.scores_train, val_after)
+        log_training: bool = meta_train and meta_train_iteration % self.log_train_every == 0 and meta_train_iteration > 0
+
+        log_val_every = val_tasks_per_dataset * number_of_valid_datasets
+        log_validation: bool = not meta_train and meta_validation_iteration % log_val_every == 0 and meta_validation_iteration > 0
+
+        if log_training:
+            loss_train, scores_train = self._avg_last_n_iters(
+                self.losses_train, self.scores_train, self.log_train_every
+            )
             self._write_log(self.writer_train, loss_train, scores_train, meta_train_iteration)
 
-            loss_valid, scores_valid = self._avg_last_n_iters(self.losses_valid, self.scores_valid, val_tasks)
+        if log_validation:
+            loss_valid, scores_valid = self._avg_last_n_iters(self.losses_valid, self.scores_valid, log_val_every)
             self._write_log(self.writer_valid, loss_valid, scores_valid, meta_train_iteration)
 
-            self._write_samples(self.writer_valid, data, predictions, meta_train_iteration)
+            # TODO: Not needed currently. Additionally bug as it always samples the last task
+            # self._write_samples(self.writer_valid, data, predictions, meta_train_iteration)
 
 
 class Logger():
@@ -240,7 +248,7 @@ class Logger():
             # Create log dirs
             if self.meta_train_iteration == 0:
                 first_log = True
-                self._create_logs_dirs(self.meta_train_logs_path)
+                # self._create_logs_dirs(self.meta_train_logs_path)
 
             # Print separator after finishing meta-valid step
             if self.print_separator:
@@ -250,11 +258,11 @@ class Logger():
 
             # Prepare paths to files
             self.meta_train_iteration += 1
-            ground_truth_path = f"{self.meta_train_logs_path}/ground_truth"
-            predictions_path = f"{self.meta_train_logs_path}/predictions"
-            task_file = f"{self.meta_train_logs_path}/tasks.csv"
-            performance_file = f"{self.meta_train_logs_path}/performance.csv"
-            curr_iter = f"iteration_{self.meta_train_iteration}.out"
+            # ground_truth_path = f"{self.meta_train_logs_path}/ground_truth"
+            # predictions_path = f"{self.meta_train_logs_path}/predictions"
+            # task_file = f"{self.meta_train_logs_path}/tasks.csv"
+            # performance_file = f"{self.meta_train_logs_path}/performance.csv"
+            # curr_iter = f"iteration_{self.meta_train_iteration}.out"
             print_text = f"Meta-train iteration {self.meta_train_iteration:>4d}:"
 
         else:
@@ -262,14 +270,14 @@ class Logger():
             if self.meta_validation_iteration == 0:
                 first_log = True
                 self.meta_valid_step += 1
-                self.meta_valid_logs_path = self.meta_valid_root_path / f"step_{self.meta_valid_step}"
-                self.meta_valid_logs_path.mkdir(parents=True)
+                # self.meta_valid_logs_path = self.meta_valid_root_path / f"step_{self.meta_valid_step}"
+                # self.meta_valid_logs_path.mkdir(parents=True)
                 print(f"\n{'#'*30} Meta-valid step {self.meta_valid_step} " + f"{'#'*30}")
                 self.print_separator = True
 
             self.meta_validation_iteration += 1
-            task_file = f"{self.meta_valid_logs_path}/tasks.csv"
-            performance_file = f"{self.meta_valid_logs_path}/performance.csv"
+            # task_file = f"{self.meta_valid_logs_path}/tasks.csv"
+            # performance_file = f"{self.meta_valid_logs_path}/performance.csv"
             print_text = f"Meta-valid iteration {self.meta_validation_iteration:>4d}:"
 
         if is_task:
@@ -278,11 +286,11 @@ class Logger():
             N = data.number_of_ways
             k = data.query_set.number_of_shots
 
-            with open(task_file, "a", newline="") as f:
-                writer = csv.writer(f)
-                if first_log:
-                    writer.writerow(["Dataset", "N", "k"])
-                writer.writerow([dataset, N, k])
+            # with open(task_file, "a", newline="") as f:
+            #     writer = csv.writer(f)
+            #     if first_log:
+            #         writer.writerow(["Dataset", "N", "k"])
+            #     writer.writerow([dataset, N, k])
 
             ground_truth = data.query_set.labels.cpu().numpy()
 
@@ -313,12 +321,12 @@ class Logger():
                 self.meta_validation_iteration, self.number_of_valid_datasets
             )
 
-        scores["loss"] = loss
-        with open(performance_file, "a", newline="") as f:
-            writer = csv.writer(f)
-            if first_log:
-                writer.writerow(list(scores.keys()))
-            writer.writerow(list(scores.values()))
+        # scores["loss"] = loss
+        # with open(performance_file, "a", newline="") as f:
+        #     writer = csv.writer(f)
+        #     if first_log:
+        #         writer.writerow(list(scores.keys()))
+        #     writer.writerow(list(scores.values()))
 
     def _create_logs_dirs(self, dir: pathlib.Path) -> None:
         """ Create all the necessary directories for storing the logs at 

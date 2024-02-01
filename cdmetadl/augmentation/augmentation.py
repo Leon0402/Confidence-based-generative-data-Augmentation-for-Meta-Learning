@@ -48,10 +48,11 @@ class Augmentation(metaclass=abc.ABCMeta):
                 shots_per_class[-1] += support_set.number_of_shots
 
             number_of_augmented_shots = self.calculate_number_of_augmented_shots(score, support_set.number_of_shots)
-            data, labels = self._augment_class(cls, support_set, number_of_augmented_shots, init_args)
-            extended_data.append(data)
-            extended_labels.append(labels)
-            shots_per_class[-1] += len(labels)
+            if number_of_augmented_shots > 0:
+                data, labels = self._augment_class(cls, support_set, number_of_augmented_shots, init_args)
+                extended_data.append(data)
+                extended_labels.append(labels)
+                shots_per_class[-1] += len(labels)
 
         # TODO: Fix torch.cat if extended_data is empty (can happen if keep_original_data=False and confidence scores 1.0)
         return cdmetadl.dataset.SetData(
@@ -64,7 +65,8 @@ class Augmentation(metaclass=abc.ABCMeta):
 
     def calculate_number_of_augmented_shots(self, score: float, number_of_shots: int):
         max_number_of_shots = min(
-            number_of_shots + self.augmentation_size_config["offset"], self.augmentation_size_config["maximum"]
+            number_of_shots + self.augmentation_size_config["offset"],
+            self.augmentation_size_config["maximum"] - number_of_shots
         )
         score = min(score / self.augmentation_size_config["threshold"], 1)
         return round((1 - score) * max_number_of_shots * self.augmentation_size_config["scale"])

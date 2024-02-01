@@ -45,6 +45,17 @@ def set_seed(seed):
     random.seed(seed)
 
 
+def get_device() -> torch.device:
+    """ Get the current device, it can be CPU or GPU.
+
+    Returns:
+        torch.device: Available device.
+    """
+    if torch.cuda.is_available():
+        return torch.device(f"cuda:{torch.cuda.current_device()}")
+    return torch.device("cpu")
+
+
 def vprint(message: str, verbose: bool) -> None:
     """ Print a message based on the verbose mode.
 

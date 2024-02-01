@@ -54,7 +54,9 @@ class StandardAugmentation(Augmentation):
         :param init_args: Arguments returned by the `_init_augmentation` function. 
         :return: tuple of the augmented data and labels for the specified class.
         """
-        random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
-        augmented_data = torch.stack([self.transform(support_set.images_by_class[cls][idx]) for idx in random_indices])
+        augmented_data = torch.stack([
+            self.transform(support_set.images_by_class[cls][idx % support_set.number_of_shots])
+            for idx in range(number_of_shots)
+        ])
         augmented_labels = torch.full(size=(number_of_shots, ), fill_value=cls).to(self.device)
         return augmented_data, augmented_labels

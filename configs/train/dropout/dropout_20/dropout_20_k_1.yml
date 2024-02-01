@@ -24,6 +24,6 @@ dataset:
 model: 
     number_of_batches: 10_000
     number_of_training_tasks: 10_000
-    number_of_validation_tasks_per_dataset: 10
-    validate_every: 100
+    number_of_validation_tasks_per_dataset: 100
+    validate_every: 500
     dropout_probability: 0.20

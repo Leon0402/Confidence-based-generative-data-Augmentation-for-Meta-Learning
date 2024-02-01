@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import torch.utils.data
 import torchvision.transforms
+import torchvision.transforms.functional
 import PIL
 
 import cdmetadl.samplers
@@ -62,11 +63,6 @@ class ImageDataset(torch.utils.data.Dataset):
         self.idx_per_label = [np.flatnonzero(self.labels == label) for label in self.text_to_numerical_label.values()]
         self.min_examples_per_class = min(len(idx) for idx in self.idx_per_label)
 
-        self.transform = torchvision.transforms.Compose([
-            torchvision.transforms.Resize((img_size, img_size)),
-            torchvision.transforms.ToTensor()
-        ])
-
     def __len__(self) -> int:
         """
         Returns the number of images in the dataset.
@@ -86,7 +82,10 @@ class ImageDataset(torch.utils.data.Dataset):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: A tuple containing the image and its label, both as tensors.
         """
-        return self.transform(PIL.Image.open(self.img_paths[idx])), torch.tensor(self.labels[idx])
+        return self.read_image(idx), torch.tensor(self.labels[idx])
+
+    def read_image(self, idx: int) -> torch.Tensor:
+        return torchvision.io.read_image(str(self.img_paths[idx])) / 255
 
     def generate_task(
         self, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int
@@ -110,14 +109,18 @@ class ImageDataset(torch.utils.data.Dataset):
         ]
 
         support_set = SetData(
-            images=torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[:k_shot]]),
+            images=torch.stack([
+                self.read_image(idx) for indices in sampled_indices_per_class for idx in indices[:k_shot]
+            ]),
             labels=torch.tensor(np.arange(n_way).repeat(k_shot)),
             number_of_ways=n_way,
             number_of_shots=k_shot,
             class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
         )
         query_set = SetData(
-            images=torch.stack([self[idx][0] for indices in sampled_indices_per_class for idx in indices[k_shot:]]),
+            images=torch.stack([
+                self.read_image(idx) for indices in sampled_indices_per_class for idx in indices[k_shot:]
+            ]),
             labels=torch.tensor(np.arange(n_way).repeat(query_size)),
             number_of_ways=n_way,
             number_of_shots=k_shot,

@@ -118,10 +118,6 @@ def prepare_directories(args: argparse.Namespace) -> None:
         args.tensorboard_output_dir = args.output_dir / "tensorboard"
         args.tensorboard_output_dir.mkdir()
 
-        for mode in ["train", "validation"]:
-            tensorbord_mode_dir = args.tensorboard_output_dir / mode
-            tensorbord_mode_dir.mkdir()
-
 
 def prepare_data_generators(
     args: argparse.Namespace

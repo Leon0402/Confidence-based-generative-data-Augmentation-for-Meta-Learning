@@ -1,0 +1,40 @@
+Task took 3152 seconds
+Running model with dataset: FNG
+Task took 2368 seconds
+Running model with dataset: PRT
+Task took 1280 seconds
+Running model with dataset: BTS
+Task took 1106 seconds
+Running model with dataset: ACT_410
+Task took 1172 seconds
+Task took 14762 seconds
+Running model baselines/finetuning for p = 20, k = 1
+Running model baselines/finetuning in cross-domain mode
+Task took 4012 seconds
+Running model baselines/finetuning in within-domain mode
+Running model with dataset: AWA
+Task took 919 seconds
+Running model with dataset: FNG
+Task took 1071 seconds
+Running model with dataset: PRT
+Task took 1261 seconds
+Running model with dataset: BTS
+Task took 1200 seconds
+Running model with dataset: ACT_410
+Task took 1069 seconds
+Task took 9532 seconds
+Running model baselines/finetuning for p = 30, k = 1
+Running model baselines/finetuning in cross-domain mode
+Task took 4648 seconds
+Running model baselines/finetuning in within-domain mode
+Running model with dataset: AWA
+Task took 1019 seconds
+Running model with dataset: FNG
+Task took 1996 seconds
+Running model with dataset: PRT
+Task took 3794 seconds
+Running model with dataset: BTS
+Task took 1835 seconds
+Running model with dataset: ACT_410
+Task took 964 seconds
+Task took 14256 seconds
