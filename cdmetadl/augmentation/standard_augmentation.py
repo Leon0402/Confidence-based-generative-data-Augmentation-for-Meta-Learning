@@ -33,9 +33,8 @@ class StandardAugmentation(Augmentation):
 
         # TODO: Adjust transforms, make configurable perhaps
         self.transform = torchvision.transforms.Compose([
-            torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomRotation(45),
-            torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            torchvision.transforms.RandomRotation((50, 60)),
+            torchvision.transforms.RandomHorizontalFlip(0.3),            
         ])
 
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
