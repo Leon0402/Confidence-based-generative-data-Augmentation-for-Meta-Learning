@@ -108,7 +108,7 @@ class GenerativeAugmentation(Augmentation):
         self, augmentation_size: dict, keep_original_data: bool, device: torch.device, annotator_type: str = "canny",
         cache_images: bool = False, mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
         canny_low_threshold: int = 100, canny_high_threshold: int = 200, batch: bool = True,
-        scheduler = UniPCMultistepScheduler, num_inference_steps: int = 25
+        scheduler = UniPCMultistepScheduler, num_inference_steps: int = 25, guessing_mode: bool = False
     ) -> None:
         """
         Initializes the StandardAugmentation class with specified threshold, scale, and keep_original_data flags,
@@ -159,20 +159,21 @@ class GenerativeAugmentation(Augmentation):
         self.num_inference_steps = num_inference_steps
 
         # These prompts provide a brief guide using keywords for the desired artistic direction.
-        self.style_prompts = [
-            "Serenity, Calm, Soft", "Energetic, Dynamic, Movement", "Abstract, Intriguing",
-            "Dreamy, Ethereal, Soft Tones", "Bold, Striking, High Contrast", "Harmonious, Balanced",
-            "Mystery, Intrigue", "Vibrant, Lively, Colorful", "Minimalist, Clean", "Chaotic, Frenetic",
-            "Sophisticated, Elegant", "Nostalgic, Vintage", "Futuristic, Avant-Garde", "Dreamlike, Fantastical",
-            "Calming, Peaceful", "Playful, Whimsical", "Timeless, Classic Beauty", "Engaging, Attention-Grabbing",
-            "Mysterious, Atmospheric", "Wonder, Curiosity", "Impactful, Memorable", "Surreal Landscape",
-            "Nostalgia, Sentimentality", "Freedom, Openness", "Stimulating, Thought-Provoking",
-            "Tranquil, Introspective", "Movement, Flow", "Vibrant, Color Focus", "Modern, Contemporary",
-            "Unity, Connection"
-        ]
+        self.style_prompts = ["Realism",
+                            "Futuristic",
+                            "Modern",
+                            "Minimalism",
+                            "Photorealism",
+                            "Black and White Photography",
+                            "High Key Lighting",
+                            "Low Key Lighting",
+                            "Vintage",
+                            "Colorful",
+                            "High Contrast"]
 
         self.cache_images = cache_images
         self.batch = batch
+        self.guessing_mode = guessing_mode
         if self.cache_images:
             self.generated_images = []
         set_random_seeds(seed=42, use_cuda=True)
@@ -290,14 +291,18 @@ class GenerativeAugmentation(Augmentation):
             n_images = 1
             image = [image]
 
-        POSITIVE_PROMPTS = [str(prompt) for prompt in np.random.choice(self.style_prompts, size=n_images)]
-        NEGATIVE_PROMPT = n_images * [
+        if self.guessing_mode:
+            POSITIVE_PROMPTS = [""]*n_images
+        else:
+            POSITIVE_PROMPTS = [str(prompt) for prompt in np.random.choice(self.style_prompts, size=n_images)]
+            
+        NEGATIVE_PROMPT = [
             "Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"
-        ]
+        ] * n_images 
 
         generated_images = self.diffusion_model_pipeline(
             prompt=POSITIVE_PROMPTS, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512,
-            num_images_per_prompt=1, num_inference_steps=self.num_inference_steps
+            num_images_per_prompt=1, num_inference_steps=self.num_inference_steps, guessing_mode=self.guessing_mode
         )
 
         return generated_images.images

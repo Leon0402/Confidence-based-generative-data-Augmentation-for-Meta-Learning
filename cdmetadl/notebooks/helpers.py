@@ -67,7 +67,7 @@ def create_plot(augmentor, task, conf_scores):
     
 
 def generate_edge_map_plot(augmentor, task, title):
-    augmentor.augment(task.support_set, conf_scores=[0.1, 0.1, 0.1, 0.1, 0.1])
+    augmentor.augment(task.support_set, conf_scores=task.number_of_ways*[0.1])
 
     spacing = 100
     total_width = (128 + spacing) * 3 - spacing
