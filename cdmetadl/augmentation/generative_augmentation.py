@@ -202,14 +202,13 @@ class GenerativeAugmentation(Augmentation):
         :param batch: indicates if the whole class should be augmented at once.
         :return: tuple of the augmented data and labels for the specified class.
         """
-        random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
         if self.batch:
-            random_samped_images = [support_set.images_by_class[cls][idx] for idx in random_indices]
+            random_samped_images = [support_set.images_by_class[cls][idx % support_set.number_of_shots] for idx in range(number_of_shots)]
             generated_images = self.generate_images(random_samped_images)
         else:
             generated_images = [
-                self.generate_images(support_set.images_by_class[cls][idx])
-                for idx in tqdm(random_indices, leave=False, desc=f"Generated images of class {cls}")
+                self.generate_images(support_set.images_by_class[cls][idx % support_set.number_of_shots])
+                for idx in tqdm(range(number_of_shots), leave=False, desc=f"Generated images of class {cls}")
             ]
 
         diffusion_images = torch.stack(generated_images).float()
