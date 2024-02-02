@@ -176,6 +176,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         if augmentor is not None:
             task.support_set = augmentor.augment(task.support_set, conf_scores=confidence_scores)
 
+        learner.T = 1000 # Trivial test for T with another T
         predictor = learner.fit(task.support_set)
 
         predictions.append({

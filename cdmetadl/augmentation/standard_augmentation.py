@@ -33,9 +33,11 @@ class StandardAugmentation(Augmentation):
 
         # TODO: Adjust transforms, make configurable perhaps
         self.transform = torchvision.transforms.Compose([
-            torchvision.transforms.RandomRotation((50, 60)),
-            torchvision.transforms.RandomHorizontalFlip(0.3),            
+            torchvision.transforms.RandomRotation((30, 60)),
+            torchvision.transforms.RandomHorizontalFlip(0.2),      
+            torchvision.transforms.RandomResizedCrop(128, (0.75, 0.85), antialias=True)
         ])
+
 
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
                            conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, None]:

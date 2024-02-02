@@ -63,6 +63,8 @@ def create_plot(augmentor, task, conf_scores):
     display(Image.open(file_path))
     os.remove(file_path)
     
+    return augmented_set_generative
+    
 
 def generate_edge_map_plot(augmentor, task, title):
     augmentor.augment(task.support_set, conf_scores=[0.1, 0.1, 0.1, 0.1, 0.1])
