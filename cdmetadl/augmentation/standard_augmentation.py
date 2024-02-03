@@ -1,10 +1,10 @@
 __all__ = ["StandardAugmentation"]
 
-import numpy as np
 import torch
 import torchvision.transforms
 
 import cdmetadl.dataset
+import numpy as np
 
 from .augmentation import Augmentation
 
@@ -16,7 +16,7 @@ class StandardAugmentation(Augmentation):
     performance and robustness of models in tasks like classification.
 
     Attributes:
-        transform (torchvision.transforms.Compose): A composed series of transformations (like flip, rotation, 
+        transform (torchvision.transforms.Compose): A composed series of transformations (like flip, rotation,
                                                     and color jitter) applied to the images.
     """
 
@@ -52,13 +52,13 @@ class StandardAugmentation(Augmentation):
     def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
                        init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Augments data for a specific class using the defined image transformations. 
+        Augments data for a specific class using the defined image transformations.
         Used in base class `augment` function.
 
         :param cls: Class index to augment.
         :param support_set: The support set to augment.
         :param number_of_shots: Number of augmented shots to generate.
-        :param init_args: Arguments returned by the `_init_augmentation` function. 
+        :param init_args: Arguments returned by the `_init_augmentation` function.
         :return: tuple of the augmented data and labels for the specified class.
         """
         augmented_data = torch.stack([
@@ -67,3 +67,59 @@ class StandardAugmentation(Augmentation):
         ])
         augmented_labels = torch.full(size=(number_of_shots, ), fill_value=cls).to(self.device)
         return augmented_data, augmented_labels
+
+
+# class StandardAugmentation(Augmentation):
+
+#     def __init__(
+#         self, augmentation_size: dict, keep_original_data: bool, device: torch.device, severity=3, width=3, depth=-1,
+#         alpha=1.0
+#     ):
+#         super().__init__(augmentation_size, keep_original_data, device)
+#         self.severity = severity
+#         self.width = width
+#         self.depth = depth if depth > 0 else np.random.randint(1, 4)
+#         self.alpha = alpha
+#         self.augmentations = [
+#             torchvision.transforms.ColorJitter(
+#                 brightness=0.2 * severity, contrast=0.2 * severity, saturation=0.2 * severity, hue=0.1 * severity
+#             ),
+#             torchvision.transforms.RandomAffine(
+#                 degrees=20 * severity, translate=(0.1 * severity, 0.1 * severity), scale=(0.9, 1.1), shear=10 * severity
+#             ),
+#             torchvision.transforms.RandomGrayscale(p=0.2 * severity),
+#             # Add more diverse and task-specific augmentations as needed
+#         ]
+
+#     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
+#                            conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, None]:
+#         return support_set, None
+
+#     def augmix(self, image):
+#         """Apply AugMix augmentations to a single image."""
+#         mixed = torch.zeros_like(image)
+#         weights = np.random.dirichlet([self.alpha] * self.width)
+
+#         for i in range(self.width):
+#             aug_image = image
+#             depth = self.depth if self.depth > 0 else np.random.randint(1, 4)
+#             for _ in range(depth):
+#                 op = np.random.choice(self.augmentations)
+#                 aug_image = op(aug_image)
+#             mixed += weights[i] * aug_image
+
+#         # Mix the original image
+#         mixed = (mixed + image) / 2
+#         return mixed
+
+#     def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
+#                        init_args: list) -> tuple[torch.Tensor, torch.Tensor]:
+#         augmented_data = []
+#         for idx in range(number_of_shots):
+#             image = support_set.images_by_class[cls][idx % support_set.number_of_shots]
+#             image = self.augmix(image)
+#             augmented_data.append(image)
+
+#         augmented_data = torch.stack(augmented_data)
+#         augmented_labels = torch.full(size=(number_of_shots, ), fill_value=cls).to(self.device)
+#         return augmented_data, augmented_labels

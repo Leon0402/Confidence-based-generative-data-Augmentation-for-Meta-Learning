@@ -3,7 +3,7 @@ dataset:
         n_ways:
             value: 5
         k_shots: 
-            value: 20
+            value: 5
         query_size: 20
 
 evaluation:
@@ -14,11 +14,12 @@ evaluation:
             num_samples: 100
 
     augmentors:
-        use: StandardAugmentation
-        StandardAugmentation:
+        use: GenerativeAugmentation
+        GenerativeAugmentation:
             keep_original_data: True
             augmentation_size: 
                 scale: 1
-                offset: 5 
+                offset: 3 
                 maximum: 20
                 threshold: 0.8
+            annotator_type: "hed"

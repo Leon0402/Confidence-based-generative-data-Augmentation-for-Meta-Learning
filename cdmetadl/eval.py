@@ -153,6 +153,7 @@ def initalize_data_augmentor(args: argparse.Namespace) -> cdmetadl.augmentation.
 
 def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.TaskGenerator) -> list[dict]:
     model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
+    confidence_learner: cdmetadl.api.Learner = model_module.MyLearner()
     learner: cdmetadl.api.Learner = model_module.MyLearner()
 
     confidence_estimator = initalize_confidence_estimator(args)
@@ -162,11 +163,6 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     predictions = []
     total_number_of_tasks = meta_test_generator.dataset.number_of_datasets * tasks_per_dataset
     for task in tqdm(meta_test_generator(tasks_per_dataset), total=total_number_of_tasks):
-        learner.load(args.training_output_dir / "model")
-
-        # Adjust T for finetuning
-        # learner.T = 1000
-
         task.support_set.images = task.support_set.images.to(args.device)
         task.support_set.labels = task.support_set.labels.to(args.device)
         task.query_set.images = task.query_set.images.to(args.device)
@@ -174,12 +170,18 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         original_number_of_shots = task.support_set.min_number_of_shots
 
-        task.support_set, confidence_scores = confidence_estimator.estimate(learner, task.support_set)
+        confidence_learner.load(args.training_output_dir / "model")
+        # Adjust T for finetuning
+        confidence_learner.T = 1000
+        task.support_set, confidence_scores = confidence_estimator.estimate(confidence_learner, task.support_set)
 
         if augmentor is not None:
+            print(confidence_scores)
             task.support_set = augmentor.augment(task.support_set, conf_scores=confidence_scores)
 
-        learner.T = 1000 # Trivial test for T with another T
+        learner.load(args.training_output_dir / "model")
+        # Adjust T for finetuning
+        learner.T = 1000
         predictor = learner.fit(task.support_set)
 
         predictions.append({

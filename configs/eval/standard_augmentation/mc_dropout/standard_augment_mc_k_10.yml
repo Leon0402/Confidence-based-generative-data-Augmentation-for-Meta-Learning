@@ -7,14 +7,11 @@ dataset:
         query_size: 20
 
 evaluation:
-    tasks_per_dataset: 100
+    tasks_per_dataset: 200
     confidence_estimators:
-        use: "ConstantConfidenceProvider"
-        ConstantConfidenceProvider:
-            confidence: 0
-        PseudoConfidenceEstimator: {}
+        use: "MCDropoutConfidenceEstimator"
         MCDropoutConfidenceEstimator:
-            num_samples: 20
+            num_samples: 100
 
     augmentors:
         use: StandardAugmentation
