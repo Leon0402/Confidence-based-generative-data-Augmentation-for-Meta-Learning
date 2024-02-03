@@ -4,6 +4,8 @@ MODEL_DIR=""
 CONFIG_PATH=""
 OUTPUT_DIR=""
 LOG_FILE=""
+RUN_CROSS_DOMAIN=false
+RUN_WITHIN_DOMAIN=false
 
 # Parse named arguments
 while [ "$#" -gt 0 ]; do
@@ -13,6 +15,8 @@ while [ "$#" -gt 0 ]; do
         --config_path) CONFIG_PATH="$2"; shift 2;;
         --output_dir) OUTPUT_DIR="$2"; shift 2;;
         --log_file) LOG_FILE="$2"; shift 2;;
+        --run_cross_domain) RUN_CROSS_DOMAIN=true; shift;;
+        --run_within_domain) RUN_WITHIN_DOMAIN=true; shift;;
         *) echo "Unknown parameter passed: $1"; exit 1;;
     esac
 done
@@ -61,38 +65,43 @@ touch $LOG_FILE
 # duration=$(( SECONDS - start ))
 # echo Task took $duration seconds >> $LOG_FILE
 
-echo "Running model $MODEL_DIR in cross-domain mode" 
-echo "Running model $MODEL_DIR in cross-domain mode" >> $LOG_FILE
+# Cross-domain training
+if [ "$RUN_CROSS_DOMAIN" = true ]; then
+    echo "Running model $MODEL_DIR in cross-domain mode" 
+    echo "Running model $MODEL_DIR in cross-domain mode" >> $LOG_FILE
 
-start=$SECONDS
-python -m cdmetadl.train \
-    --config_path="$CONFIG_PATH" \
-    --model_dir="$MODEL_DIR" \
-    --output_dir="$OUTPUT_DIR" \
-    --domain_type="cross-domain" \
-    --data_dir="$DATASETS_DIR" \
-    --verbose
-duration=$(( SECONDS - start ))
-echo Task took $duration seconds >> $LOG_FILE
-
-echo "Running model $MODEL_DIR in within-domain mode"
-echo "Running model $MODEL_DIR in within-domain mode" >> $LOG_FILE
-
-# TODO: Read datasets from config perhaps?
-for DATASET_NAME in "AWA" "FNG" "PRT" "BTS" "ACT_410"
-do
-    echo "Running model with dataset: $DATASET_NAME" 
-    echo "Running model with dataset: $DATASET_NAME" >> $LOG_FILE
     start=$SECONDS
-
     python -m cdmetadl.train \
         --config_path="$CONFIG_PATH" \
         --model_dir="$MODEL_DIR" \
         --output_dir="$OUTPUT_DIR" \
-        --datasets="$DATASET_NAME" \
-        --domain_type="within-domain" \
+        --domain_type="cross-domain" \
         --data_dir="$DATASETS_DIR" \
-        --verbose 
+        --verbose
     duration=$(( SECONDS - start ))
     echo Task took $duration seconds >> $LOG_FILE
-done
+fi
+
+# Within-domain training
+if [ "$RUN_WITHIN_DOMAIN" = true ]; then
+    echo "Running model $MODEL_DIR in within-domain mode"
+    echo "Running model $MODEL_DIR in within-domain mode" >> $LOG_FILE
+
+    for DATASET_NAME in "AWA" "FNG" "PRT" "BTS" "ACT_410"
+    do
+        echo "Running model with dataset: $DATASET_NAME" 
+        echo "Running model with dataset: $DATASET_NAME" >> $LOG_FILE
+        start=$SECONDS
+
+        python -m cdmetadl.train \
+            --config_path="$CONFIG_PATH" \
+            --model_dir="$MODEL_DIR" \
+            --output_dir="$OUTPUT_DIR" \
+            --datasets="$DATASET_NAME" \
+            --domain_type="within-domain" \
+            --data_dir="$DATASETS_DIR" \
+            --verbose 
+        duration=$(( SECONDS - start ))
+        echo Task took $duration seconds >> $LOG_FILE
+    done
+fi

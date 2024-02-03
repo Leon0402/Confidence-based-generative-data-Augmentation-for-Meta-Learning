@@ -4,6 +4,8 @@ CONFIG_PATH=""
 OUTPUT_DIR=""
 DATASETS_DIR=""
 LOG_FILE=""
+RUN_CROSS_DOMAIN=false
+RUN_WITHIN_DOMAIN=false
 
 # Parse named arguments
 while [ "$#" -gt 0 ]; do
@@ -13,6 +15,8 @@ while [ "$#" -gt 0 ]; do
         --output_dir) OUTPUT_DIR="$2"; shift 2;;
         --datasets_dir) DATASETS_DIR="$2"; shift 2;;
         --log_file) LOG_FILE="$2"; shift 2;;
+        --run_cross_domain) RUN_CROSS_DOMAIN=true; shift;;
+        --run_within_domain) RUN_WITHIN_DOMAIN=true; shift;;
         *) echo "Unknown parameter passed: $1"; exit 1;;
     esac
 done
@@ -58,29 +62,13 @@ touch $LOG_FILE
 # duration=$(( SECONDS - start ))
 # echo Task took $duration seconds >> $LOG_FILE
 
-echo "Running model $TRAINED_MODEL_PATH in cross-domain mode" 
-echo "Running model $TRAINED_MODEL_PATH in cross-domain mode" >> $LOG_FILE
+# Cross-domain evaluation
+if [ "$RUN_CROSS_DOMAIN" = true ]; then
+    echo "Running model $TRAINED_MODEL_PATH in cross-domain mode" 
+    echo "Running model $TRAINED_MODEL_PATH in cross-domain mode" >> $LOG_FILE
 
-start=$SECONDS
-TRAINING_OUTPUT_DIR="$TRAINED_MODEL_PATH/cross-domain"
-python -m cdmetadl.eval \
-    --training_output_dir="$TRAINING_OUTPUT_DIR" \
-    --data_dir="$DATASETS_DIR" \
-    --config_path="$CONFIG_PATH" \
-    --output_dir="$OUTPUT_DIR" \
-    --verbose
-duration=$(( SECONDS - start ))
-echo Task took $duration seconds >> $LOG_FILE
-
-echo "Running model $TRAINED_MODEL_PATH in within-domain mode"
-echo "Running model $TRAINED_MODEL_PATH in within-domain mode" >> $LOG_FILE
-
-for TRAINING_OUTPUT_DIR in "$TRAINED_MODEL_PATH/within-domain"/*
-do
-    echo "Running model $TRAINING_OUTPUT_DIR" >> $LOG_FILE
-    echo "Running model $TRAINING_OUTPUT_DIR" >> $LOG_FILE
     start=$SECONDS
-
+    TRAINING_OUTPUT_DIR="$TRAINED_MODEL_PATH/cross-domain"
     python -m cdmetadl.eval \
         --training_output_dir="$TRAINING_OUTPUT_DIR" \
         --data_dir="$DATASETS_DIR" \
@@ -88,5 +76,26 @@ do
         --output_dir="$OUTPUT_DIR" \
         --verbose
     duration=$(( SECONDS - start ))
-    echo Task took $duration seconds >> $LOG_FILE
-done
+    echo "Task took $duration seconds" >> $LOG_FILE
+fi
+
+# Within-domain evaluation
+if [ "$RUN_WITHIN_DOMAIN" = true ]; then
+    echo "Running model $TRAINED_MODEL_PATH in within-domain mode"
+    echo "Running model $TRAINED_MODEL_PATH in within-domain mode" >> $LOG_FILE
+
+    for TRAINING_OUTPUT_DIR in "$TRAINED_MODEL_PATH/within-domain"/*
+    do
+        echo "Running model $TRAINING_OUTPUT_DIR" >> $LOG_FILE
+        start=$SECONDS
+
+        python -m cdmetadl.eval \
+            --training_output_dir="$TRAINING_OUTPUT_DIR" \
+            --data_dir="$DATASETS_DIR" \
+            --config_path="$CONFIG_PATH" \
+            --output_dir="$OUTPUT_DIR" \
+            --verbose
+        duration=$(( SECONDS - start ))
+        echo "Task took $duration seconds" >> $LOG_FILE
+    done
+fi

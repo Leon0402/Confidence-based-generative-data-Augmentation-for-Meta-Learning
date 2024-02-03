@@ -27,8 +27,9 @@ class PseudoConfidenceEstimator(ConfidenceEstimator):
         Returns:
             A tuple consisting of a dataset which can be used for finetuning the model and a list of confidence scores.
         """
-        # TODO: Use split based on probability (1/3, 2/3)
-        support_set, confidence_set = cdmetadl.dataset.set_split(data_set, number_of_splits=2)
+        support_set, confidence_set = cdmetadl.dataset.set_split(
+            data_set, split_shot_counts=[data_set.number_of_shots - 10, 10]
+        )
         predictor = learner.fit(support_set)
 
         confidence_scores = defaultdict(list)

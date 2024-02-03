@@ -30,5 +30,5 @@ cd "$TMP_DIR"
 # Capture the exit status of the script and cleanup
 STATUS=$?
 cd -
-rm -rf "$TMP_DIR"
+rm -r "$TMP_DIR"
 exit $STATUS

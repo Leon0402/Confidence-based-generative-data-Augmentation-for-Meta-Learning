@@ -164,6 +164,9 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
     for task in tqdm(meta_test_generator(tasks_per_dataset), total=total_number_of_tasks):
         learner.load(args.training_output_dir / "model")
 
+        # Adjust T for finetuning
+        # learner.T = 1000
+
         task.support_set.images = task.support_set.images.to(args.device)
         task.support_set.labels = task.support_set.labels.to(args.device)
         task.query_set.images = task.query_set.images.to(args.device)
