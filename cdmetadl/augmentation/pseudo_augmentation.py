@@ -30,8 +30,7 @@ class PseudoAugmentation(Augmentation):
         :param conf_scores: Confidence scores for each class.
         :return: Specific initialization arguments for augmentation.
         """
-        # TODO: Use split based on probability (1/3, 2/3)
-        return cdmetadl.dataset.set_split(support_set, number_of_splits=2)
+        return cdmetadl.dataset.set_split(support_set, split_shot_counts=[support_set.number_of_shots - 10, 10])
 
     def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
                        init_args: list) -> tuple[torch.Tensor, torch.Tensor]:

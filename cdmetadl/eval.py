@@ -18,21 +18,6 @@ import cdmetadl.helpers.general_helpers
 import cdmetadl.helpers.scoring_helpers
 
 
-def get_device() -> torch.device:
-    """ Get the current device, it can be CPU or GPU.
-
-    Returns:
-        torch.device: Available device.
-    """
-    if torch.cuda.is_available():
-        device = torch.device(f"cuda:{torch.cuda.current_device()}")
-        print(f"Using GPU: {torch.cuda.get_device_name(device)}")
-    else:
-        device = torch.device("cpu")
-        print("Using CPU")
-    return device
-
-
 def define_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Training')
     parser.add_argument(
@@ -71,7 +56,7 @@ def process_args(args: argparse.Namespace) -> None:
         args.training_config = yaml.safe_load(f)
 
     args.model_dir = pathlib.Path(args.training_config["model"]["path"]).resolve()
-    args.device = get_device()
+    args.device = cdmetadl.helpers.general_helpers.get_device()
 
 
 def prepare_directories(args: argparse.Namespace) -> None:
@@ -122,6 +107,8 @@ def initalize_confidence_estimator(args: argparse.Namespace) -> cdmetadl.confide
             return cdmetadl.confidence.PseudoConfidenceEstimator(
                 **confidence_estimator_config["PseudoConfidenceEstimator"]
             )
+        case "GTConfidenceEstimator":
+            return cdmetadl.confidence.GTConfidenceEstimator(**confidence_estimator_config["GTConfidenceEstimator"])
         case _:
             raise ValueError(
                 f'Confidence estimator {args.config["evaluation"]["confidence_estimators"]} specified in config does not exists.'
@@ -170,13 +157,16 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         original_number_of_shots = task.support_set.min_number_of_shots
 
+        if type(confidence_estimator) is cdmetadl.confidence.GTConfidenceEstimator:
+            confidence_estimator.set_query_set(task.query_set)
+
         confidence_learner.load(args.training_output_dir / "model")
         # Adjust T for finetuning
         confidence_learner.T = 1000
         task.support_set, confidence_scores = confidence_estimator.estimate(confidence_learner, task.support_set)
 
         if augmentor is not None:
-            print(confidence_scores)
+            # print(confidence_scores)
             task.support_set = augmentor.augment(task.support_set, conf_scores=confidence_scores)
 
         learner.load(args.training_output_dir / "model")
