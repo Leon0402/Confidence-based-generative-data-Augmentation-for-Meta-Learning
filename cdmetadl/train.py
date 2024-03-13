@@ -163,12 +163,12 @@ def prepare_data_generators(
             meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, train_config)
         case cdmetadl.config.DataFormat.BATCH:
             offset = 0
-            batch_datasets_info = {dataset.name: dataset.dataset_info for dataset in train_dataset.datasets}
+            batch_datasets_info = {dataset.name: (dataset.dataset_info, dataset.label_names) for dataset in train_dataset.datasets}
                 
             # for batch mode use consecutive label_ids
             list_of_image_datasets = []
             for name, info in batch_datasets_info.items():
-                image_dataset = cdmetadl.dataset.ImageDataset(name, info, offset=offset)
+                image_dataset = cdmetadl.dataset.ImageDataset(name, info[0], included_classes=info[1], offset=offset)
                 list_of_image_datasets.append(image_dataset)
                 offset = offset + image_dataset.number_of_classes
                 
@@ -228,4 +228,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-3
