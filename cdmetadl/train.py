@@ -122,10 +122,26 @@ def prepare_directories(args: argparse.Namespace) -> None:
 def prepare_data_generators(
     args: argparse.Namespace
 ) -> tuple[cdmetadl.dataset.DataGenerator, cdmetadl.dataset.TaskGenerator]:
+    
+    train_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["train"])
+    model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
+    
     datasets_info = cdmetadl.helpers.general_helpers.check_datasets(args.data_dir, args.datasets, args.verbose)
-    meta_dataset = cdmetadl.dataset.MetaImageDataset([
-        cdmetadl.dataset.ImageDataset(name, info) for name, info in datasets_info.items()
-    ])
+    
+    # for batch mode use consecutive label_ids
+    if model_module.MyMetaLearner.data_format == cdmetadl.config.DataFormat.BATCH:
+        offset = 0
+        list_of_image_datasets = []
+        for name, info in datasets_info.items():
+            image_dataset = cdmetadl.dataset.ImageDataset(name, info, offset=offset)
+            list_of_image_datasets.append(image_dataset)
+            offset = offset + image_dataset.number_of_classes
+        
+        meta_dataset = cdmetadl.dataset.MetaImageDataset(list_of_image_datasets)
+    else:
+        meta_dataset = cdmetadl.dataset.MetaImageDataset([
+            cdmetadl.dataset.ImageDataset(name, info) for name, info in datasets_info.items()
+        ])
 
     # TODO: Fix random cross domain split
     # TODO: Add random domain independent splitting
@@ -152,8 +168,6 @@ def prepare_data_generators(
     with open(args.dataset_output_dir / 'test_dataset.pkl', 'wb') as f:
         pickle.dump(test_dataset, f)
 
-    train_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["train"])
-    model_module = cdmetadl.helpers.general_helpers.load_module_from_path(args.model_dir / "model.py")
     match model_module.MyMetaLearner.data_format:
         case cdmetadl.config.DataFormat.TASK:
             meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, train_config)

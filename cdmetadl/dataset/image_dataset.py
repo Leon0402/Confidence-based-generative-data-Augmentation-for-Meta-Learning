@@ -24,7 +24,7 @@ class ImageDataset(torch.utils.data.Dataset):
         transform (torchvision.transforms.Compose): Transformation to apply to each image.
     """
 
-    def __init__(self, name: str, dataset_info: tuple, img_size: int = 128, included_classes: set[str] = None):
+    def __init__(self, name: str, dataset_info: tuple, img_size: int = 128, included_classes: set[str] = None, offset: int = 0):
         """
         Args:
             name (str): Name of the dataset
@@ -34,6 +34,8 @@ class ImageDataset(torch.utils.data.Dataset):
                              - 'imgage_path': Path to the directory containing images.
                              - 'metadata_path': Path to the CSV file containing metadata.
             img_size (int, optional): Size to resize images to. Default is 128.
+            offset (int): Keeps track of the number of labels that has already been assigned.
+                        Relevant for avoiding duplicate labels in the batch-mode.
             included_classes (set[str]): Only includes datapoints with a ground truth label present in this set
         """
         self.name = name
@@ -48,7 +50,7 @@ class ImageDataset(torch.utils.data.Dataset):
             self.label_names &= included_classes
         self.number_of_classes = len(self.label_names)
 
-        self.text_to_numerical_label = {label: idx for idx, label in enumerate(self.label_names)}
+        self.text_to_numerical_label = {label: idx + offset for idx, label in enumerate(self.label_names)}
         self.numerical_label_to_text = {number: text for text, number in self.text_to_numerical_label.items()}
         self.labels = np.array([
             self.text_to_numerical_label[label] for label in metadata[label_column] if label in self.label_names
@@ -62,7 +64,7 @@ class ImageDataset(torch.utils.data.Dataset):
 
         self.idx_per_label = [np.flatnonzero(self.labels == label) for label in self.text_to_numerical_label.values()]
         self.min_examples_per_class = min(len(idx) for idx in self.idx_per_label)
-
+    
     def __len__(self) -> int:
         """
         Returns the number of images in the dataset.
