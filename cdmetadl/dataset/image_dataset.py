@@ -41,6 +41,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.name = name
         self.dataset_info = dataset_info
         self.img_size = img_size
+        self.offset = offset
         label_column, file_column, imgage_path, metadata_path = dataset_info
 
         metadata = pd.read_csv(metadata_path)
@@ -117,7 +118,7 @@ class ImageDataset(torch.utils.data.Dataset):
             labels=torch.tensor(np.arange(n_way).repeat(k_shot)),
             number_of_ways=n_way,
             number_of_shots=k_shot,
-            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+            class_names=[self.numerical_label_to_text[idx + self.offset] for idx in selected_classes],
         )
         query_set = SetData(
             images=torch.stack([
@@ -126,7 +127,7 @@ class ImageDataset(torch.utils.data.Dataset):
             labels=torch.tensor(np.arange(n_way).repeat(query_size)),
             number_of_ways=n_way,
             number_of_shots=k_shot,
-            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+            class_names=[self.numerical_label_to_text[idx + self.offset] for idx in selected_classes],
         )
 
         return Task(
@@ -134,5 +135,5 @@ class ImageDataset(torch.utils.data.Dataset):
             support_set=support_set,
             query_set=query_set,
             number_of_ways=n_way,
-            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+            class_names=[self.numerical_label_to_text[idx + self.offset] for idx in selected_classes],
         )
