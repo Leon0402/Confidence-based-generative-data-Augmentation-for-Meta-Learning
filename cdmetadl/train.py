@@ -128,20 +128,10 @@ def prepare_data_generators(
     
     datasets_info = cdmetadl.helpers.general_helpers.check_datasets(args.data_dir, args.datasets, args.verbose)
     
-    # for batch mode use consecutive label_ids
-    if model_module.MyMetaLearner.data_format == cdmetadl.config.DataFormat.BATCH:
-        offset = 0
-        list_of_image_datasets = []
-        for name, info in datasets_info.items():
-            image_dataset = cdmetadl.dataset.ImageDataset(name, info, offset=offset)
-            list_of_image_datasets.append(image_dataset)
-            offset = offset + image_dataset.number_of_classes
-        
-        meta_dataset = cdmetadl.dataset.MetaImageDataset(list_of_image_datasets)
-    else:
-        meta_dataset = cdmetadl.dataset.MetaImageDataset([
+
+    meta_dataset = cdmetadl.dataset.MetaImageDataset([
             cdmetadl.dataset.ImageDataset(name, info) for name, info in datasets_info.items()
-        ])
+    ])
 
     # TODO: Fix random cross domain split
     # TODO: Add random domain independent splitting
@@ -172,7 +162,20 @@ def prepare_data_generators(
         case cdmetadl.config.DataFormat.TASK:
             meta_train_generator = cdmetadl.dataset.SampleTaskGenerator(train_dataset, train_config)
         case cdmetadl.config.DataFormat.BATCH:
-            meta_train_generator = cdmetadl.dataset.BatchGenerator(train_dataset, train_config)
+            offset = 0
+            batch_datasets_info = {dataset.name: dataset.dataset_info for dataset in train_dataset.datasets}
+                
+            # for batch mode use consecutive label_ids
+            list_of_image_datasets = []
+            for name, info in batch_datasets_info.items():
+                image_dataset = cdmetadl.dataset.ImageDataset(name, info, offset=offset)
+                list_of_image_datasets.append(image_dataset)
+                offset = offset + image_dataset.number_of_classes
+                
+            batch_train_dataset = cdmetadl.dataset.MetaImageDataset(list_of_image_datasets)
+            meta_train_generator = cdmetadl.dataset.BatchGenerator(batch_train_dataset, train_config)
+
+
 
     valid_config = cdmetadl.config.DatasetConfig.from_json(args.config["dataset"]["validation"])
     meta_val_generator = cdmetadl.dataset.TaskGenerator(val_dataset, valid_config)
