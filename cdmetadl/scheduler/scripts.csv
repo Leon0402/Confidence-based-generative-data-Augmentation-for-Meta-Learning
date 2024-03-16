@@ -1,0 +1,11 @@
+ID,command,status,attached to process,attached to gpu,process alive,expected_cpu_usage (in %),expected_gpu_usage (in MB),timestamp_started,last_timestamp
+123," echo ""hello world"" >> ~/testfile122333.csv",exited,2898493.0,0.0,False,1000,19020,2024-03-16 14:40:35.382630,2024-03-16 14:41:26.345517
+12, sleep 30, waiting, , , ,10700,19020,,
+121313," echo ""hello world"" >> ~/testfile122333.csv", waiting, , , ,1000,1900020,,
+498, sleep 30, waiting, , , ,1000,190920,,
+490," echo ""hello world"" >> ~/testfile122333.csv",exited,2898824.0,0.0,False,1000,19020,2024-03-16 14:41:26.335847,2024-03-16 14:42:17.552989
+1093, sleep 300,exited,2899159.0,0.0,False,1000,19020,2024-03-16 14:42:17.542044,2024-03-16 14:47:23.003206
+4091," echo ""hello world"" >> ~/testfile122333.csv",exited,2899505.0,0.0,False,1000,19020,2024-03-16 14:43:08.408882,2024-03-16 14:43:59.309270
+32983, sleep 300,in progress,2899857.0,0.0,True,1000,19020,2024-03-16 14:43:59.304451,2024-03-16 14:43:59.304652
+4901," echo ""hello world"" >> ~/testfile122333.csv", waiting, , , ,10900000,1902000,,
+3901, sleep 30,exited,2900209.0,0.0,False,1000,19020,2024-03-16 14:44:50.251644,2024-03-16 14:45:41.169084

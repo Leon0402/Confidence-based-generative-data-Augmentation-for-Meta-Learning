@@ -105,12 +105,14 @@ class ImageDataset(torch.utils.data.Dataset):
         n_way = n_ways.sample()
         k_shot = k_shots.sample()
 
-        selected_classes = np.random.permutation(self.number_of_classes)[:n_way]
+        selected_classes = np.random.permutation(self.number_of_classes)[:n_way] 
         # Indices for support and query set are sampled together to ensure no indix appears twice
         sampled_indices_per_class = [
             np.random.choice(self.idx_per_label[cls], k_shot + query_size, replace=False) for cls in selected_classes
         ]
 
+        class_names = [self.numerical_label_to_text[idx] for idx in selected_classes]
+        
         support_set = SetData(
             images=torch.stack([
                 self.read_image(idx) for indices in sampled_indices_per_class for idx in indices[:k_shot]
@@ -118,7 +120,7 @@ class ImageDataset(torch.utils.data.Dataset):
             labels=torch.tensor(np.arange(n_way).repeat(k_shot)),
             number_of_ways=n_way,
             number_of_shots=k_shot,
-            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+            class_names=class_names
         )
         query_set = SetData(
             images=torch.stack([
@@ -127,7 +129,7 @@ class ImageDataset(torch.utils.data.Dataset):
             labels=torch.tensor(np.arange(n_way).repeat(query_size)),
             number_of_ways=n_way,
             number_of_shots=k_shot,
-            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+            class_names=class_names
         )
 
         return Task(
@@ -135,5 +137,5 @@ class ImageDataset(torch.utils.data.Dataset):
             support_set=support_set,
             query_set=query_set,
             number_of_ways=n_way,
-            class_names=[self.numerical_label_to_text[idx] for idx in selected_classes],
+            class_names=class_names
         )
