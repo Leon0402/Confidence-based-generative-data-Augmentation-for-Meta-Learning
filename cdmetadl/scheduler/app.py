@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import time
 
 # Load CSV data
-df = pd.read_csv('scripts.csv')
+df = pd.read_csv('scripts1.csv')
 
 # Initialize Dash app
 app = dash.Dash(__name__)

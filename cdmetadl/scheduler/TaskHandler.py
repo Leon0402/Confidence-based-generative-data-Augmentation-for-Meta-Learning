@@ -34,8 +34,8 @@ class UsageChecker:
             gpu_usages = pd.concat([gpu_usages, self.get_free_gpu()])
             cpu_usages.append(self.get_cpu_usage())
     
-        gpu_usages_avg = gpu_usages.groupby("id").max()
-        cpu_usage_avg = pd.Series(cpu_usages).mean() * psutil.cpu_count(logical=True)
+        gpu_usages_avg = gpu_usages.groupby("id").mean()
+        cpu_usage_avg = pd.Series(cpu_usages).max() * psutil.cpu_count(logical=True)
         return gpu_usages_avg, cpu_usage_avg
 
 
@@ -52,7 +52,7 @@ class ProcessHandler:
 
 class TaskHandler:
     
-    def __init__(self, csv_path="./scripts.csv", usage_checker=UsageChecker(), process_handler=ProcessHandler(), sleep_between_checks=5):
+    def __init__(self, csv_path="./scripts1.csv", usage_checker=UsageChecker(), process_handler=ProcessHandler(), sleep_between_checks=5):
         self.csv_path = csv_path
         self.task_df = pd.read_csv(self.csv_path)
         self.usage_checker = usage_checker
