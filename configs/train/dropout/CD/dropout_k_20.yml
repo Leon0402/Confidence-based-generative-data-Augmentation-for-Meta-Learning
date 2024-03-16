@@ -1,9 +1,9 @@
 dataset: 
     split:
         cross_domain: 
-            train: ["BRD", "FLW", "BCT", "CRS", "SPT"]
-            validation: ["DOG", "PLT_NET", "PNU", "APL", "ACT_40"]
-            test: ["AWA", "FNG", "PRT", "BTS", "ACT_410"]
+            train: ["DOG","INS_2", "PLT_NET", "MED_LF", "PNU" , "RSICB" , "APL" , "TEX_DTD" , "ACT_40" , "MD_5_BIS"]
+            validation:  ["AWA", "INS" , "FNG" , "PLT_DOC" , "PRT" , "RSD", "BTS", "TEX_ALOT", "ACT_410", "MD_6"]
+            test: ["BRD", "PLK", "FLW","PLT_VIL","BCT","RESISC","CRS","TEX","SPT","MD_MIX"]
         domain_independent: 
             train: ["PLK", "INS_2", "RESISC", "RSICB", "MD_MIX", "MD_5_BIS"]
             validation: ["PLT_VIL", "MED_LF", "TEX", "TEX_DTD"]
@@ -22,8 +22,8 @@ dataset:
             value: 20
         query_size: 20
 model: 
-    number_of_batches: 10_000
-    number_of_training_tasks: 10_000
-    number_of_validation_tasks_per_dataset: 100
-    validate_every: 500
-    dropout_probability: 0.20
+    number_of_batches: 30_000
+    number_of_training_tasks: 30_000
+    number_of_validation_tasks_per_dataset: 50
+    validate_every: 1000
+    dropout_probability: 0.30

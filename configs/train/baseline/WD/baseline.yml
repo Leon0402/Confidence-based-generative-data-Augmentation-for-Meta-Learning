@@ -13,17 +13,17 @@ dataset:
         n_ways:
             value: 5
         k_shots: 
-            value: 20
+            range: [1, 20]
         query_size: 20
     validation: 
         n_ways:
             value: 5
         k_shots: 
-            value: 20
+            range: [1, 20]
         query_size: 20
 model: 
     number_of_batches: 10_000
     number_of_training_tasks: 10_000
-    number_of_validation_tasks_per_dataset: 100
-    validate_every: 500
-    dropout_probability: 0.30
+    number_of_validation_tasks_per_dataset: 50
+    validate_every: 1000
+    dropout_probability: 0.00

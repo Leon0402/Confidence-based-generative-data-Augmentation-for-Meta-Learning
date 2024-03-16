@@ -25,7 +25,7 @@ rsync -av --exclude='.git/' ~/Confidence-based-generative-data-Augmentation-for-
 cd "$TMP_DIR"
 
 # Execute the specified script with its arguments
-./"$SCRIPT_NAME" "$@"
+"$SCRIPT_NAME" "$@"
 
 # Capture the exit status of the script and cleanup
 STATUS=$?

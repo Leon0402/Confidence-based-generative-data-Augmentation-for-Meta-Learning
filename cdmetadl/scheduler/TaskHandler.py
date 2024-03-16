@@ -26,7 +26,7 @@ class UsageChecker:
     def get_cpu_usage(self):
         return psutil.cpu_percent()
 
-    def get_average_usage(self, n_iters = 10, sleep_between_checks = 5):
+    def get_average_usage(self, n_iters = 30, sleep_between_checks = 5):
         gpu_usages = pd.DataFrame()
         cpu_usages = []
         for _ in range(n_iters):
@@ -34,7 +34,7 @@ class UsageChecker:
             gpu_usages = pd.concat([gpu_usages, self.get_free_gpu()])
             cpu_usages.append(self.get_cpu_usage())
     
-        gpu_usages_avg = gpu_usages.groupby("id").mean()
+        gpu_usages_avg = gpu_usages.groupby("id").max()
         cpu_usage_avg = pd.Series(cpu_usages).mean() * psutil.cpu_count(logical=True)
         return gpu_usages_avg, cpu_usage_avg
 
@@ -42,6 +42,7 @@ class UsageChecker:
 class ProcessHandler:
     
     def start_process(self, command):
+        print(f"Process will be startet with command: \n {command} \n\n")
         proc = subprocess.Popen([command], shell=True)
         return proc.pid
 
@@ -73,7 +74,7 @@ class TaskHandler:
             possible_gpus = remaining_gpu_space[remaining_gpu_space > 0]
             # check if there is a gpu that fits the task:
             if possible_gpus.shape[0] > 0:
-                assigned_gpu_id = possible_gpus.argmin() #extract id of gpu that has the least space but can fit the script
+                assigned_gpu_id = possible_gpus.argmax() #extract id of gpu that has the most space but can fit the script
                 return assigned_gpu_id
             
         return -1
@@ -125,5 +126,5 @@ class TaskHandler:
                 self.update_csv()
 
 if __name__ == "__main__":            
-    th = TaskHandler(sleep_between_checks=5)
+    th = TaskHandler(sleep_between_checks=10)
     th.orchestrate()
