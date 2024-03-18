@@ -202,12 +202,13 @@ class GenerativeAugmentation(Augmentation):
         :param batch: indicates if the whole class should be augmented at once.
         :return: tuple of the augmented data and labels for the specified class.
         """
+        classname = support_set.class_names[cls]
         if self.batch:
             random_samped_images = [support_set.images_by_class[cls][idx % support_set.number_of_shots] for idx in range(number_of_shots)]
-            generated_images = self.generate_images(random_samped_images)
+            generated_images = self.generate_images(random_samped_images, classname)
         else:
             generated_images = [
-                self.generate_images(support_set.images_by_class[cls][idx % support_set.number_of_shots])
+                self.generate_images(support_set.images_by_class[cls][idx % support_set.number_of_shots], classname)
                 for idx in tqdm(range(number_of_shots), leave=False, desc=f"Generated images of class {cls}")
             ]
 
@@ -244,18 +245,19 @@ class GenerativeAugmentation(Augmentation):
         diffusion_array = np.array(downscaled_diffusion_image) / 255
         return torch.tensor(np.transpose(diffusion_array, (2, 0, 1))).to(self.device)
 
-    def generate_images(self, image: torch.Tensor | list) -> torch.Tensor:
+    def generate_images(self, image: torch.Tensor | list, classname) -> torch.Tensor:
         """
         Generates a new image using the augmentation pipeline:
 
         Args:
             image (torch.Tensor): Tensor of the image that will be used as input for the diffusion model
+            classname (str): Name of the class of the image
         Returns:
             torch.Tensor: Generated image
         """
         if type(image) == torch.Tensor:
             image_array, annotated_image = self.__preprocess_image(image)
-            diffusion_image = self.generate_diffusion_image(annotated_image)[0]
+            diffusion_image = self.generate_diffusion_image(annotated_image, classname)[0]
             diffusion_images_array = self.__postprocess_diffusion_image(diffusion_image)
             self.__save_cached_images(image_array, annotated_image, diffusion_image)
 
@@ -267,20 +269,21 @@ class GenerativeAugmentation(Augmentation):
                 image_array, annotated_image = self.__preprocess_image(img)
                 images_array.append(image_array)
                 annotated_images.append(annotated_image)
-            diffusion_images = self.generate_diffusion_image(annotated_images)
+            diffusion_images = self.generate_diffusion_image(annotated_images, classname)
             for i in range(len(diffusion_images)):
                 diffusion_images_array.append(self.__postprocess_diffusion_image(diffusion_images[i]))
                 self.__save_cached_images(images_array[i], annotated_images[i], diffusion_images[i])
 
         return diffusion_images_array
 
-    def generate_diffusion_image(self, image: Image.Image | list) -> Image.Image | list:
+    def generate_diffusion_image(self, image: Image.Image | list, classname) -> Image.Image | list:
         """
         Feeds the feature maps/edge map to the diffusion model and generates a new image.
 
             Args:
                 image (PIL.Image.Image): Feature map will be used as input for the diffusion model
-        
+                classname (str): Name of the class of the image
+
             Returns:
                 Image.Image: Generated image
         """
@@ -293,7 +296,7 @@ class GenerativeAugmentation(Augmentation):
         if self.guessing_mode:
             POSITIVE_PROMPTS = [""]*n_images
         else:
-            POSITIVE_PROMPTS = [str(prompt) for prompt in np.random.choice(self.style_prompts, size=n_images)]
+            POSITIVE_PROMPTS = [f"{classname}, {str(prompt)}" for prompt in np.random.choice(self.style_prompts, size=n_images)]
             
         NEGATIVE_PROMPT = [
             "Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"
