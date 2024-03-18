@@ -162,7 +162,12 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         confidence_learner.load(args.training_output_dir / "model")
         # Adjust T for finetuning
-        confidence_learner.T = 1000
+        if "finetuning" in str(model_module).lower():
+            T = 1000
+        elif "maml" in str(model_module).lower():
+            T = 15
+            
+        confidence_learner.T = T
         task.support_set, confidence_scores = confidence_estimator.estimate(confidence_learner, task.support_set)
 
         if augmentor is not None:
@@ -171,7 +176,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
 
         learner.load(args.training_output_dir / "model")
         # Adjust T for finetuning
-        learner.T = 1000
+        learner.T = T
         predictor = learner.fit(task.support_set)
 
         predictions.append({
