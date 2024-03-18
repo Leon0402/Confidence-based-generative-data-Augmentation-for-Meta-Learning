@@ -1,0 +1,165 @@
+dataset: 
+    test: 
+        n_ways:
+            value: 5
+        k_shots: 
+            value: 10
+        query_size: 20
+            
+    evaluation:
+        tasks_per_dataset: 100
+        confidence_estimators:
+            use: "GTConfidenceEstimator"
+            ConstantConfidenceProvider:
+                confidence: 0
+            GTConfidenceEstimator: {} 
+            MCDropoutConfidenceEstimator:
+                num_samples: 100
+
+        augmentors:
+            use: "StandardAugmentation"
+            PseudoAugmentation: 
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+            StandardAugmentation:
+                threshold: 0.75
+                scale: 2
+                keep_original_data: True
+                rotation: 25
+                flip: True
+            GenerativeAugmentation:
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+                annotator_type: "hed"
+    dataset: 
+    test: 
+        n_ways:
+            value: 5
+        k_shots: 
+            value: 10
+        query_size: 20
+            
+    evaluation:
+        tasks_per_dataset: 100
+        confidence_estimators:
+            use: "GTConfidenceEstimator"
+            ConstantConfidenceProvider:
+                confidence: 0
+            GTConfidenceEstimator: {} 
+            MCDropoutConfidenceEstimator:
+                num_samples: 100
+
+        augmentors:
+            use: "StandardAugmentation"
+            PseudoAugmentation: 
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+            StandardAugmentation:
+                threshold: 0.75
+                scale: 2
+                keep_original_data: True
+                rotation: 25
+                flip: True
+            GenerativeAugmentation:
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+                annotator_type: "hed"
+    dataset: 
+    test: 
+        n_ways:
+            value: 5
+        k_shots: 
+            value: 10
+        query_size: 20
+            
+    evaluation:
+        tasks_per_dataset: 100
+        confidence_estimators:
+            use: "GTConfidenceEstimator"
+            ConstantConfidenceProvider:
+                confidence: 0
+            GTConfidenceEstimator: {} 
+            MCDropoutConfidenceEstimator:
+                num_samples: 100
+
+        augmentors:
+            use: "StandardAugmentation"
+            PseudoAugmentation: 
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+            StandardAugmentation:
+                threshold: 0.75
+                scale: 2
+                keep_original_data: True
+                rotation: 25
+                flip: True
+            GenerativeAugmentation:
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+                annotator_type: "hed"
+    dataset: 
+    test: 
+        n_ways:
+            value: 5
+        k_shots: 
+            value: 10
+        query_size: 20
+            
+    evaluation:
+        tasks_per_dataset: 100
+        confidence_estimators:
+            use: "GTConfidenceEstimator"
+            ConstantConfidenceProvider:
+                confidence: 0
+            GTConfidenceEstimator: {} 
+            MCDropoutConfidenceEstimator:
+                num_samples: 100
+
+        augmentors:
+            use: "StandardAugmentation"
+            PseudoAugmentation: 
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+            StandardAugmentation:
+                threshold: 0.75
+                scale: 2
+                keep_original_data: True
+                rotation: 25
+                flip: True
+            GenerativeAugmentation:
+                keep_original_data: True
+                augmentation_size: 
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
+                annotator_type: "hed"
+    
