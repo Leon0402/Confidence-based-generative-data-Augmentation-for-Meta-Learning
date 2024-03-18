@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import pandas as pd
 import psutil
@@ -6,8 +7,8 @@ import datetime
 
 class UsageChecker:
     
-    def __init__(self):
-        None
+    def __init__(self, use_gpus):
+        self.use_gpus = use_gpus
         
     def get_free_gpu(self):
         gpu_stats = subprocess.check_output(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free,utilization.memory,utilization.gpu"])
@@ -20,13 +21,13 @@ class UsageChecker:
             gpu_df[col] = gpu_df[col].str.replace(r'\D+', '', regex=True).astype(int)
             
         gpu_df["id"] = range(0, len(gpu_df))
-        gpu_df = gpu_df[gpu_df["id"] <= 2]
+        gpu_df = gpu_df[gpu_df["id"].isin(self.use_gpus)]
         return gpu_df
 
     def get_cpu_usage(self):
         return psutil.cpu_percent()
 
-    def get_average_usage(self, n_iters = 30, sleep_between_checks = 5):
+    def get_average_usage(self, n_iters=30, sleep_between_checks=5):
         gpu_usages = pd.DataFrame()
         cpu_usages = []
         for _ in range(n_iters):
@@ -42,7 +43,7 @@ class UsageChecker:
 class ProcessHandler:
     
     def start_process(self, command):
-        print(f"Process will be startet with command: \n {command} \n\n")
+        print(f"Process will be started with command: \n {command} \n\n")
         proc = subprocess.Popen([command], shell=True)
         return proc.pid
 
@@ -52,12 +53,12 @@ class ProcessHandler:
 
 class TaskHandler:
     
-    def __init__(self, csv_path="./scripts1.csv", usage_checker=UsageChecker(), process_handler=ProcessHandler(), sleep_between_checks=5):
+    def __init__(self, csv_path, use_gpus, sleep_between_checks=5):
         self.csv_path = csv_path
         self.task_df = pd.read_csv(self.csv_path)
-        self.usage_checker = usage_checker
+        self.usage_checker = UsageChecker(use_gpus)
         self.sleep_between_checks = sleep_between_checks
-        self.process_handler = process_handler
+        self.process_handler = ProcessHandler()
         
     def load_csv(self):
         self.task_df = pd.read_csv(self.csv_path)
@@ -88,7 +89,7 @@ class TaskHandler:
         waiting_tasks_gpu = waiting_tasks[waiting_tasks["assigned_gpus"] > -1]
         
         if waiting_tasks_gpu.shape[0] > 0:
-            # select the first task stat is waiting and can fit on any GPU and start it (can be replace by a more advanced logic like best fit first etc.)
+            # select the first task stat is waiting and can fit on any GPU and start it (can be replaced by a more advanced logic like best fit first etc.)
             process_to_be_started = waiting_tasks_gpu.iloc[0]
             cuda_str = f"CUDA_VISIBLE_DEVICES={process_to_be_started['assigned_gpus']} "
                 
@@ -125,6 +126,11 @@ class TaskHandler:
             if (original_df != self.task_df).any().any():
                 self.update_csv()
 
-if __name__ == "__main__":            
-    th = TaskHandler(sleep_between_checks=10)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--use_gpus', nargs='+', type=int, required=True, help='List of GPU IDs to be used')
+    parser.add_argument('--csv_path', type=str, required=True, help='Path to CSV file')
+    args = parser.parse_args()
+    
+    th = TaskHandler(args.csv_path, args.use_gpus, sleep_between_checks=10)
     th.orchestrate()
