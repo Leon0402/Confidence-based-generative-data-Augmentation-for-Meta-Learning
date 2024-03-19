@@ -7,7 +7,7 @@ dataset:
         query_size: 20
             
 evaluation:
-        tasks_per_dataset: 100
+        tasks_per_dataset: 250
         confidence_estimators:
             use: "ConstantConfidenceProvider"
             ConstantConfidenceProvider:
