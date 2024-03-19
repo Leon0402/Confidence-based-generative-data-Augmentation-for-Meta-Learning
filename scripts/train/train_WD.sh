@@ -79,7 +79,7 @@ echo "Running model $MODEL_DIR in within-domain mode"
 echo "Running model $MODEL_DIR in within-domain mode" >> $LOG_FILE
 
 # TODO: Read datasets from config perhaps?
-for DATASET_NAME in "AWA" "FNG" "PRT" "BTS" "ACT_410"
+for DATASET_NAME in "DOG" "INS_2" "PLT_NET" "MED_LF" "PNU" "RSICB" "APL" "TEX_DTD" "ACT_40" "MD_5_BIS"
 do
     echo "Running model with dataset: $DATASET_NAME" 
     echo "Running model with dataset: $DATASET_NAME" >> $LOG_FILE

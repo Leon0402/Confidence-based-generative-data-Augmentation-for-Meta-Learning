@@ -27,7 +27,7 @@ class UsageChecker:
     def get_cpu_usage(self):
         return psutil.cpu_percent()
 
-    def get_average_usage(self, n_iters=30, sleep_between_checks=5):
+    def get_average_usage(self, n_iters=20, sleep_between_checks=5):
         gpu_usages = pd.DataFrame()
         cpu_usages = []
         for _ in range(n_iters):
@@ -128,8 +128,8 @@ class TaskHandler:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--use_gpus', nargs='+', type=int, required=True, help='List of GPU IDs to be used')
-    parser.add_argument('--csv_path', type=str, required=True, help='Path to CSV file')
+    parser.add_argument('--use_gpus', default=[0, 1, 2], type=list, help='List of GPU IDs to be used')
+    parser.add_argument('--csv_path', default="./baselines.csv", type=str, help='Path to CSV file')
     args = parser.parse_args()
     
     th = TaskHandler(args.csv_path, args.use_gpus, sleep_between_checks=10)

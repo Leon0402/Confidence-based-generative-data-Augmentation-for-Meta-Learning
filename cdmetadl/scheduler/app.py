@@ -3,9 +3,12 @@ from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 import time
-import argparse
+
+# Load CSV data
+df = pd.read_csv('scripts2.csv')
 
 # Initialize Dash app
 app = dash.Dash(__name__)
@@ -34,7 +37,7 @@ app.layout = html.Div([
 )
 def update_table(n):
     # Load updated data from CSV
-    updated_df = pd.read_csv(args.csv_path)
+    updated_df = pd.read_csv('scripts.csv')
     
     # Create table figure
     fig = go.Figure(data=[go.Table(
@@ -51,8 +54,4 @@ def update_table(n):
     return fig
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Dash App with CSV Path')
-    parser.add_argument('--csv_path', type=str, default='scripts.csv', help='Path to CSV file')
-    args = parser.parse_args()
-    
     app.run_server(debug=True)
