@@ -65,10 +65,10 @@ class ResidualBlock(nn.Module):
         z = self.relu(z)
         z = self.conv2(z)
         z = self.bn2(z)
-        z = self.dropout(z)
 
         y = x
         if self.skip:
+            z = self.dropout(z)
             y = self.conv3(y)
             y = self.bn3(y)
         return self.relu(y + z)

@@ -7,6 +7,7 @@ import torch.utils.data
 
 import cdmetadl.config
 import cdmetadl.samplers
+import cdmetadl.helpers.general_helpers
 
 from .meta_image_dataset import MetaImageDataset
 from .task import Task
@@ -30,7 +31,10 @@ class BatchGenerator(DataGenerator):
     def __call__(self, num_batches: int) -> Iterator:
         generated_batches = 0
         while True:
-            for batch in torch.utils.data.DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True):
+            for batch in torch.utils.data.DataLoader(
+                self.dataset, batch_size=self.config.batch_size, persistent_workers=True, num_workers=8, shuffle=True,
+                drop_last=True
+            ):
                 if generated_batches == num_batches:
                     return
                 yield batch

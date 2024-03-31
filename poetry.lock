@@ -42,17 +42,6 @@ test-trackers = ["comet-ml", "dvclive", "tensorboard", "wandb"]
 testing = ["bitsandbytes", "datasets", "deepspeed", "evaluate", "parameterized", "pytest", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "tqdm", "transformers"]
 
 [[package]]
-name = "addict"
-version = "2.4.0"
-description = "Addict is a dictionary whose items can be set using both attribute and item syntax."
-optional = false
-python-versions = "*"
-files = [
-    {file = "addict-2.4.0-py3-none-any.whl", hash = "sha256:249bb56bbfd3cdc2a004ea0ff4c2b6ddc84d53bc2194761636eb314d5cfa5dfc"},
-    {file = "addict-2.4.0.tar.gz", hash = "sha256:b3b2210e0e067a281f5646c8c5db92e99b7231ea8b0eb5f74dbdf9e259d4e494"},
-]
-
-[[package]]
 name = "ansi2html"
 version = "1.9.1"
 description = "Convert text with ANSI color codes to HTML or to LaTeX"
@@ -235,33 +224,6 @@ files = [
 
 [package.extras]
 dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
-
-[[package]]
-name = "basicsr"
-version = "1.4.2"
-description = "Open Source Image and Video Super-Resolution Toolbox"
-optional = false
-python-versions = "*"
-files = [
-    {file = "basicsr-1.4.2.tar.gz", hash = "sha256:b89b595a87ef964cda9913b4d99380ddb6554c965577c0c10cb7b78e31301e87"},
-]
-
-[package.dependencies]
-addict = "*"
-future = "*"
-lmdb = "*"
-numpy = ">=1.17"
-opencv-python = "*"
-Pillow = "*"
-pyyaml = "*"
-requests = "*"
-scikit-image = "*"
-scipy = "*"
-tb-nightly = "*"
-torch = ">=1.7"
-torchvision = "*"
-tqdm = "*"
-yapf = "*"
 
 [[package]]
 name = "beautifulsoup4"
@@ -591,6 +553,30 @@ docs = ["furo", "sphinx (>=7.2)", "sphinx-copybutton"]
 mypy = ["contourpy[bokeh,docs]", "docutils-stubs", "mypy (==1.6.1)", "types-Pillow"]
 test = ["Pillow", "contourpy[test-no-images]", "matplotlib"]
 test-no-images = ["pytest", "pytest-cov", "pytest-xdist", "wurlitzer"]
+
+[[package]]
+name = "controlnet-aux"
+version = "0.0.7"
+description = "Auxillary models for controlnet"
+optional = false
+python-versions = ">=3.7.0"
+files = [
+    {file = "controlnet_aux-0.0.7.tar.gz", hash = "sha256:db7299323ba6d389e2fe6b7d8131a05a271af3a4ac2a574775448c4d0778be8c"},
+]
+
+[package.dependencies]
+einops = "*"
+filelock = "*"
+huggingface_hub = "*"
+importlib_metadata = "*"
+numpy = "*"
+opencv-python = "*"
+Pillow = "*"
+scikit-image = "*"
+scipy = "*"
+timm = "*"
+torch = "*"
+torchvision = "*"
 
 [[package]]
 name = "cycler"
@@ -950,16 +936,6 @@ sftp = ["paramiko"]
 smb = ["smbprotocol"]
 ssh = ["paramiko"]
 tqdm = ["tqdm"]
-
-[[package]]
-name = "future"
-version = "0.18.3"
-description = "Clean single-source support for Python 3 and 2"
-optional = false
-python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
-files = [
-    {file = "future-0.18.3.tar.gz", hash = "sha256:34a17436ed1e96697a86f9de3d15a3b0be01d8bc8de9c1dffd59fb8234ed5307"},
-]
 
 [[package]]
 name = "google-auth"
@@ -1584,13 +1560,13 @@ test = ["jupyter-server (>=2.0.0)", "pytest (>=7.0)", "pytest-jupyter[server] (>
 
 [[package]]
 name = "jupyterlab"
-version = "4.0.11"
+version = "4.0.12"
 description = "JupyterLab computational environment"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "jupyterlab-4.0.11-py3-none-any.whl", hash = "sha256:536bf0e78723153a5016ca7efb88ed0ecd7070d3f1555d5b0e2770658f900a3c"},
-    {file = "jupyterlab-4.0.11.tar.gz", hash = "sha256:d1aec24712566bc25a36229788242778e498ca4088028e2f9aa156b8b7fdc8fc"},
+    {file = "jupyterlab-4.0.12-py3-none-any.whl", hash = "sha256:53f132480e5f6564f4e20d1b5ed4e8b7945952a2decd5bdfa43760b1b536c99d"},
+    {file = "jupyterlab-4.0.12.tar.gz", hash = "sha256:965d92efa82a538ed70ccb3968d9aabba788840da882e13d7b061780cdedc3b7"},
 ]
 
 [package.dependencies]
@@ -1801,45 +1777,6 @@ files = [
 [package.extras]
 lint = ["pre-commit (>=3.3)"]
 test = ["pytest (>=7.4)", "pytest-cov (>=4.1)"]
-
-[[package]]
-name = "lmdb"
-version = "1.4.1"
-description = "Universal Python binding for the LMDB 'Lightning' Database"
-optional = false
-python-versions = "*"
-files = [
-    {file = "lmdb-1.4.1-cp27-cp27m-macosx_10_14_x86_64.whl", hash = "sha256:dcdbe27f75da9b8f58815c6ac9a1f8fa2d7a8d42abc22abb664e089002d5ffa4"},
-    {file = "lmdb-1.4.1-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:032ce6f490caedbec642fc0a79114475e8520d1bf1e1465c6a12b8e5fe39022f"},
-    {file = "lmdb-1.4.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:13c5c8504d419039d6617cee24941e420d648a5b15c4b21e6491821400e5750f"},
-    {file = "lmdb-1.4.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6f8018a947608c4be0dc885c90f477a600be1b71285059a9c68280d36b3fb29b"},
-    {file = "lmdb-1.4.1-cp310-cp310-win_amd64.whl", hash = "sha256:360ac42a8772f571fdd01156e0466d6be52eea1140556a138281b7c887916ae2"},
-    {file = "lmdb-1.4.1-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:f683f3d9a1771f21a7788a9be98fae9f3ce13cb8d549d6074d0402f284572458"},
-    {file = "lmdb-1.4.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:73332a830c72d76d57744cd2b29eca2c258bc406273ca4ee07dc9e48ae84d712"},
-    {file = "lmdb-1.4.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c178c5134e942256a830b0bca7bb052d3d7c645b4b8759d720ab49ec36b3aae"},
-    {file = "lmdb-1.4.1-cp311-cp311-win_amd64.whl", hash = "sha256:12047c239ab6ccbbc9db99277aabcfe1c15b1cfc9ea33b92ab30ddd6f0823a10"},
-    {file = "lmdb-1.4.1-cp35-cp35m-macosx_10_14_x86_64.whl", hash = "sha256:91930a2a7eb9acc4d687f9067d6f9ec83c9673bbee55823badbbee2f9a3e9970"},
-    {file = "lmdb-1.4.1-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:1b106eb7a23b6a224bc7dfe2bd5a34c84973dda039965ae99106e10d22833dd9"},
-    {file = "lmdb-1.4.1-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9d7779ccfacd5f4c62f28485dd2427b54d19dd7016000e6237816a3750287a82"},
-    {file = "lmdb-1.4.1-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c1f1eff7ae8d8d534309f05e274fd646dd1d4abf5157c59db59a54a55463371"},
-    {file = "lmdb-1.4.1-cp36-cp36m-win_amd64.whl", hash = "sha256:b6354df94d241e8c0158f716902224109a5f3f7ed9a24447a25f968427f61d77"},
-    {file = "lmdb-1.4.1-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:64cf7470edfc45ff0369956e40a0784b5225097569299b91f893bd50fa336f52"},
-    {file = "lmdb-1.4.1-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a3c15d344731507fcfddb911a86d325e867c5574751af28591e82ecf21aad1e5"},
-    {file = "lmdb-1.4.1-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:342550b86bb6275bfb89dbde9e48385da51d57124433bd464cd7681d0702f566"},
-    {file = "lmdb-1.4.1-cp37-cp37m-win_amd64.whl", hash = "sha256:3a99a3859427fbc273ae1e932b3e7da946089757e74a05a24a19f5c4a1aba933"},
-    {file = "lmdb-1.4.1-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:f71da9bd33fd17c9cdbe2bd4ce87f4b36b8f044927df4220bec4b03f209c78a2"},
-    {file = "lmdb-1.4.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4e9ff50ad20d890bc63524230237a61b6eb3be96ad6a6ac475e8ba1a1f2c751f"},
-    {file = "lmdb-1.4.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:81abf9475a62b7ced1ac0352967106b7ed1ac5d1c1a0d23ed24abe55a28f9884"},
-    {file = "lmdb-1.4.1-cp38-cp38-win_amd64.whl", hash = "sha256:c9fa31743b447a3fbbbdaefc858de1c761568d855155dec54d5ad490f88856b6"},
-    {file = "lmdb-1.4.1-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:26ef8fa7bd34a64f78f5e16fa9bcce0fe2ad682dd26ef078f95a8847dacb1171"},
-    {file = "lmdb-1.4.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9f5dc8a335f7925fd667d62a5e43bed3aa35959b32b233fe0112a6ef02e07877"},
-    {file = "lmdb-1.4.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7ba5d78b0ff130b38a56b7161ceb7e27ba4364d827d2bbb251c24b06c28c64cd"},
-    {file = "lmdb-1.4.1-cp39-cp39-win_amd64.whl", hash = "sha256:3b84f6a349ed1bd3fa4e6c3c6b711d0389cc8d9206733cb92feffaf102998e0c"},
-    {file = "lmdb-1.4.1-pp27-pypy_73-macosx_10_7_x86_64.whl", hash = "sha256:a428e6b0e298290b91b7d0ce409f595c2c9027d7f2076c39ba006290b90d14cc"},
-    {file = "lmdb-1.4.1-pp27-pypy_73-win_amd64.whl", hash = "sha256:885d3f3bf51b9167d368e37b1f1277eabf595dceefd69a489bd81c1ffd3d8ffd"},
-    {file = "lmdb-1.4.1-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:4bd8e49d5209c652b2caa18a3a4c30524025d7868d34b7bb249c42f7997da240"},
-    {file = "lmdb-1.4.1.tar.gz", hash = "sha256:1f4c76af24e907593487c904ef5eba1993beb38ed385af82adb25a858f2d658d"},
-]
 
 [[package]]
 name = "markdown"
@@ -2398,13 +2335,13 @@ numpy = {version = ">=1.23.5", markers = "python_version >= \"3.11\""}
 
 [[package]]
 name = "overrides"
-version = "7.6.0"
+version = "7.7.0"
 description = "A decorator to automatically detect mismatch when overriding a method."
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "overrides-7.6.0-py3-none-any.whl", hash = "sha256:c36e6635519ea9c5b043b65c36d4b886aee8bd45b7d4681d2a6df0898df4b654"},
-    {file = "overrides-7.6.0.tar.gz", hash = "sha256:01e15bbbf15b766f0675c275baa1878bd1c7dc9bc7b9ee13e677cdba93dc1bd9"},
+    {file = "overrides-7.7.0-py3-none-any.whl", hash = "sha256:c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"},
+    {file = "overrides-7.7.0.tar.gz", hash = "sha256:55158fa3d93b98cc75299b1e67078ad9003ca27945c76162c1c0766d6f91820a"},
 ]
 
 [[package]]
@@ -2657,23 +2594,6 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
-name = "prettytable"
-version = "3.9.0"
-description = "A simple Python library for easily displaying tabular data in a visually appealing ASCII table format"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "prettytable-3.9.0-py3-none-any.whl", hash = "sha256:a71292ab7769a5de274b146b276ce938786f56c31cf7cea88b6f3775d82fe8c8"},
-    {file = "prettytable-3.9.0.tar.gz", hash = "sha256:f4ed94803c23073a90620b201965e5dc0bccf1760b7a7eaf3158cab8aaffdf34"},
-]
-
-[package.dependencies]
-wcwidth = "*"
-
-[package.extras]
-tests = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
-
-[[package]]
 name = "prometheus-client"
 version = "0.19.0"
 description = "Python client for the Prometheus monitoring system."
@@ -2888,13 +2808,13 @@ files = [
 
 [[package]]
 name = "pytz"
-version = "2023.3.post1"
+version = "2023.4"
 description = "World timezone definitions, modern and historical"
 optional = false
 python-versions = "*"
 files = [
-    {file = "pytz-2023.3.post1-py2.py3-none-any.whl", hash = "sha256:ce42d816b81b68506614c11e8937d3aa9e41007ceb50bfdcb0749b921bf646c7"},
-    {file = "pytz-2023.3.post1.tar.gz", hash = "sha256:7b4fddbeb94a1eba4b557da24f19fdf9db575192544270a9101d8509f9f43d7b"},
+    {file = "pytz-2023.4-py2.py3-none-any.whl", hash = "sha256:f90ef520d95e7c46951105338d918664ebfd6f1d995bd7d153127ce90efafa6a"},
+    {file = "pytz-2023.4.tar.gz", hash = "sha256:31d4583c4ed539cd037956140d695e42c033a19e984bfce9964a3f7d59bc2b40"},
 ]
 
 [[package]]
@@ -2960,6 +2880,7 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
+    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -3143,13 +3064,13 @@ test = ["pytest (>=6,!=7.0.0,!=7.0.1)", "pytest-cov (>=3.0.0)", "pytest-qt"]
 
 [[package]]
 name = "referencing"
-version = "0.32.1"
+version = "0.33.0"
 description = "JSON Referencing + Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "referencing-0.32.1-py3-none-any.whl", hash = "sha256:7e4dc12271d8e15612bfe35792f5ea1c40970dadf8624602e33db2758f7ee554"},
-    {file = "referencing-0.32.1.tar.gz", hash = "sha256:3c57da0513e9563eb7e203ebe9bb3a1b509b042016433bd1e45a2853466c3dd3"},
+    {file = "referencing-0.33.0-py3-none-any.whl", hash = "sha256:39240f2ecc770258f28b642dd47fd74bc8b02484de54e1882b74b35ebd779bd5"},
+    {file = "referencing-0.33.0.tar.gz", hash = "sha256:c775fedf74bc0f9189c2a3be1c12fd03e8c23f4d371dce795df44e06c5b412f7"},
 ]
 
 [package.dependencies]
@@ -3803,6 +3724,20 @@ files = [
 ]
 
 [[package]]
+name = "snakeviz"
+version = "2.2.0"
+description = "A web-based viewer for Python profiler output"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "snakeviz-2.2.0-py2.py3-none-any.whl", hash = "sha256:569e2d71c47f80a886aa6e70d6405cb6d30aa3520969ad956b06f824c5f02b8e"},
+    {file = "snakeviz-2.2.0.tar.gz", hash = "sha256:7bfd00be7ae147eb4a170a471578e1cd3f41f803238958b6b8efcf2c698a6aa9"},
+]
+
+[package.dependencies]
+tornado = ">=2.0"
+
+[[package]]
 name = "sniffio"
 version = "1.3.0"
 description = "Sniff out which async library your code is running under"
@@ -3856,28 +3791,6 @@ files = [
 
 [package.dependencies]
 mpmath = ">=0.19"
-
-[[package]]
-name = "tb-nightly"
-version = "2.16.0a20240127"
-description = "TensorBoard lets you watch Tensors Flow"
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "tb_nightly-2.16.0a20240127-py3-none-any.whl", hash = "sha256:f8ef7e2a2fe4c889cf3e5a326f8bd20a4f8b3c863c0d34f157dca59ed389caaf"},
-]
-
-[package.dependencies]
-absl-py = ">=0.4"
-grpcio = ">=1.48.2"
-markdown = ">=2.6.8"
-numpy = ">=1.12.0"
-protobuf = ">=3.19.6"
-setuptools = ">=41.0.0"
-six = ">1.9"
-tensorboard-data-server = ">=0.7.0,<0.8.0"
-tf-keras-nightly = "*"
-werkzeug = ">=1.0.1"
 
 [[package]]
 name = "tenacity"
@@ -3951,17 +3864,6 @@ test = ["pre-commit", "pytest (>=7.0)", "pytest-timeout"]
 typing = ["mypy (>=1.6,<2.0)", "traitlets (>=5.11.1)"]
 
 [[package]]
-name = "tf-keras-nightly"
-version = "2.16.0.dev2024012710"
-description = "Deep learning for humans."
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "tf_keras-nightly-2.16.0.dev2024012710.tar.gz", hash = "sha256:dc7a521bac408352dc28ba344021e7b54ef9f8d16b8125c27c49debfdfe527a5"},
-    {file = "tf_keras_nightly-2.16.0.dev2024012710-py3-none-any.whl", hash = "sha256:8870a0593f55a50fc916b04203fabe80a1ffeabd9c390a2709a970085e2ec5f0"},
-]
-
-[[package]]
 name = "threadpoolctl"
 version = "3.2.0"
 description = "threadpoolctl"
@@ -3974,13 +3876,13 @@ files = [
 
 [[package]]
 name = "tifffile"
-version = "2023.12.9"
+version = "2024.1.30"
 description = "Read and write TIFF files"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "tifffile-2023.12.9-py3-none-any.whl", hash = "sha256:9b066e4b1a900891ea42ffd33dab8ba34c537935618b9893ddef42d7d422692f"},
-    {file = "tifffile-2023.12.9.tar.gz", hash = "sha256:9dd1da91180a6453018a241ff219e1905f169384355cd89c9ef4034c1b46cdb8"},
+    {file = "tifffile-2024.1.30-py3-none-any.whl", hash = "sha256:40cb48f661acdfea16cb00dc8941bd642b8eb5c59bca6de6a54091bee9ee2699"},
+    {file = "tifffile-2024.1.30.tar.gz", hash = "sha256:66cf1fbc3fee8f87670ffd415c1e758ea1779376bdfaa9d0dc6ce634e6bc52ea"},
 ]
 
 [package.dependencies]
@@ -4311,13 +4213,13 @@ test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,
 
 [[package]]
 name = "transformers"
-version = "4.37.1"
+version = "4.37.2"
 description = "State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow"
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "transformers-4.37.1-py3-none-any.whl", hash = "sha256:05e4c4bf94f74addeb716bc83517f49d55df1e9022db3d5b027c801e9a410ebf"},
-    {file = "transformers-4.37.1.tar.gz", hash = "sha256:9843368d97fd7ac30126664743adc65e8e5be930da7d66342172e97bd1243e2d"},
+    {file = "transformers-4.37.2-py3-none-any.whl", hash = "sha256:595a8b12a1fcc4ad0ced49ce206c58e17be68c85d7aee3d7546d04a32c910d2e"},
+    {file = "transformers-4.37.2.tar.gz", hash = "sha256:f307082ae5d528b8480611a4879a4a11651012d0e9aaea3f6cf17219ffd95542"},
 ]
 
 [package.dependencies]
@@ -4328,7 +4230,7 @@ packaging = ">=20.0"
 pyyaml = ">=5.1"
 regex = "!=2019.12.17"
 requests = "*"
-safetensors = ">=0.3.1"
+safetensors = ">=0.4.1"
 tokenizers = ">=0.14,<0.19"
 tqdm = ">=4.27"
 
@@ -4451,17 +4353,18 @@ dev = ["flake8", "flake8-annotations", "flake8-bandit", "flake8-bugbear", "flake
 
 [[package]]
 name = "urllib3"
-version = "2.1.0"
+version = "2.2.0"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "urllib3-2.1.0-py3-none-any.whl", hash = "sha256:55901e917a5896a349ff771be919f8bd99aff50b79fe58fec595eb37bbc56bb3"},
-    {file = "urllib3-2.1.0.tar.gz", hash = "sha256:df7aa8afb0148fa78488e7899b2c59b5f4ffcfa82e6c54ccb9dd37c1d7b52d54"},
+    {file = "urllib3-2.2.0-py3-none-any.whl", hash = "sha256:ce3711610ddce217e6d113a2732fafad960a03fd0318c91faa79481e35c11224"},
+    {file = "urllib3-2.2.0.tar.gz", hash = "sha256:051d961ad0c62a94e50ecf1af379c3aba230c66c710493493560c0c223c49f20"},
 ]
 
 [package.extras]
 brotli = ["brotli (>=1.0.9)", "brotlicffi (>=0.8.0)"]
+h2 = ["h2 (>=4,<5)"]
 socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
@@ -4602,4 +4505,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "7055c418ed2c78ca76c9276fc1819fd9523ca0a0c33011d2310273ad489bee1d"
+content-hash = "5033cde8e0a6f7b29d9cff7dbadda6f8faa389a2bad09265e4328bc4b97c226a"

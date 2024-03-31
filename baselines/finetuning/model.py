@@ -132,6 +132,9 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
                 unseen tasks.
         """
         if self.should_train:
+            # Validation before training to have a baseline
+            self.meta_valid(meta_valid_generator, 0)
+
             for i, batch in enumerate(meta_train_generator(self.train_batches)):
                 # Prepare data
                 X_train, y_train = batch
@@ -509,6 +512,6 @@ class MyPredictor(cdmetadl.api.Predictor):
                 out = -1 * distance_matrix
             else:
                 out = self.model(X_test)
-            probs = F.softmax(out, dim=1).cpu().numpy()
+            probs = F.softmax(out, dim=1)
 
         return probs

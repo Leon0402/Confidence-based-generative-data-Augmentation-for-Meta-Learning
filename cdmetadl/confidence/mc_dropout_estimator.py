@@ -22,8 +22,6 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
         Args:
             num_samples (int): Number of samples to draw for each prediction to estimate uncertainty.
             dropout_probability (float): Probability used in dropout layers of model.
-            x_min (int): TODO
-            x_max (int): TODO
         """
         self.num_samples = num_samples
         self.dropout_probability = dropout_probability
@@ -43,16 +41,27 @@ class MCDropoutConfidenceEstimator(ConfidenceEstimator):
             A tuple consisting of a dataset which can be used for finetuning the model and a list of confidence scores.
         """
         predictor = learner.fit(data_set)
-
+    
         for m in predictor.model.modules():
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
                 if self.dropout_probability is not None:
                     m.p = self.dropout_probability
 
-        class_predictions = np.array([predictor.predict(data_set.images) for _ in range(self.num_samples)])
-        uncertainty_estimates = np.std(class_predictions, axis=0)
+        class_predictions = np.array([
+            predictor.predict(data_set.images).cpu().numpy() for _ in range(self.num_samples)
+        ])
 
-        # TODO: We measure uncertainty here, but we really want to estimate confidence (=>  confidence = 1 - uncertainty?)
-        # TODO: Uncertainty values are close to each others, how can they be interpreted? How can they be converted to confidence values?
-        return data_set, np.mean(uncertainty_estimates, axis=0)
+        #return data_set, np.mean(class_predictions.var(axis=0), axis=0)
+        mean_predictions = np.mean(class_predictions, axis=0)
+        abs_error = np.mean([np.abs(prediction - mean_predictions) for prediction in class_predictions], axis=0)
+
+        uncertainty_scores = np.mean(abs_error, axis=0)
+        self.x_max = uncertainty_scores.max()
+        self.x_min = uncertainty_scores.min()
+
+        us = [
+            1 - (np.maximum(np.minimum(score, self.x_max), self.x_min) - self.x_min) / (self.x_max - self.x_min) 
+            for score in uncertainty_scores
+        ]
+        return data_set, us

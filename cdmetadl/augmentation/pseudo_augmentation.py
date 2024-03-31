@@ -12,15 +12,14 @@ class PseudoAugmentation(Augmentation):
     PseudoAugmentation has a second dataset where it takes real examples from when asked to augment data.
     """
 
-    def __init__(self, threshold: float, scale: int, keep_original_data: bool):
+    def __init__(self, augmentation_size: dict, keep_original_data: bool, device: torch.device):
         """
         Initialize the PseudoAugmentation class.
 
-        :param threshold: Threshold for determining the amount of augmentation.
-        :param scale: Scale factor for deciding how much data to generate per class.
+        :param augmentation_size: Uses for calculation how many shots should be augmented.
         :param keep_original_data: Flag to keep the original data alongside the augmented data.
         """
-        super().__init__(threshold, scale, keep_original_data)
+        super().__init__(augmentation_size, keep_original_data, device)
 
     def _init_augmentation(self, support_set: cdmetadl.dataset.SetData,
                            conf_scores: list[float]) -> tuple[cdmetadl.dataset.SetData, cdmetadl.dataset.SetData]:
@@ -31,8 +30,7 @@ class PseudoAugmentation(Augmentation):
         :param conf_scores: Confidence scores for each class.
         :return: Specific initialization arguments for augmentation.
         """
-        # TODO: Use split based on probability (1/3, 2/3)
-        return cdmetadl.dataset.set_split(support_set, number_of_splits=2)
+        return cdmetadl.dataset.set_split(support_set, split_shot_counts=[support_set.number_of_shots - 10, 10])
 
     def _augment_class(self, cls: int, support_set: cdmetadl.dataset.SetData, number_of_shots: int,
                        init_args: list) -> tuple[torch.Tensor, torch.Tensor]:

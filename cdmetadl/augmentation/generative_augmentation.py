@@ -1,19 +1,16 @@
 __all__ = ["GenerativeAugmentation", "Annotator"]
 
-from pathlib import Path
-import random
-
 import torch
+from pathlib import Path
 import numpy as np
 from PIL import Image
-from tqdm import tqdm
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler
-import diffusers
-from controlnet_aux import ContentShuffleDetector, HEDdetector, MidasDetector, MLSDdetector, CannyDetector, SamDetector
-
 import cdmetadl.dataset
-
+from tqdm import tqdm
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, DDIMScheduler, UniPCMultistepScheduler
+import diffusers
 from .augmentation import Augmentation
+import random
+from controlnet_aux import ContentShuffleDetector, HEDdetector, NormalBaeDetector, MLSDdetector, CannyDetector, SamDetector
 
 
 def set_random_seeds(seed=42, use_cuda=True):
@@ -28,7 +25,7 @@ class Annotator:
 
     def __init__(
         self, annotator_type: str = "canny", mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
-        canny_low_threshold: int = 100, canny_high_threshold: int = 200
+        canny_low_threshold: int = 100, canny_high_threshold: int = 200, device: str = "cuda"
     ) -> None:
         """
         Defines the annotator and the diffusion model that is used for the edge detection.
@@ -40,7 +37,7 @@ class Annotator:
                                 - "segmentation" for segmentation using UniformerDetector.
                                 - "hed" for edge detection using HEDdetector.
                                 - "mlsd" for Multi-Scale Line Segment Detector (MLSD).
-                                - "midas" for depth estimation using MidasDetector.
+                                - "normalbae" for depth estimation using NormalBaeDetector.
             mlsd_value_threshold (float): Threshold value for MLSD (Multi-Scale Line Segment Detector).
             mlsd_distance_threshold (float): Threshold value for MLSD determining distance in the augmentation process.
             canny_low_threshold (int): Lower threshold for Canny edge detector.
@@ -54,7 +51,7 @@ class Annotator:
             "segmentation": ("lllyasviel/control_v11p_sd15_seg", SamDetector),
             "hed": ("lllyasviel/control_v11p_sd15_softedge", HEDdetector),
             "mlsd": ("lllyasviel/control_v11p_sd15_mlsd", MLSDdetector),
-            "midas": ("lllyasviel/control_v11p_sd15_normalbae", MidasDetector),
+            "normalbae": ("lllyasviel/control_v11p_sd15_normalbae", NormalBaeDetector),
             "shuffle": ("lllyasviel/control_v11e_sd15_shuffle", ContentShuffleDetector)
         }
 
@@ -71,10 +68,15 @@ class Annotator:
         self.diffusion_model_id, annotator = self.model_dict[annotator_type]
         if annotator_type == "segmentation":
             self.annotator = annotator.from_pretrained("ybelkada/segment-anything", subfolder="checkpoints")
-        elif annotator_type == "canny":
+        elif annotator_type in ("canny", "shuffle"):
             self.annotator = annotator()
         else:
             self.annotator = annotator.from_pretrained("lllyasviel/Annotators")
+            
+        try:
+            self.annotator = self.annotator.to(device)
+        except:
+            None
 
     def annotate(self, image: Image.Image) -> Image.Image:
         """
@@ -92,6 +94,8 @@ class Annotator:
                 detected_map = self.annotator(image, self.mlsd_value_threshold, self.mlsd_distance_threshold)
             elif self.annotator_type == "canny":
                 detected_map = self.annotator(image, self.canny_low_threshold, self.canny_high_threshold)
+            elif self.annotator_type == "shuffle":
+                detected_map = self.annotator(image)
             else:
                 detected_map = self.annotator(image)
 
@@ -101,18 +105,19 @@ class Annotator:
 class GenerativeAugmentation(Augmentation):
 
     def __init__(
-        self, threshold: float, scale: int, keep_original_data: bool, annotator_type: str = "canny",
-        device: str = "cuda", cache_images: bool = False, mlsd_value_threshold: float = 0.1,
-        mlsd_distance_threshold: float = 0.1, canny_low_threshold: int = 100, canny_high_threshold: int = 200
+        self, augmentation_size: dict, keep_original_data: bool, device: torch.device, annotator_type: str = "canny",
+        cache_images: bool = False, mlsd_value_threshold: float = 0.1, mlsd_distance_threshold: float = 0.1,
+        canny_low_threshold: int = 100, canny_high_threshold: int = 200, batch: bool = True,
+        scheduler = UniPCMultistepScheduler, num_inference_steps: int = 25, guessing_mode: bool = False
     ) -> None:
         """
         Initializes the StandardAugmentation class with specified threshold, scale, and keep_original_data flags,
         along with a defined set of image transformations.
 
         Args:
-            threshold (float): A threshold value for deciding which classes to augment.
-            scale (int): A scale factor for deciding how many samples per classes should be created.
+            augmentation_size (dict): Uses for calculation how many shots should be augmented.
             keep_original_data (bool): A flag to determine whether original data should be included together with the augmented data.
+                        device (str): Defines which device is used for torch operations  
             annotator_type (str): String that defines which type of annotator is being used. 
                                 Choose one of the following options:
                                 - "canny" for Canny edge detector.
@@ -120,22 +125,21 @@ class GenerativeAugmentation(Augmentation):
                                 - "hed" for edge detection using HEDdetector.
                                 - "mlsd" for Multi-Scale Line Segment Detector (MLSD).
                                 - "midas" for depth estimation using MidasDetector.
-            device (str): Defines which device is used for torch operations  
             cache_images (bool): Indicates if the images should be stored in the home-directory for testing purposes
             mlsd_value_threshold (float): Threshold value for MLSD (Multi-Scale Line Segment Detector).
             mlsd_distance_threshold (float): Threshold value for MLSD determining distance in the augmentation process.
             canny_low_threshold (int): Lower threshold for Canny edge detector.
             canny_high_threshold (int): Upper threshold for Canny edge detector.
+            batch (bool): Decide whether you want to augment a whole class at once or image by image.
         Returns:
             None
         """
+        super().__init__(augmentation_size, keep_original_data, device)
         generator = torch.Generator(device=device).manual_seed(42)
-
-        super().__init__(threshold, scale, keep_original_data)
         self.annotator = Annotator(
             annotator_type=annotator_type, mlsd_value_threshold=mlsd_value_threshold,
             mlsd_distance_threshold=mlsd_distance_threshold, canny_low_threshold=canny_low_threshold,
-            canny_high_threshold=canny_high_threshold
+            canny_high_threshold=canny_high_threshold, device=device
         )
         controlnet = ControlNetModel.from_pretrained(
             self.annotator.diffusion_model_id, torch_dtype=torch.float16, generator=generator
@@ -145,28 +149,31 @@ class GenerativeAugmentation(Augmentation):
             requires_safety_checker=False
         ).to(device)
 
-        self.diffusion_model_pipeline.scheduler = DDIMScheduler.from_config(
+        self.diffusion_model_pipeline.scheduler = scheduler.from_config(
             self.diffusion_model_pipeline.scheduler.config, generator=generator
         )
         self.diffusion_model_pipeline.enable_model_cpu_offload()
         self.diffusion_model_pipeline.enable_xformers_memory_efficient_attention()
         self.diffusion_model_pipeline.set_progress_bar_config(disable=True)
         diffusers.utils.logging.set_verbosity(40)
+        self.num_inference_steps = num_inference_steps
 
         # These prompts provide a brief guide using keywords for the desired artistic direction.
-        self.style_prompts = [
-            "Serenity, Calm, Soft", "Energetic, Dynamic, Movement", "Abstract, Intriguing",
-            "Dreamy, Ethereal, Soft Tones", "Bold, Striking, High Contrast", "Harmonious, Balanced",
-            "Mystery, Intrigue", "Vibrant, Lively, Colorful", "Minimalist, Clean", "Chaotic, Frenetic",
-            "Sophisticated, Elegant", "Nostalgic, Vintage", "Futuristic, Avant-Garde", "Dreamlike, Fantastical",
-            "Calming, Peaceful", "Playful, Whimsical", "Timeless, Classic Beauty", "Engaging, Attention-Grabbing",
-            "Mysterious, Atmospheric", "Wonder, Curiosity", "Impactful, Memorable", "Surreal Landscape",
-            "Nostalgia, Sentimentality", "Freedom, Openness", "Stimulating, Thought-Provoking",
-            "Tranquil, Introspective", "Movement, Flow", "Vibrant, Color Focus", "Modern, Contemporary",
-            "Unity, Connection"
-        ]
+        self.style_prompts = ["Realism",
+                            "Futuristic",
+                            "Modern",
+                            "Minimalism",
+                            "Photorealism",
+                            "Black and White Photography",
+                            "High Key Lighting",
+                            "Low Key Lighting",
+                            "Vintage",
+                            "Colorful",
+                            "High Contrast"]
 
         self.cache_images = cache_images
+        self.batch = batch
+        self.guessing_mode = guessing_mode
         if self.cache_images:
             self.generated_images = []
         set_random_seeds(seed=42, use_cuda=True)
@@ -192,68 +199,114 @@ class GenerativeAugmentation(Augmentation):
         :param support_set: The support set to augment.
         :param number_of_shots: Number of augmented shots to generate.
         :param init_args: Arguments returned by the `_init_augmentation` function. 
+        :param batch: indicates if the whole class should be augmented at once.
         :return: tuple of the augmented data and labels for the specified class.
         """
-        random_indices = np.random.randint(0, support_set.number_of_shots, size=number_of_shots)
+        classname = support_set.class_names[cls]
+        if self.batch:
+            random_samped_images = [support_set.images_by_class[cls][idx % support_set.number_of_shots] for idx in range(number_of_shots)]
+            generated_images = self.generate_images(random_samped_images, classname)
+        else:
+            generated_images = [
+                self.generate_images(support_set.images_by_class[cls][idx % support_set.number_of_shots], classname)
+                for idx in tqdm(range(number_of_shots), leave=False, desc=f"Generated images of class {cls}")
+            ]
 
-        diffusion_images = torch.stack([
-            self.generate_image(support_set.images_by_class[cls][idx])
-            for idx in tqdm(random_indices, leave=False, desc=f"Generated Images of class {cls}")
-        ]).float()
+        diffusion_images = torch.stack(generated_images).float()
 
-        diffusion_labels = torch.full(size=(number_of_shots, ), fill_value=cls)
+        diffusion_labels = torch.full(size=(number_of_shots, ), fill_value=cls).to(self.device)
 
         return diffusion_images, diffusion_labels
 
-    def generate_image(self, image: torch.Tensor) -> torch.Tensor:
+    def __preprocess_image(self, image: torch.Tensor):
+        image_array = (image * 255).detach().cpu().numpy().astype(np.uint8)
+        image_array = np.transpose(image_array, (1, 2, 0))
+        image_array = Image.fromarray(image_array)
+
+       
+        upscaled_image = image_array.resize((512, 512))
+        annotated_image = self.annotator.annotate(upscaled_image)
+        return image_array, annotated_image
+
+    def __save_cached_images(self, image, annotated_image, diffusion_image, classname):
+        if self.cache_images:
+            home_dir = Path.home()
+            image.save(home_dir / "test_normal.png")
+            annotated_image.save(home_dir / "test_edges.png")
+            diffusion_image.save(home_dir / "test_diffusion.png")
+
+            self.generated_images.append({
+                "original_image": image.resize((512, 512)),
+                "feature_map": annotated_image.resize((512, 512)),
+                "generated_image": diffusion_image.resize((512, 512)),
+                "classname": classname
+            })
+
+    def __postprocess_diffusion_image(self, diffusion_image):
+        downscaled_diffusion_image = diffusion_image.resize((128, 128))
+        diffusion_array = np.array(downscaled_diffusion_image) / 255
+        return torch.tensor(np.transpose(diffusion_array, (2, 0, 1))).to(self.device)
+
+    def generate_images(self, image: torch.Tensor | list, classname) -> torch.Tensor:
         """
         Generates a new image using the augmentation pipeline:
 
         Args:
             image (torch.Tensor): Tensor of the image that will be used as input for the diffusion model
+            classname (str): Name of the class of the image
         Returns:
             torch.Tensor: Generated image
         """
-        image_array = (image * 255).detach().cpu().numpy().astype(np.uint8)
-        image_array = np.transpose(image_array, (1, 2, 0))
-        image_array = Image.fromarray(image_array)
+        if type(image) == torch.Tensor:
+            image_array, annotated_image = self.__preprocess_image(image)
+            diffusion_image = self.generate_diffusion_image(annotated_image, classname)[0]
+            diffusion_images_array = self.__postprocess_diffusion_image(diffusion_image)
+            self.__save_cached_images(image_array, annotated_image, diffusion_image, classname)
 
-        upscaled_image = image_array.resize((512, 512))
-        edge_image = self.annotator.annotate(upscaled_image)
-        diffusion_image = self.generate_diffusion_image(edge_image)
-        downscaled_diffusion_image = diffusion_image.resize((128, 128))
-        diffusion_array = np.array(downscaled_diffusion_image) / 255
-        diffusion_array = torch.tensor(np.transpose(diffusion_array, (2, 0, 1)))
+        elif type(image) == list:
+            images_array = []
+            annotated_images = []
+            diffusion_images_array = []
+            for img in image:
+                image_array, annotated_image = self.__preprocess_image(img)
+                images_array.append(image_array)
+                annotated_images.append(annotated_image)
+            diffusion_images = self.generate_diffusion_image(annotated_images, classname)
+            for i in range(len(diffusion_images)):
+                diffusion_images_array.append(self.__postprocess_diffusion_image(diffusion_images[i]))
+                self.__save_cached_images(images_array[i], annotated_images[i], diffusion_images[i], classname)
 
-        if self.cache_images:
-            home_dir = Path.home()
-            image_array.save(home_dir / "test_normal.png")
-            edge_image.save(home_dir / "test_edges.png")
-            diffusion_image.save(home_dir / "test_diffusion.png")
+        return diffusion_images_array
 
-            self.generated_images.append({
-                "original_image": image_array.resize((512, 512)),
-                "edge_map": edge_image.resize((512, 512)),
-                "generated_image": diffusion_image.resize((512, 512))
-            })
-
-        return diffusion_array
-
-    def generate_diffusion_image(self, image: Image.Image) -> Image.Image:
+    def generate_diffusion_image(self, image: Image.Image | list, classname: str) -> Image.Image | list:
         """
         Feeds the feature maps/edge map to the diffusion model and generates a new image.
 
             Args:
                 image (PIL.Image.Image): Feature map will be used as input for the diffusion model
-        
+                classname (str): Name of the class of the image
+
             Returns:
                 Image.Image: Generated image
         """
-        POSITIVE_PROMPT = str(np.random.choice(self.style_prompts))
-        NEGATIVE_PROMPT = "Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"
+        if type(image) == list:
+            n_images = len(image)
+        else:
+            n_images = 1
+            image = [image]
 
-        # Run image generation
-        return self.diffusion_model_pipeline(
-            prompt=POSITIVE_PROMPT, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512,
-            num_images_per_prompt=1, num_inference_steps=50
-        )[0][0]
+        if self.guessing_mode:
+            POSITIVE_PROMPTS = [""]*n_images
+        else:
+            POSITIVE_PROMPTS = [f"{classname}, {str(prompt)}" for prompt in np.random.choice(self.style_prompts, size=n_images)]
+            
+        NEGATIVE_PROMPT = [
+            "Amputee, Autograph, Bad anatomy, Bad illustration, Bad proportions, Beyond the borders, Blank background, Blurry, Body out of frame, Boring background, Branding, Cropped, Cut off, Deformed, Disfigured, Dismembered, Disproportioned, Distorted, Draft, Duplicate, Duplicated features, Extra arms, Extra fingers, Extra hands, Extra legs, Extra limbs, Fault, Flaw, Fused fingers, Grains, Grainy, Gross proportions, Hazy, Identifying mark, Improper scale, Incorrect physiology, Incorrect ratio, Indistinct, Kitsch, Logo, Long neck, Low quality, Low resolution, Macabre, Malformed, Mark, Misshapen, Missing arms, Missing fingers, Missing hands, Missing legs, Mistake, Morbid, Mutated hands, Mutation, Mutilated, Off-screen, Out of frame, Outside the picture, Pixelated, Poorly drawn face, Poorly drawn feet, Poorly drawn hands, Printed words, Render, Repellent, Replicate, Reproduce, Revolting dimensions, Script, Shortened, Sign, Signature, Split image, Squint, Storyboard, Text, Tiling, Trimmed, Ugly, Unfocused, Unattractive, Unnatural pose, Unreal engine, Unsightly, Watermark, Written language"
+        ] * n_images 
+
+        generated_images = self.diffusion_model_pipeline(
+            prompt=POSITIVE_PROMPTS, negative_prompt=NEGATIVE_PROMPT, image=image, height=512, width=512,
+            num_images_per_prompt=1, num_inference_steps=self.num_inference_steps, guessing_mode=self.guessing_mode
+        )
+
+        return generated_images.images

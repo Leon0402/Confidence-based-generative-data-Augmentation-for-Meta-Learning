@@ -86,6 +86,8 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         self.second_order = False
         self.meta_batch_size = 2
         self.T = 5
+        self.val_T = 5
+        self.lr = 0.001
 
         # General model parameters
         self.dev = self.get_device()
@@ -99,7 +101,6 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         }
 
         # Meta-learner
-        self.lr = 0.001
         self.meta_learner = ResNet(**self.model_args).to(self.dev)
         self.weights = [p.clone().detach().to(self.dev) for p in self.meta_learner.parameters()]
         for p in self.weights:
@@ -130,6 +131,9 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
             Learner: Resulting learner ready to be trained and evaluated on new unseen tasks.
         """
         if self.should_train:
+            # Validation before training to have a baseline
+            self.meta_valid(meta_valid_generator, 0)
+
             self.optimizer.zero_grad()
             for i, task in enumerate(meta_train_generator(self.train_tasks)):
                 self.meta_learner.train()
@@ -279,7 +283,9 @@ class MyMetaLearner(cdmetadl.api.MetaLearner):
         perform_innet_step = False if self.ncc and not training else True
         if perform_innet_step:
             retain_graph = self.second_order or self.T > 1
-            for _ in range(self.T):
+
+            T = self.T if training else self.val_T
+            for _ in range(T):
                 # Compute gradients
                 if self.ncc:
                     grads = get_grads_ncc(
@@ -494,6 +500,6 @@ class MyPredictor(cdmetadl.api.Predictor):
                 out = process_query_set(self.model, self.weights, X_test, self.prototypes)
             else:
                 out = self.model.forward_weights(X_test, self.weights)
-            probs = F.softmax(out, dim=1).cpu().numpy()
+            probs = F.softmax(out, dim=1)
 
         return probs

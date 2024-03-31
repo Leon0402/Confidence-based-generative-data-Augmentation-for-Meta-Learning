@@ -7,7 +7,7 @@ import torch
 import numpy as np
 
 
-@dataclass(frozen=True)
+@dataclass()
 class SetData:
     """
     Image tensor of shape [number_of_ways x number_of_ways[way], 3, 128, 128].
@@ -65,7 +65,7 @@ class SetData:
     @cached_property
     def number_of_shots_per_class(self) -> np.ndarray[int]:
         if type(self.number_of_shots) is int:
-            return np.full(shape=self.number_of_ways, fill_value=self.number_of_shots)  #
+            return np.full(shape=self.number_of_ways, fill_value=self.number_of_shots)
         return self.number_of_shots
 
 

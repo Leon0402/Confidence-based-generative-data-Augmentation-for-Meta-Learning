@@ -9,17 +9,17 @@ class Sampler():
         self.min_value = min_value
         self.max_value = max_value
 
-    def sample(self):
+    def sample(self) -> int:
         pass
 
 
 class ValueSampler(Sampler):
 
-    def __init__(self, value):
+    def __init__(self, value: int):
         super().__init__(min_value=value, max_value=value)
         self.value = value
 
-    def sample(self):
+    def sample(self) -> int:
         return self.value
 
     def __str__(self):
@@ -28,12 +28,12 @@ class ValueSampler(Sampler):
 
 class RangeSampler(Sampler):
 
-    def __init__(self, begin, end):
+    def __init__(self, begin: int, end: int):
         super().__init__(min_value=begin, max_value=end)
         self.begin = begin
         self.end = end
 
-    def sample(self):
+    def sample(self) -> int:
         return random.randint(self.begin, self.end)
 
     def __str__(self):
@@ -42,11 +42,11 @@ class RangeSampler(Sampler):
 
 class ChoiceSampler(Sampler):
 
-    def __init__(self, choices):
-        super().__init__(min_value=choices.min(), max_value=choices.max())
+    def __init__(self, choices: list):
+        super().__init__(min_value=min(choices), max_value=max(choices))
         self.choices = choices
 
-    def sample(self):
+    def sample(self) -> int:
         return random.choice(self.choices)
 
     def __str__(self):

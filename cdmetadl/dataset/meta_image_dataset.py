@@ -69,7 +69,11 @@ class MetaImageDataset(torch.utils.data.Dataset):
         return dataset_idx, idx - self.dataset_end_index[dataset_idx - 1]
 
     def generate_tasks(
-        self, num_tasks: int, n_ways: cdmetadl.samplers.Sampler, k_shots: cdmetadl.samplers.Sampler, query_size: int
+        self,
+        num_tasks: int,
+        n_ways: cdmetadl.samplers.Sampler,
+        k_shots: cdmetadl.samplers.Sampler,
+        query_size: int,
     ) -> Iterator[Task]:
         for _ in range(num_tasks):
             dataset = random.choice(self.datasets)
