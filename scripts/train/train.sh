@@ -6,6 +6,7 @@ OUTPUT_DIR=""
 LOG_FILE=""
 RUN_CROSS_DOMAIN=false
 RUN_WITHIN_DOMAIN=false
+DATSET_NAMES=""
 
 # Parse named arguments
 while [ "$#" -gt 0 ]; do
@@ -17,6 +18,7 @@ while [ "$#" -gt 0 ]; do
         --log_file) LOG_FILE="$2"; shift 2;;
         --run_cross_domain) RUN_CROSS_DOMAIN=true; shift;;
         --run_within_domain) RUN_WITHIN_DOMAIN=true; shift;;
+        --dataset_names) DATASET_NAMES="$2"; shift 2;;
         *) echo "Unknown parameter passed: $1"; exit 1;;
     esac
 done
@@ -44,6 +46,11 @@ fi
 
 if [ -z "$LOG_FILE" ]; then
     echo "No log filename provided. Use --log_file to specify the name."
+    exit 1
+fi
+
+if [ -z "$DATSET_NAMES" ]; then
+    echo "No datasets defined. Use --dataset_names to specify the dataset names for within domain."
     exit 1
 fi
 
