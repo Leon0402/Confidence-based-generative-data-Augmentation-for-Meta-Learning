@@ -165,7 +165,7 @@ def meta_test(args: argparse.Namespace, meta_test_generator: cdmetadl.dataset.Ta
         if "finetuning" in str(model_module).lower():
             T = 1000
         elif "maml" in str(model_module).lower():
-            T = 15
+            T = 35
             
         confidence_learner.T = T
         task.support_set, confidence_scores = confidence_estimator.estimate(confidence_learner, task.support_set)

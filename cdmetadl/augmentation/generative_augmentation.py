@@ -223,11 +223,12 @@ class GenerativeAugmentation(Augmentation):
         image_array = np.transpose(image_array, (1, 2, 0))
         image_array = Image.fromarray(image_array)
 
+       
         upscaled_image = image_array.resize((512, 512))
         annotated_image = self.annotator.annotate(upscaled_image)
         return image_array, annotated_image
 
-    def __save_cached_images(self, image, annotated_image, diffusion_image):
+    def __save_cached_images(self, image, annotated_image, diffusion_image, classname):
         if self.cache_images:
             home_dir = Path.home()
             image.save(home_dir / "test_normal.png")
@@ -237,7 +238,8 @@ class GenerativeAugmentation(Augmentation):
             self.generated_images.append({
                 "original_image": image.resize((512, 512)),
                 "feature_map": annotated_image.resize((512, 512)),
-                "generated_image": diffusion_image.resize((512, 512))
+                "generated_image": diffusion_image.resize((512, 512)),
+                "classname": classname
             })
 
     def __postprocess_diffusion_image(self, diffusion_image):
@@ -259,7 +261,7 @@ class GenerativeAugmentation(Augmentation):
             image_array, annotated_image = self.__preprocess_image(image)
             diffusion_image = self.generate_diffusion_image(annotated_image, classname)[0]
             diffusion_images_array = self.__postprocess_diffusion_image(diffusion_image)
-            self.__save_cached_images(image_array, annotated_image, diffusion_image)
+            self.__save_cached_images(image_array, annotated_image, diffusion_image, classname)
 
         elif type(image) == list:
             images_array = []
@@ -272,11 +274,11 @@ class GenerativeAugmentation(Augmentation):
             diffusion_images = self.generate_diffusion_image(annotated_images, classname)
             for i in range(len(diffusion_images)):
                 diffusion_images_array.append(self.__postprocess_diffusion_image(diffusion_images[i]))
-                self.__save_cached_images(images_array[i], annotated_images[i], diffusion_images[i])
+                self.__save_cached_images(images_array[i], annotated_images[i], diffusion_images[i], classname)
 
         return diffusion_images_array
 
-    def generate_diffusion_image(self, image: Image.Image | list, classname) -> Image.Image | list:
+    def generate_diffusion_image(self, image: Image.Image | list, classname: str) -> Image.Image | list:
         """
         Feeds the feature maps/edge map to the diffusion model and generates a new image.
 

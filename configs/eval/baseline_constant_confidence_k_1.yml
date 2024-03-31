@@ -6,7 +6,7 @@ dataset:
             value: 1
         query_size: 20
             
-evaluation:
+evaluation5000:
         tasks_per_dataset: 1000
         confidence_estimators:
             use: "ConstantConfidenceProvider"
@@ -26,11 +26,12 @@ evaluation:
                     maximum: 20
                     threshold: 0.8
             StandardAugmentation:
-                threshold: 0.75
-                scale: 2
                 keep_original_data: True
-                rotation: 25
-                flip: True
+                augmentation_size:
+                    scale: 1
+                    offset: 3 
+                    maximum: 20
+                    threshold: 0.8
             GenerativeAugmentation:
                 keep_original_data: True
                 augmentation_size: 

@@ -78,6 +78,7 @@ def generate_edge_map_plot(augmentor, task, title):
                         subplot_titles=['Original Image', 'Feature Map', 'Generated Image'])
     
     for i, data in enumerate(augmentor.generated_images):
+        data["Edge-Map"] = title
         # Add traces to the corresponding subplot
         fig.add_trace(go.Image(z=np.array(data['original_image'])), row=i+1, col=1)
         fig.add_trace(go.Image(z=np.array(data['feature_map'])), row=i+1, col=2)
